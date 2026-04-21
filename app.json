@@ -28,6 +28,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-location",
+        {
+          "locationAlwaysPermission": "Cho phép GoRide truy cập vị trí của bạn để tìm tài xế gần nhất.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

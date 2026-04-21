@@ -1,94 +1,414 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
+
+type Coords = {
+  latitude: number;
+  longitude: number;
+};
 
 type PlaceOption = {
   id: string;
   label: string;
   detail: string;
   pin: string;
+  coords: Coords;
+};
+
+const INITIAL_COORDS: Coords = {
+  latitude: 10.762622,
+  longitude: 106.660172,
 };
 
 const places: PlaceOption[] = [
-  { id: 'current', label: 'Vi tri hien tai', detail: 'Demo - Vuon hoa trung tam', pin: 'Hiện tại' },
-  { id: 'home', label: 'Ve nha', detail: '42 Nguyen Trai, Q.1', pin: 'Nha' },
-  { id: 'office', label: 'Den van phong', detail: '18 Le Loi, Q.3', pin: 'Cong ty' },
+  { 
+    id: 'current', 
+    label: 'Vị trí hiện tại', 
+    detail: 'Đang xác định...', 
+    pin: 'Hiện tại',
+    coords: INITIAL_COORDS 
+  },
+  { 
+    id: 'home', 
+    label: 'Về nhà', 
+    detail: '42 Nguyễn Trãi, Q.1', 
+    pin: 'Nhà',
+    coords: { latitude: 10.7712, longitude: 106.6917 } 
+  },
+  { 
+    id: 'office', 
+    label: 'Đến văn phòng', 
+    detail: '18 Lê Lợi, Q.3', 
+    pin: 'Công ty',
+    coords: { latitude: 10.7765, longitude: 106.7009 } 
+  },
 ];
 
 export default function UserScreen() {
   const [selectedPlace, setSelectedPlace] = useState(places[0].id);
+  const [markerPosition, setMarkerPosition] = useState<Coords>(INITIAL_COORDS);
+  const [loading, setLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  
+  // State để khóa/mở ScrollView của toàn màn hình
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  
+  // States cho tìm kiếm địa chỉ
+  const [addressInput, setAddressInput] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  
+  const webViewRef = useRef<WebView>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setLocationError('Quyền truy cập vị trí bị từ chối');
+          setLoading(false);
+          return;
+        }
+
+        let location = await Location.getCurrentPositionAsync({});
+        const currentCoords = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+        
+        setMarkerPosition(currentCoords);
+        updateMap(currentCoords);
+      } catch (error) {
+        console.error(error);
+        setLocationError('Không thể lấy vị trí hiện tại');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const updateMap = (coords: Coords) => {
+    const jsCode = `
+      if (typeof map !== 'undefined') {
+        map.setView([${coords.latitude}, ${coords.longitude}], 16, { animate: true, duration: 1 });
+        if (marker) {
+          marker.setLatLng([${coords.latitude}, ${coords.longitude}]);
+        }
+      }
+    `;
+    webViewRef.current?.injectJavaScript(jsCode);
+  };
+
+  const handleSearchAddress = async () => {
+    if (!addressInput.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập địa chỉ cần tìm.');
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchResults([]);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressInput)}&limit=5&countrycodes=vn`,
+        {
+          headers: {
+            'User-Agent': 'GoRideApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        setSearchResults(data);
+      } else {
+        Alert.alert('Thông báo', 'Không tìm thấy địa điểm nào phù hợp.');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi tìm kiếm địa chỉ.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectSearchResult = (result: any) => {
+    const newCoords = {
+      latitude: parseFloat(result.lat),
+      longitude: parseFloat(result.lon),
+    };
+    
+    setMarkerPosition(newCoords);
+    updateMap(newCoords);
+    setSelectedPlace('custom');
+    setAddressInput(result.display_name.split(',')[0]);
+    setSearchResults([]);
+  };
+
+  const handleSelectPlace = (place: PlaceOption) => {
+    setSelectedPlace(place.id);
+    setMarkerPosition(place.coords);
+    updateMap(place.coords);
+    setAddressInput(''); 
+    setSearchResults([]);
+  };
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'MAP_CLICK') {
+        const coords = { latitude: data.lat, longitude: data.lng };
+        setMarkerPosition(coords);
+        setSelectedPlace('custom');
+        setSearchResults([]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const currentPlace = useMemo(
     () => places.find((place) => place.id === selectedPlace) ?? places[0],
     [selectedPlace],
   );
 
+  const mapHtml = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <style>
+          body { margin: 0; padding: 0; background: #d6ecff; touch-action: none; }
+          #map { height: 100vh; width: 100vw; }
+          .leaflet-marker-icon { filter: hue-rotate(140deg); }
+          .leaflet-container { background: #d6ecff; outline: 0; }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          var map = L.map('map', { 
+            zoomControl: false,
+            dragging: true,
+            touchZoom: true,
+            scrollWheelZoom: false,
+            doubleClickZoom: true,
+            tap: true,
+            inertia: true,
+            zoomAnimation: true,
+            markerZoomAnimation: true
+          }).setView([${markerPosition.latitude}, ${markerPosition.longitude}], 16);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OSM',
+            maxZoom: 19
+          }).addTo(map);
+
+          var marker = L.marker([${markerPosition.latitude}, ${markerPosition.longitude}], { 
+            draggable: true,
+            autoPan: true 
+          }).addTo(map);
+          
+          marker.on('dragend', function(event) {
+            var position = marker.getLatLng();
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'MAP_CLICK',
+              lat: position.lat,
+              lng: position.lng
+            }));
+          });
+
+          map.on('click', function(e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            marker.setLatLng([lat, lng]);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'MAP_CLICK',
+              lat: lat,
+              lng: lng
+            }));
+          });
+
+          // Thông báo cho React Native khi người dùng bắt đầu chạm vào bản đồ
+          document.addEventListener('touchstart', function() {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'TOUCH_START' }));
+          }, false);
+        </script>
+      </body>
+    </html>
+  `;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      contentContainerStyle={styles.container} 
+      keyboardShouldPersistTaps="handled"
+      scrollEnabled={scrollEnabled} // Điều khiển việc cuộn của toàn màn hình
+    >
       <View style={styles.header}>
-        <Text style={styles.kicker}>User screen</Text>
-        <Text style={styles.title}>Chon vi tri hien tai</Text>
+        <Text style={styles.kicker}>User screen (OSM Search)</Text>
+        <Text style={styles.title}>Chọn điểm đón</Text>
         <Text style={styles.subtitle}>
-          Day la ban demo. Sau nay minh co the gan map that va GPS vao cung vi tri nay.
+          Vuốt để di chuyển, dùng 2 ngón tay để zoom. Khóa cuộn màn hình khi đang ở trên bản đồ.
         </Text>
       </View>
 
-      <View style={styles.mapCard}>
-        <View style={styles.mapGridHorizontal} />
-        <View style={styles.mapGridVertical} />
-        <View style={[styles.mapGridHorizontal, styles.mapGridHorizontal2]} />
-        <View style={[styles.mapGridVertical, styles.mapGridVertical2]} />
-        <View style={styles.routeLine} />
-        <View style={styles.pinOuter}>
-          <View style={styles.pinInner} />
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Nhập số nhà, tên đường..."
+            value={addressInput}
+            onChangeText={setAddressInput}
+            returnKeyType="search"
+            onSubmitEditing={handleSearchAddress}
+          />
+          <Pressable 
+            style={({ pressed }) => [
+              styles.searchButton, 
+              pressed && styles.pressed,
+              isSearching && styles.searchButtonDisabled
+            ]}
+            onPress={handleSearchAddress}
+            disabled={isSearching}
+          >
+            {isSearching ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.searchButtonText}>Tìm</Text>
+            )}
+          </Pressable>
         </View>
-        <View style={styles.mapLabel}>
-          <Text style={styles.mapLabelTitle}>Demo Map</Text>
-          <Text style={styles.mapLabelText}>{currentPlace.detail}</Text>
-        </View>
-        <View style={styles.locationBubble}>
-          <Text style={styles.locationBubbleText}>{currentPlace.pin}</Text>
-        </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lua chon nhanh</Text>
-        {places.map((place) => {
-          const active = place.id === selectedPlace;
-
-          return (
-            <Pressable
-              key={place.id}
-              onPress={() => setSelectedPlace(place.id)}
-              style={({ pressed }) => [
-                styles.placeCard,
-                active && styles.placeCardActive,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View>
-                <Text style={styles.placeLabel}>{place.label}</Text>
-                <Text style={styles.placeDetail}>{place.detail}</Text>
-              </View>
-              <View style={[styles.placeBadge, active && styles.placeBadgeActive]}>
-                <Text style={[styles.placeBadgeText, active && styles.placeBadgeTextActive]}>
-                  {active ? 'Dang chon' : 'Chon'}
+        {searchResults.length > 0 && (
+          <View style={styles.resultsContainer}>
+            {searchResults.map((item, index) => (
+              <Pressable
+                key={index}
+                style={({ pressed }) => [
+                  styles.resultItem,
+                  pressed && styles.resultItemPressed,
+                  index === searchResults.length - 1 && { borderBottomWidth: 0 }
+                ]}
+                onPress={() => handleSelectSearchResult(item)}
+              >
+                <Text style={styles.resultTitle} numberOfLines={1}>
+                  {item.display_name.split(',')[0]}
                 </Text>
-              </View>
-            </Pressable>
-          );
-        })}
+                <Text style={styles.resultSubtitle} numberOfLines={1}>
+                  {item.display_name.split(',').slice(1).join(',').trim()}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Vi tri da chon</Text>
-        <Text style={styles.summaryValue}>{currentPlace.detail}</Text>
-        <Text style={styles.summaryHint}>
-          Nut dat xe se dat o day sau khi ban ket noi map that.
-        </Text>
-
-        <Pressable style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-          <Text style={styles.primaryButtonText}>Xac nhan vi tri va dat xe</Text>
+      {/* Container của bản đồ với các handler bắt cử chỉ */}
+      <View 
+        style={styles.mapCard}
+        onStartShouldSetResponder={() => {
+          setScrollEnabled(false); // Khóa cuộn màn hình khi chạm vào vùng bản đồ
+          return false;
+        }}
+      >
+        {loading ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#0f62fe" />
+            <Text style={styles.loaderText}>Đang lấy vị trí...</Text>
+          </View>
+        ) : (
+          <WebView
+            ref={webViewRef}
+            originWhitelist={['*']}
+            source={{ html: mapHtml }}
+            onMessage={(e) => {
+              const data = JSON.parse(e.nativeEvent.data);
+              if (data.type === 'TOUCH_START') {
+                setScrollEnabled(false); // Khóa thêm một lần nữa từ phía JS
+              } else {
+                handleWebViewMessage(e);
+              }
+            }}
+            style={styles.map}
+            domStorageEnabled={true}
+            javaScriptEnabled={true}
+            androidLayerType="hardware" // Tăng tốc phần cứng trên Android
+            onResponderRelease={() => setScrollEnabled(true)} // Mở khóa khi buông tay (phòng hờ)
+          />
+        )}
+        
+        {/* Nút bấm để mở khóa cuộn nếu lỡ bị kẹt */}
+        <Pressable 
+          style={styles.unlockScrollBtn}
+          onPress={() => setScrollEnabled(true)}
+        >
+          <Text style={styles.unlockScrollText}>
+            {scrollEnabled ? 'Màn hình tự do' : 'Bản đồ đang khóa màn hình'}
+          </Text>
         </Pressable>
+
+        <View style={styles.mapLabel}>
+          <Text style={styles.mapLabelTitle}>
+            {selectedPlace === 'custom' ? 'Vị trí ghim trên bản đồ' : currentPlace.label}
+          </Text>
+          <Text style={styles.mapLabelText}>
+            Lat: {markerPosition.latitude.toFixed(6)}, Lng: {markerPosition.longitude.toFixed(6)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Khi chạm ra ngoài bản đồ, đảm bảo cuộn màn hình được bật lại */}
+      <View onTouchStart={() => setScrollEnabled(true)}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Lựa chọn nhanh</Text>
+          {places.map((place) => {
+            const active = place.id === selectedPlace;
+
+            return (
+              <Pressable
+                key={place.id}
+                onPress={() => handleSelectPlace(place)}
+                style={({ pressed }) => [
+                  styles.placeCard,
+                  active && styles.placeCardActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View>
+                  <Text style={styles.placeLabel}>{place.label}</Text>
+                  <Text style={styles.placeDetail}>
+                    {place.id === 'current' && !loading ? 'Tọa độ GPS hiện tại' : place.detail}
+                  </Text>
+                </View>
+                <View style={[styles.placeBadge, active && styles.placeBadgeActive]}>
+                  <Text style={[styles.placeBadgeText, active && styles.placeBadgeTextActive]}>
+                    {active ? 'Đang chọn' : 'Chọn'}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Xác nhận điểm đón</Text>
+          <Text style={styles.summaryValue}>
+            {selectedPlace === 'custom' ? 'Tọa độ đã chọn trên bản đồ' : currentPlace.detail}
+          </Text>
+          <Text style={styles.summaryHint}>
+            Tài xế sẽ nhận được tọa độ chính xác này để đến đón bạn.
+          </Text>
+
+          <Pressable 
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+            onPress={() => Alert.alert('Xác nhận', `Đặt xe tại vị trí: ${markerPosition.latitude.toFixed(6)}, ${markerPosition.longitude.toFixed(6)}`)}
+          >
+            <Text style={styles.primaryButtonText}>Xác nhận và đặt xe</Text>
+          </Pressable>
+        </View>
       </View>
     </ScrollView>
   );
@@ -102,7 +422,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginTop: 18,
-    marginBottom: 18,
+    marginBottom: 10,
   },
   kicker: {
     color: '#1976d2',
@@ -124,103 +444,135 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  searchSection: {
+    marginBottom: 16,
+    zIndex: 100, // Đảm bảo danh sách gợi ý hiện lên trên các thành phần khác
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    height: 50,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#e3e9f3',
+    color: '#10233f',
+  },
+  searchButton: {
+    width: 70,
+    height: 50,
+    backgroundColor: '#0f62fe',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchButtonDisabled: {
+    backgroundColor: '#a2c4ff',
+  },
+  searchButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  resultsContainer: {
+    marginTop: 8,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e3e9f3',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    overflow: 'hidden',
+  },
+  resultItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5fb',
+  },
+  resultItemPressed: {
+    backgroundColor: '#f1f7ff',
+  },
+  resultTitle: {
+    color: '#10233f',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  resultSubtitle: {
+    color: '#617088',
+    fontSize: 12,
+  },
   mapCard: {
-    height: 280,
+    height: 320,
     borderRadius: 28,
     overflow: 'hidden',
     backgroundColor: '#d6ecff',
     borderWidth: 1,
     borderColor: 'rgba(16, 35, 63, 0.08)',
     marginBottom: 18,
+    position: 'relative',
   },
-  mapGridHorizontal: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 70,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.42)',
+  map: {
+    flex: 1,
   },
-  mapGridHorizontal2: {
-    top: 168,
-    opacity: 0.8,
-  },
-  mapGridVertical: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 92,
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.42)',
-  },
-  mapGridVertical2: {
-    left: 212,
-    opacity: 0.8,
-  },
-  routeLine: {
-    position: 'absolute',
-    left: 48,
-    right: 42,
-    top: 128,
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(31, 140, 239, 0.18)',
-  },
-  pinOuter: {
-    position: 'absolute',
-    top: 112,
-    left: 126,
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    backgroundColor: '#0f62fe',
+  loaderContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0f62fe',
-    shadowOpacity: 0.26,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
+    backgroundColor: '#eef5ff',
   },
-  pinInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: '#fff',
+  loaderText: {
+    marginTop: 12,
+    color: '#0f62fe',
+    fontWeight: '600',
+  },
+  errorOverlay: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 59, 48, 0.9)',
+    padding: 10,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  errorText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
   },
   mapLabel: {
     position: 'absolute',
-    bottom: 18,
-    left: 18,
-    right: 18,
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.86)',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   mapLabelTitle: {
     color: '#10233f',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   mapLabelText: {
     color: '#617088',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  locationBubble: {
-    position: 'absolute',
-    top: 18,
-    left: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-    backgroundColor: 'rgba(15, 98, 254, 0.12)',
-  },
-  locationBubbleText: {
-    color: '#0f62fe',
     fontSize: 12,
-    fontWeight: '700',
   },
   section: {
     marginBottom: 18,
