@@ -342,10 +342,10 @@ export default function UserScreen() {
         
         {/* Nút bấm để mở khóa cuộn nếu lỡ bị kẹt */}
         <Pressable 
-          style={styles.unlockScrollBtn}
+          
           onPress={() => setScrollEnabled(true)}
         >
-          <Text style={styles.unlockScrollText}>
+          <Text >
             {scrollEnabled ? 'Màn hình tự do' : 'Bản đồ đang khóa màn hình'}
           </Text>
         </Pressable>
