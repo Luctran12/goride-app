@@ -65,7 +65,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.quickCard}>
-          <TouchableOpacity activeOpacity={0.82} style={styles.searchBox} onPress={() => router.push('/map')}>
+          <TouchableOpacity activeOpacity={0.82} style={styles.searchBox} onPress={() => router.push('/(customer)/booking/pickup')}>
             <Feather name="search" size={rs(35)} color={palette.primary} />
             <Text style={styles.searchText}>Bạn muốn đi đâu?</Text>
           </TouchableOpacity>
@@ -75,13 +75,13 @@ export default function HomeScreen() {
                 icon="motorbike" 
                 label={'Đặt xe\nmáy'} 
                 active 
-                onPress={() => router.push('/map')}
+                onPress={() => router.push('/(customer)/booking/pickup')}
             />
             <ActionButton 
                 icon="car" 
                 label="Đặt xe ô tô" 
                 active 
-                onPress={() => router.push('/map')}
+                onPress={() => router.push('/(customer)/booking/pickup')}
             />
             <ActionButton icon="history" label="Lịch sử" />
             <ActionButton
