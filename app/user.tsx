@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import React from 'react';
 
 type Coords = {
   latitude: number;
@@ -341,14 +342,14 @@ export default function UserScreen() {
         )}
         
         {/* Nút bấm để mở khóa cuộn nếu lỡ bị kẹt */}
-        <Pressable 
+        {/* <Pressable 
           style={styles.unlockScrollBtn}
           onPress={() => setScrollEnabled(true)}
         >
           <Text style={styles.unlockScrollText}>
             {scrollEnabled ? 'Màn hình tự do' : 'Bản đồ đang khóa màn hình'}
           </Text>
-        </Pressable>
+        </Pressable> */}
 
         <View style={styles.mapLabel}>
           <Text style={styles.mapLabelTitle}>

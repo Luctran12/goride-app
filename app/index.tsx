@@ -47,6 +47,13 @@ export default function LoginChoiceScreen() {
         <Text style={styles.roleTitle}>Vao voi vai tro Driver</Text>
         <Text style={styles.roleDesc}>Cho cuoc xe moi va xem trang thai san sang.</Text>
       </Pressable>
+      
+      <Pressable
+        onPress={() => router.push('/home')}
+        style={({ pressed }) => [styles.roleButton, styles.userButton, pressed && styles.pressed]}
+      >
+        <Text style={styles.roleTitle}>Vào trang chủ</Text>
+      </Pressable>
 
       <View style={styles.noteCard}>
         <Text style={styles.noteTitle}>Chu y</Text>
