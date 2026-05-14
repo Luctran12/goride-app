@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
-import React from 'react';
 
 type Coords = {
   latitude: number;
@@ -46,16 +45,14 @@ const places: PlaceOption[] = [
   },
 ];
 
-export default function UserScreen() {
+export default function MapScreen() {
   const [selectedPlace, setSelectedPlace] = useState(places[0].id);
   const [markerPosition, setMarkerPosition] = useState<Coords>(INITIAL_COORDS);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
   
-  // State để khóa/mở ScrollView của toàn màn hình
   const [scrollEnabled, setScrollEnabled] = useState(true);
   
-  // States cho tìm kiếm địa chỉ
   const [addressInput, setAddressInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -233,7 +230,6 @@ export default function UserScreen() {
             }));
           });
 
-          // Thông báo cho React Native khi người dùng bắt đầu chạm vào bản đồ
           document.addEventListener('touchstart', function() {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'TOUCH_START' }));
           }, false);
@@ -246,7 +242,7 @@ export default function UserScreen() {
     <ScrollView 
       contentContainerStyle={styles.container} 
       keyboardShouldPersistTaps="handled"
-      scrollEnabled={scrollEnabled} // Điều khiển việc cuộn của toàn màn hình
+      scrollEnabled={scrollEnabled}
     >
       <View style={styles.header}>
         <Text style={styles.kicker}>User screen (OSM Search)</Text>
@@ -307,11 +303,10 @@ export default function UserScreen() {
         )}
       </View>
 
-      {/* Container của bản đồ với các handler bắt cử chỉ */}
       <View 
         style={styles.mapCard}
         onStartShouldSetResponder={() => {
-          setScrollEnabled(false); // Khóa cuộn màn hình khi chạm vào vùng bản đồ
+          setScrollEnabled(false);
           return false;
         }}
       >
@@ -328,7 +323,7 @@ export default function UserScreen() {
             onMessage={(e) => {
               const data = JSON.parse(e.nativeEvent.data);
               if (data.type === 'TOUCH_START') {
-                setScrollEnabled(false); // Khóa thêm một lần nữa từ phía JS
+                setScrollEnabled(false);
               } else {
                 handleWebViewMessage(e);
               }
@@ -336,20 +331,10 @@ export default function UserScreen() {
             style={styles.map}
             domStorageEnabled={true}
             javaScriptEnabled={true}
-            androidLayerType="hardware" // Tăng tốc phần cứng trên Android
-            onResponderRelease={() => setScrollEnabled(true)} // Mở khóa khi buông tay (phòng hờ)
+            androidLayerType="hardware"
+            onResponderRelease={() => setScrollEnabled(true)}
           />
         )}
-        
-        {/* Nút bấm để mở khóa cuộn nếu lỡ bị kẹt */}
-        {/* <Pressable 
-          style={styles.unlockScrollBtn}
-          onPress={() => setScrollEnabled(true)}
-        >
-          <Text style={styles.unlockScrollText}>
-            {scrollEnabled ? 'Màn hình tự do' : 'Bản đồ đang khóa màn hình'}
-          </Text>
-        </Pressable> */}
 
         <View style={styles.mapLabel}>
           <Text style={styles.mapLabelTitle}>
@@ -361,7 +346,6 @@ export default function UserScreen() {
         </View>
       </View>
 
-      {/* Khi chạm ra ngoài bản đồ, đảm bảo cuộn màn hình được bật lại */}
       <View onTouchStart={() => setScrollEnabled(true)}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Lựa chọn nhanh</Text>
@@ -447,7 +431,7 @@ const styles = StyleSheet.create({
   },
   searchSection: {
     marginBottom: 16,
-    zIndex: 100, // Đảm bảo danh sách gợi ý hiện lên trên các thành phần khác
+    zIndex: 100,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -533,22 +517,6 @@ const styles = StyleSheet.create({
   loaderText: {
     marginTop: 12,
     color: '#0f62fe',
-    fontWeight: '600',
-  },
-  errorOverlay: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(255, 59, 48, 0.9)',
-    padding: 10,
-    borderRadius: 12,
-    zIndex: 10,
-  },
-  errorText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: 12,
     fontWeight: '600',
   },
   mapLabel: {

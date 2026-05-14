@@ -33,7 +33,7 @@ export default function LoginChoiceScreen() {
       </View>
 
       <Pressable
-        onPress={() => router.push('/user')}
+        onPress={() => router.push('/(customer)')}
         style={({ pressed }) => [styles.roleButton, styles.userButton, pressed && styles.pressed]}
       >
         <Text style={styles.roleTitle}>Vao voi vai tro User</Text>
@@ -41,19 +41,13 @@ export default function LoginChoiceScreen() {
       </Pressable>
 
       <Pressable
-        onPress={() => router.push('/driver')}
+        onPress={() => router.push('/(driver)')}
         style={({ pressed }) => [styles.roleButton, styles.driverButton, pressed && styles.pressed]}
       >
         <Text style={styles.roleTitle}>Vao voi vai tro Driver</Text>
         <Text style={styles.roleDesc}>Cho cuoc xe moi va xem trang thai san sang.</Text>
       </Pressable>
       
-      <Pressable
-        onPress={() => router.push('/home')}
-        style={({ pressed }) => [styles.roleButton, styles.userButton, pressed && styles.pressed]}
-      >
-        <Text style={styles.roleTitle}>Vào trang chủ</Text>
-      </Pressable>
 
       <View style={styles.noteCard}>
         <Text style={styles.noteTitle}>Chu y</Text>
