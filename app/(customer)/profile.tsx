@@ -1,5 +1,7 @@
-import React from 'react';
+import { rf, rs, rvs } from '@/constants/responsive';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import React from 'react';
 import {
   Image,
   SafeAreaView,
@@ -10,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const palette = {
   background: '#fcf8ff',
@@ -81,7 +82,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity activeOpacity={0.82} style={styles.logoutRow}>
             <View style={[styles.menuIcon, styles.logoutIcon]}>
-              <MaterialCommunityIcons name="logout" size={34} color={palette.danger} />
+              <MaterialCommunityIcons name="logout" size={rs(34)} color={palette.danger} />
             </View>
             <Text style={styles.logoutText}>Đăng xuất</Text>
           </TouchableOpacity>
@@ -91,7 +92,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <View style={styles.bottomNav}>
-        <NavItem icon="home-outline" label="Home" onPress={() => router.push('/home')} />
+        <NavItem icon="home-outline" label="Home" onPress={() => router.push('/(customer)')} />
         <NavItem icon="history" label="Activity" />
         <NavItem
           icon="cash-multiple"
@@ -99,7 +100,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/billing')}
         />
         <TouchableOpacity activeOpacity={0.84} style={styles.navActive}>
-          <MaterialCommunityIcons name="account-outline" size={34} color="#9a8fee" />
+          <MaterialCommunityIcons name="account-outline" size={rs(34)} color="#9a8fee" />
           <Text style={styles.navActiveText}>Profile</Text>
         </TouchableOpacity>
       </View>
@@ -123,10 +124,10 @@ function MenuItem({ icon, label, isLast = false, onPress }: MenuItemProps) {
       onPress={onPress}
     >
       <View style={styles.menuIcon}>
-        <MaterialCommunityIcons name={icon} size={34} color={palette.primary} />
+        <MaterialCommunityIcons name={icon} size={rs(34)} color={palette.primary} />
       </View>
       <Text style={styles.menuText}>{label}</Text>
-      <Feather name="chevron-right" size={34} color="#777582" />
+      <Feather name="chevron-right" size={rs(34)} color="#777582" />
     </TouchableOpacity>
   );
 }
@@ -142,7 +143,7 @@ function NavItem({
 }) {
   return (
     <TouchableOpacity activeOpacity={0.82} style={styles.navItem} onPress={onPress}>
-      <MaterialCommunityIcons name={icon} size={34} color="#302d39" />
+      <MaterialCommunityIcons name={icon} size={rs(34)} color="#302d39" />
       <Text style={styles.navText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -154,62 +155,62 @@ const styles = StyleSheet.create({
     backgroundColor: palette.background,
   },
   content: {
-    paddingTop: 33,
-    paddingBottom: 26,
+    paddingTop: rvs(33),
+    paddingBottom: rvs(26),
   },
   title: {
     color: palette.primary,
-    fontSize: 48,
-    lineHeight: 58,
+    fontSize: rf(48),
+    lineHeight: rf(58),
     fontWeight: '800',
-    paddingHorizontal: 36,
-    marginBottom: 32,
+    paddingHorizontal: rs(36),
+    marginBottom: rvs(32),
   },
   profileCard: {
-    minHeight: 232,
-    marginHorizontal: 36,
-    marginBottom: 43,
-    borderRadius: 20,
+    minHeight: rvs(232),
+    marginHorizontal: rs(36),
+    marginBottom: rvs(43),
+    borderRadius: rs(20),
     backgroundColor: palette.card,
-    paddingHorizontal: 44,
+    paddingHorizontal: rs(44),
     flexDirection: 'row',
     alignItems: 'center',
     ...shadow,
   },
   avatar: {
-    width: 142,
-    height: 142,
-    borderRadius: 71,
-    borderWidth: 3,
+    width: rs(142),
+    height: rs(142),
+    borderRadius: rs(71),
+    borderWidth: rs(3),
     borderColor: palette.primary,
-    marginRight: 45,
+    marginRight: rs(45),
   },
   profileCopy: {
     flex: 1,
   },
   name: {
     color: palette.text,
-    fontSize: 35,
-    lineHeight: 43,
+    fontSize: rf(35),
+    lineHeight: rf(43),
     fontWeight: '800',
-    marginBottom: 13,
+    marginBottom: rvs(13),
   },
   contact: {
     color: palette.muted,
-    fontSize: 29,
-    lineHeight: 39,
+    fontSize: rf(29),
+    lineHeight: rf(39),
     fontWeight: '400',
   },
   menuCard: {
-    marginHorizontal: 36,
-    borderRadius: 18,
+    marginHorizontal: rs(36),
+    borderRadius: rs(18),
     backgroundColor: palette.card,
     overflow: 'hidden',
     ...shadow,
   },
   menuRow: {
-    minHeight: 132,
-    paddingHorizontal: 29,
+    minHeight: rvs(132),
+    paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
@@ -219,24 +220,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   menuIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: rs(72),
+    height: rs(72),
+    borderRadius: rs(36),
     backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 29,
+    marginRight: rs(29),
   },
   menuText: {
     flex: 1,
     color: palette.text,
-    fontSize: 29,
-    lineHeight: 37,
+    fontSize: rf(29),
+    lineHeight: rf(37),
     fontWeight: '800',
   },
   logoutRow: {
-    minHeight: 126,
-    paddingHorizontal: 29,
+    minHeight: rvs(126),
+    paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -245,54 +246,54 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: palette.danger,
-    fontSize: 29,
-    lineHeight: 37,
+    fontSize: rf(29),
+    lineHeight: rf(37),
     fontWeight: '800',
   },
   bottomSpacer: {
-    height: 150,
+    height: rvs(150),
   },
   bottomNav: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 128,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    height: rvs(128),
+    borderTopLeftRadius: rs(16),
+    borderTopRightRadius: rs(16),
     backgroundColor: palette.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingBottom: 13,
-    paddingHorizontal: 20,
+    paddingBottom: rvs(13),
+    paddingHorizontal: rs(20),
     borderTopWidth: 1,
     borderTopColor: palette.line,
   },
   navActive: {
-    width: 136,
-    height: 92,
-    borderRadius: 46,
+    width: rs(136),
+    height: rvs(92),
+    borderRadius: rs(46),
     backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navActiveText: {
     color: '#9a8fee',
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: rf(23),
+    lineHeight: rf(29),
     fontWeight: '600',
     marginTop: 2,
   },
   navItem: {
-    minWidth: 100,
+    minWidth: rs(100),
     alignItems: 'center',
     justifyContent: 'center',
   },
   navText: {
     color: '#302d39',
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: rf(23),
+    lineHeight: rf(29),
     fontWeight: '500',
     marginTop: 5,
   },

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { rf, rs, rvs } from '@/constants/responsive';
 
 const palette = {
   background: '#fcf8ff',
@@ -58,14 +59,14 @@ export default function HomeScreen() {
           </View>
 
           <TouchableOpacity activeOpacity={0.82} style={styles.bellButton}>
-            <Feather name="bell" size={30} color={palette.primary} />
+            <Feather name="bell" size={rs(30)} color={palette.primary} />
             <View style={styles.bellDot} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.quickCard}>
           <TouchableOpacity activeOpacity={0.82} style={styles.searchBox} onPress={() => router.push('/map')}>
-            <Feather name="search" size={35} color={palette.primary} />
+            <Feather name="search" size={rs(35)} color={palette.primary} />
             <Text style={styles.searchText}>Bạn muốn đi đâu?</Text>
           </TouchableOpacity>
 
@@ -109,7 +110,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity activeOpacity={0.9} style={styles.smallPromo}>
               <View style={styles.ticketBubble}>
-                <Feather name="tag" size={34} color={palette.green} />
+                <Feather name="tag" size={rs(34)} color={palette.green} />
               </View>
             </TouchableOpacity>
           </ScrollView>
@@ -135,7 +136,7 @@ export default function HomeScreen() {
 
       <View style={styles.bottomNav}>
         <TouchableOpacity activeOpacity={0.84} style={styles.navActive}>
-          <Feather name="home" size={33} color="#9a8fee" />
+          <Feather name="home" size={rs(33)} color="#9a8fee" />
           <Text style={styles.navActiveText}>Home</Text>
         </TouchableOpacity>
         <NavItem icon="history" label="Activity" />
@@ -170,7 +171,7 @@ function ActionButton({
       <View style={styles.actionCircle}>
         <MaterialCommunityIcons
           name={icon}
-          size={35}
+          size={rs(35)}
           color={active ? palette.primary : '#68646e'}
         />
       </View>
@@ -191,7 +192,7 @@ function RecentPlace({
   return (
     <TouchableOpacity activeOpacity={0.82} style={styles.placeRow}>
       <View style={styles.placeIcon}>
-        <Ionicons name={icon} size={32} color="#68646e" />
+        <Ionicons name={icon} size={rs(32)} color="#68646e" />
       </View>
       <View style={styles.placeCopy}>
         <Text style={styles.placeTitle}>{title}</Text>
@@ -214,7 +215,7 @@ function NavItem({
 }) {
   return (
     <TouchableOpacity activeOpacity={0.82} style={styles.navItem} onPress={onPress}>
-      <MaterialCommunityIcons name={icon} size={34} color="#302d39" />
+      <MaterialCommunityIcons name={icon} size={rs(34)} color="#302d39" />
       <Text style={styles.navText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -226,12 +227,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.background,
   },
   content: {
-    paddingTop: 42,
-    paddingBottom: 26,
+    paddingTop: rvs(42),
+    paddingBottom: rvs(26),
   },
   header: {
-    marginBottom: 28,
-    paddingHorizontal: 36,
+    marginBottom: rvs(28),
+    paddingHorizontal: rs(36),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -241,29 +242,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 4,
+    width: rs(88),
+    height: rs(88),
+    borderRadius: rs(44),
+    borderWidth: rs(4),
     borderColor: '#d7cff1',
-    marginRight: 24,
+    marginRight: rs(24),
   },
   hello: {
     color: palette.muted,
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: rf(28),
+    lineHeight: rf(36),
     fontWeight: '400',
   },
   name: {
     color: palette.text,
-    fontSize: 39,
-    lineHeight: 48,
+    fontSize: rf(39),
+    lineHeight: rf(48),
     fontWeight: '800',
   },
   bellButton: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: rs(76),
+    height: rs(76),
+    borderRadius: rs(38),
     backgroundColor: '#f7f3ff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -271,34 +272,34 @@ const styles = StyleSheet.create({
   },
   bellDot: {
     position: 'absolute',
-    top: 15,
-    right: 15,
-    width: 15,
-    height: 15,
-    borderRadius: 8,
+    top: rs(15),
+    right: rs(15),
+    width: rs(15),
+    height: rs(15),
+    borderRadius: rs(8),
     backgroundColor: palette.danger,
   },
   quickCard: {
-    marginHorizontal: 36,
-    padding: 28,
-    borderRadius: 24,
+    marginHorizontal: rs(36),
+    padding: rs(28),
+    borderRadius: rs(24),
     backgroundColor: palette.card,
-    marginBottom: 46,
+    marginBottom: rvs(46),
     ...shadow,
   },
   searchBox: {
-    height: 120,
-    borderRadius: 14,
+    minHeight: rvs(120),
+    borderRadius: rs(14),
     backgroundColor: palette.primarySoft,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 28,
-    marginBottom: 42,
+    paddingHorizontal: rs(28),
+    marginBottom: rvs(42),
   },
   searchText: {
-    marginLeft: 52,
+    marginLeft: rs(52),
     color: palette.muted,
-    fontSize: 29,
+    fontSize: rf(29),
     fontWeight: '400',
   },
   actionRow: {
@@ -310,43 +311,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionCircle: {
-    width: 102,
-    height: 102,
-    borderRadius: 51,
+    width: rs(102),
+    height: rs(102),
+    borderRadius: rs(51),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.primarySoft,
-    marginBottom: 15,
+    marginBottom: rvs(15),
   },
   actionLabel: {
     color: palette.text,
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: rf(23),
+    lineHeight: rf(29),
     fontWeight: '600',
     textAlign: 'center',
   },
   section: {
-    marginBottom: 58,
+    marginBottom: rvs(58),
   },
   sectionTitle: {
     color: palette.text,
-    fontSize: 29,
-    lineHeight: 37,
+    fontSize: rf(29),
+    lineHeight: rf(37),
     fontWeight: '800',
-    paddingHorizontal: 36,
-    marginBottom: 26,
+    paddingHorizontal: rs(36),
+    marginBottom: rvs(26),
   },
   promoScroller: {
-    paddingHorizontal: 36,
-    gap: 28,
+    paddingHorizontal: rs(36),
+    gap: rs(28),
   },
   promoCard: {
-    width: 507,
-    height: 205,
-    borderRadius: 20,
+    width: rs(507),
+    minHeight: rvs(205),
+    borderRadius: rs(20),
     backgroundColor: palette.primaryMid,
-    paddingHorizontal: 29,
-    paddingVertical: 34,
+    paddingHorizontal: rs(29),
+    paddingVertical: rvs(34),
     overflow: 'hidden',
     justifyContent: 'center',
     shadowColor: '#1a0c75',
@@ -357,44 +358,44 @@ const styles = StyleSheet.create({
   },
   promoOrb: {
     position: 'absolute',
-    right: -34,
-    top: -48,
-    width: 164,
-    height: 164,
-    borderRadius: 82,
+    right: rs(-34),
+    top: rvs(-48),
+    width: rs(164),
+    height: rs(164),
+    borderRadius: rs(82),
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
   codePill: {
     alignSelf: 'flex-start',
-    borderRadius: 7,
+    borderRadius: rs(7),
     backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: 15,
-    paddingVertical: 9,
-    marginBottom: 18,
+    paddingHorizontal: rs(15),
+    paddingVertical: rvs(9),
+    marginBottom: rvs(18),
   },
   codeText: {
     color: '#ffffff',
-    fontSize: 21,
-    lineHeight: 26,
+    fontSize: rf(21),
+    lineHeight: rf(26),
     fontWeight: '800',
   },
   promoTitle: {
     color: '#ffffff',
-    fontSize: 29,
-    lineHeight: 37,
+    fontSize: rf(29),
+    lineHeight: rf(37),
     fontWeight: '800',
-    marginBottom: 8,
+    marginBottom: rvs(8),
   },
   promoText: {
     color: '#ffffff',
-    fontSize: 27,
-    lineHeight: 35,
+    fontSize: rf(27),
+    lineHeight: rf(35),
     fontWeight: '400',
   },
   smallPromo: {
-    width: 150,
-    height: 205,
-    borderRadius: 18,
+    width: rs(150),
+    minHeight: rvs(205),
+    borderRadius: rs(18),
     backgroundColor: palette.card,
     borderWidth: 1,
     borderColor: palette.line,
@@ -402,107 +403,107 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ticketBubble: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: rs(86),
+    height: rs(86),
+    borderRadius: rs(43),
     backgroundColor: palette.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recentCard: {
-    marginHorizontal: 36,
-    borderRadius: 22,
+    marginHorizontal: rs(36),
+    borderRadius: rs(22),
     backgroundColor: palette.card,
-    paddingHorizontal: 29,
-    paddingTop: 31,
-    paddingBottom: 31,
+    paddingHorizontal: rs(29),
+    paddingTop: rvs(31),
+    paddingBottom: rvs(31),
     ...shadow,
   },
   recentHeading: {
     color: palette.text,
-    fontSize: 29,
-    lineHeight: 37,
+    fontSize: rf(29),
+    lineHeight: rf(37),
     fontWeight: '800',
-    marginBottom: 34,
+    marginBottom: rvs(34),
   },
   placeRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   placeIcon: {
-    width: 73,
-    height: 73,
-    borderRadius: 37,
+    width: rs(73),
+    height: rs(73),
+    borderRadius: rs(37),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.primarySoft,
-    marginRight: 21,
+    marginRight: rs(21),
   },
   placeCopy: {
     flex: 1,
   },
   placeTitle: {
     color: palette.text,
-    fontSize: 25,
-    lineHeight: 33,
+    fontSize: rf(25),
+    lineHeight: rf(33),
     fontWeight: '700',
   },
   placeDetail: {
     color: palette.muted,
-    fontSize: 25,
-    lineHeight: 33,
+    fontSize: rf(25),
+    lineHeight: rf(33),
     fontWeight: '400',
   },
   divider: {
     height: 1,
     backgroundColor: palette.line,
-    marginLeft: 94,
-    marginVertical: 28,
+    marginLeft: rs(94),
+    marginVertical: rvs(28),
   },
   bottomSpacer: {
-    height: 165,
+    height: rvs(165),
   },
   bottomNav: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 128,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    height: rvs(128),
+    borderTopLeftRadius: rs(16),
+    borderTopRightRadius: rs(16),
     backgroundColor: palette.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingBottom: 13,
-    paddingHorizontal: 20,
+    paddingBottom: rvs(13),
+    paddingHorizontal: rs(20),
     borderTopWidth: 1,
     borderTopColor: palette.line,
   },
   navActive: {
-    width: 136,
-    height: 92,
-    borderRadius: 46,
+    width: rs(136),
+    height: rvs(92),
+    borderRadius: rs(46),
     backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navActiveText: {
     color: '#9a8fee',
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: rf(23),
+    lineHeight: rf(29),
     fontWeight: '600',
     marginTop: 2,
   },
   navItem: {
-    minWidth: 100,
+    minWidth: rs(100),
     alignItems: 'center',
     justifyContent: 'center',
   },
   navText: {
     color: '#302d39',
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: rf(23),
+    lineHeight: rf(29),
     fontWeight: '500',
     marginTop: 5,
   },
