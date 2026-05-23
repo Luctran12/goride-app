@@ -4,23 +4,22 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Shared booking map/location UI components
-- Phase: Phase 2 - Shared booking components
-- Branch: codex/map-location-components
-- Current commit scope: Phase 2 review checkpoint
-- Status: User reviewed and approved; ready to close Phase 2
+- Feature: Passenger pickup/destination screens
+- Phase: Phase 3 - Passenger pickup/destination
+- Branch: codex/passenger-pickup-destination
+- Current commit scope: Commit 1 - refactor pickup screen to `MapPicker` and `AddressSearch`
+- Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `976ef74` - Add reusable vehicle option card
-- Implementation log entry: `2026-05-23 - Phase 2 Shared Booking Components - Commit 4`
-- Review status: User reviewed and approved; CodeRabbit CLI review blocked by missing WSL/bash environment
+- Phase 2 branch `codex/map-location-components` was user reviewed and merged into local `main`.
+- Commit: `f8fc50b` - Record phase 2 review checkpoint
+- Merge: `main` contains the reusable booking components needed for Phase 3.
 
 ## Next Checkpoint
 
-- Close Phase 2 by committing this review checkpoint.
-- Merge Phase 2 into `main` locally, then create the Phase 3 branch from `main`.
-- Next phase: Phase 3 - refactor passenger pickup/destination screens to use `MapPicker` and `AddressSearch`.
+- Commit 1: replace `app/(customer)/booking/pickup.tsx` WebView/Leaflet flow with `MapPicker`, `AddressSearch`, GPS permission handling, reverse geocode, and legacy + JSON route params.
+- Later commit: refactor `app/(customer)/booking/destination.tsx` with the same components and pickup decoding.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main

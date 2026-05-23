@@ -1,10 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, Alert, ActivityIndicator, TextInput, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
-import { WebView } from 'react-native-webview';
-import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AddressSearch, MapPicker } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
+import {
+  getCurrentLocationPoint,
+  getDefaultLocationPoint,
+  requestLocationPermission,
+  reverseGeocode,
+} from '@/lib/location-service';
+import type { LocationPermissionState, LocationPoint } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -28,505 +45,322 @@ const shadow = {
   elevation: 7,
 };
 
-type Coords = {
-  latitude: number;
-  longitude: number;
-};
-
-type PlaceOption = {
-  id: string;
-  label: string;
-  detail: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  coords: Coords;
-};
-
-const INITIAL_COORDS: Coords = {
-  latitude: 10.762622,
-  longitude: 106.660172,
-};
-
-const places: PlaceOption[] = [
-  { 
-    id: 'current', 
-    label: 'Vị trí hiện tại', 
-    detail: 'Đang xác định...', 
-    icon: 'locate',
-    coords: INITIAL_COORDS 
+const suggestedPickups: (LocationPoint & { icon: keyof typeof Ionicons.glyphMap })[] = [
+  {
+    ...getDefaultLocationPoint(),
+    label: 'Trung tâm TP.HCM',
+    address: 'Khu vực trung tâm TP.HCM',
+    icon: 'navigate-outline',
   },
-  { 
-    id: 'home', 
-    label: 'Về nhà', 
-    detail: '42 Nguyễn Trãi, Q.1', 
+  {
+    lat: 10.7712,
+    lng: 106.6917,
+    label: 'Về nhà',
+    address: '42 Nguyễn Trãi, Quận 1',
     icon: 'home-outline',
-    coords: { latitude: 10.7712, longitude: 106.6917 } 
   },
-  { 
-    id: 'office', 
-    label: 'Đến văn phòng', 
-    detail: '18 Lê Lợi, Q.3', 
+  {
+    lat: 10.7765,
+    lng: 106.7009,
+    label: 'Văn phòng',
+    address: '18 Lê Lợi, Quận 3',
     icon: 'business-outline',
-    coords: { latitude: 10.7765, longitude: 106.7009 } 
   },
 ];
 
 export default function PickupScreen() {
   const router = useRouter();
-  const [selectedPlace, setSelectedPlace] = useState(places[0].id);
-  const [markerPosition, setMarkerPosition] = useState<Coords>(INITIAL_COORDS);
-  const [loading, setLoading] = useState(true);
+  const defaultPoint = useMemo(() => getDefaultLocationPoint(), []);
+  const [pickup, setPickup] = useState<LocationPoint>(defaultPoint);
+  const [query, setQuery] = useState('');
+  const [permissionStatus, setPermissionStatus] = useState<LocationPermissionState>('locating');
+  const [loadingLocation, setLoadingLocation] = useState(true);
+  const [resolvingAddress, setResolvingAddress] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  
   const [scrollEnabled, setScrollEnabled] = useState(true);
-  
-  const [addressInput, setAddressInput] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  
-  const webViewRef = useRef<WebView>(null);
+
+  const locateCurrentUser = useCallback(async () => {
+    setLoadingLocation(true);
+    setLocationError(null);
+    setPermissionStatus('locating');
+
+    try {
+      const permission = await requestLocationPermission();
+
+      if (!permission.granted) {
+        setPermissionStatus(permission.status);
+        setPickup(defaultPoint);
+        setQuery(defaultPoint.address);
+        return;
+      }
+
+      const currentPoint = await getCurrentLocationPoint({ timeoutMs: 10000 });
+      setPickup(currentPoint);
+      setQuery(currentPoint.label ?? currentPoint.address);
+      setPermissionStatus('ready');
+    } catch (error) {
+      setPermissionStatus('error');
+      setPickup(defaultPoint);
+      setQuery(defaultPoint.address);
+      setLocationError(error instanceof Error ? error.message : 'Không thể lấy vị trí hiện tại');
+    } finally {
+      setLoadingLocation(false);
+    }
+  }, [defaultPoint]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setLocationError('Quyền truy cập vị trí bị từ chối');
-          setLoading(false);
-          return;
-        }
+    void locateCurrentUser();
+  }, [locateCurrentUser]);
 
-        let location = await Location.getCurrentPositionAsync({});
-        const currentCoords = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-        
-        setMarkerPosition(currentCoords);
-        updateMap(currentCoords);
-      } catch (error) {
-        console.error(error);
-        setLocationError('Không thể lấy vị trí hiện tại');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  const updateMap = (coords: Coords) => {
-    const jsCode = `
-      if (typeof map !== 'undefined') {
-        map.setView([${coords.latitude}, ${coords.longitude}], 16, { animate: true, duration: 1 });
-        if (marker) {
-          marker.setLatLng([${coords.latitude}, ${coords.longitude}]);
-        }
-      }
-    `;
-    webViewRef.current?.injectJavaScript(jsCode);
+  const handleSearchSelect = (point: LocationPoint) => {
+    setPickup(point);
+    setQuery(point.label ?? point.address);
+    setPermissionStatus('ready');
+    setLocationError(null);
   };
 
-  const handleSearchAddress = async () => {
-    if (!addressInput.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập địa chỉ cần tìm.');
-      return;
-    }
+  const handleMapLocationChange = async (point: LocationPoint) => {
+    setPickup(point);
+    setQuery(point.address);
+    setPermissionStatus('ready');
+    setLocationError(null);
+    setResolvingAddress(true);
 
-    setIsSearching(true);
-    setSearchResults([]);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressInput)}&limit=5&countrycodes=vn`,
-        {
-          headers: {
-            'User-Agent': 'GoRideApp/1.0',
-          },
-        }
-      );
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        setSearchResults(data);
-      } else {
-        Alert.alert('Thông báo', 'Không tìm thấy địa điểm nào phù hợp.');
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi tìm kiếm địa chỉ.');
+      const address = await reverseGeocode(point);
+      const resolvedPoint = {
+        ...point,
+        address,
+        label: 'Điểm đón đã chọn',
+      };
+      setPickup(resolvedPoint);
+      setQuery(address);
     } finally {
-      setIsSearching(false);
+      setResolvingAddress(false);
     }
   };
 
-  const handleSelectSearchResult = (result: any) => {
-    const newCoords = {
-      latitude: parseFloat(result.lat),
-      longitude: parseFloat(result.lon),
-    };
-    
-    setMarkerPosition(newCoords);
-    updateMap(newCoords);
-    setSelectedPlace('custom');
-    setAddressInput(result.display_name.split(',')[0]);
-    setSearchResults([]);
+  const handleSuggestedPickup = (point: LocationPoint) => {
+    setPickup(point);
+    setQuery(point.label ?? point.address);
+    setPermissionStatus('ready');
+    setLocationError(null);
   };
 
-  const handleSelectPlace = (place: PlaceOption) => {
-    setSelectedPlace(place.id);
-    setMarkerPosition(place.coords);
-    updateMap(place.coords);
-    setAddressInput(''); 
-    setSearchResults([]);
+  const handleContinue = () => {
+    router.push({
+      pathname: '/(customer)/booking/destination',
+      params: {
+        pickup: JSON.stringify(pickup),
+        pickupLat: String(pickup.lat),
+        pickupLng: String(pickup.lng),
+        pickupLabel: pickup.label ?? pickup.address,
+      },
+    });
   };
 
-  const handleWebViewMessage = async (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'MAP_CLICK') {
-        const coords = { latitude: data.lat, longitude: data.lng };
-        setMarkerPosition(coords);
-        setSelectedPlace('custom');
-        setSearchResults([]);
-        
-        // Reverse geocoding to get address name
-        try {
-          const [address] = await Location.reverseGeocodeAsync(coords);
-          if (address) {
-            const name = address.streetNumber 
-              ? `${address.streetNumber} ${address.street}, ${address.district || address.subregion}`
-              : `${address.name || address.street}, ${address.district || address.subregion}`;
-            setAddressInput(name);
-          }
-        } catch (e) {
-          console.error('Reverse geocoding error:', e);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const currentPlace = useMemo(
-    () => places.find((place) => place.id === selectedPlace) ?? places[0],
-    [selectedPlace],
-  );
-
-  const mapHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <style>
-          body { margin: 0; padding: 0; background: #d6ecff; touch-action: none; }
-          #map { height: 100vh; width: 100vw; }
-          .leaflet-marker-icon { filter: hue-rotate(140deg); }
-          .leaflet-container { background: #d6ecff; outline: 0; }
-        </style>
-      </head>
-      <body>
-        <div id="map"></div>
-        <script>
-          var map = L.map('map', { 
-            zoomControl: false,
-            dragging: true,
-            touchZoom: true,
-            scrollWheelZoom: false,
-            doubleClickZoom: true,
-            tap: true,
-            inertia: true,
-            zoomAnimation: true,
-            markerZoomAnimation: true
-          }).setView([${markerPosition.latitude}, ${markerPosition.longitude}], 16);
-
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OSM',
-            maxZoom: 19
-          }).addTo(map);
-
-          var marker = L.marker([${markerPosition.latitude}, ${markerPosition.longitude}], { 
-            draggable: true,
-            autoPan: true 
-          }).addTo(map);
-          
-          marker.on('dragend', function(event) {
-            var position = marker.getLatLng();
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'MAP_CLICK',
-              lat: position.lat,
-              lng: position.lng
-            }));
-          });
-
-          map.on('click', function(e) {
-            var lat = e.latlng.lat;
-            var lng = e.latlng.lng;
-            marker.setLatLng([lat, lng]);
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'MAP_CLICK',
-              lat: lat,
-              lng: lng
-            }));
-          });
-
-          document.addEventListener('touchstart', function() {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'TOUCH_START' }));
-          }, false);
-        </script>
-      </body>
-    </html>
-  `;
+  const locationStatusCopy = getLocationStatusCopy(permissionStatus, loadingLocation, locationError);
+  const canContinue = Boolean(pickup.lat && pickup.lng && pickup.address);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
-      
-      <ScrollView 
-        contentContainerStyle={styles.container} 
+
+      <ScrollView
+        contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity 
-            activeOpacity={0.7}
-            onPress={() => router.replace('/(customer)')} 
-            style={styles.backButton}
-          >
+          <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={rs(40)} color={palette.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Chọn điểm đón</Text>
-        </View>
-
-        <View style={styles.searchSection}>
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBox}>
-              <Feather name="search" size={rs(32)} color={palette.primary} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Số nhà, tên đường..."
-                placeholderTextColor={palette.muted}
-                value={addressInput}
-                onChangeText={setAddressInput}
-                returnKeyType="search"
-                onSubmitEditing={handleSearchAddress}
-              />
-              {addressInput.length > 0 && (
-                <TouchableOpacity onPress={() => setAddressInput('')}>
-                  <Ionicons name="close-circle" size={rs(32)} color={palette.muted} />
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            <TouchableOpacity 
-              activeOpacity={0.8}
-              style={[
-                styles.searchButton, 
-                isSearching && styles.searchButtonDisabled
-              ]}
-              onPress={handleSearchAddress}
-              disabled={isSearching}
-            >
-              {isSearching ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.searchButtonText}>Tìm</Text>
-              )}
-            </TouchableOpacity>
+          <View style={styles.headerCopy}>
+            <Text style={styles.eyebrow}>GoRide Passenger</Text>
+            <Text style={styles.title}>Chọn điểm đón</Text>
           </View>
-
-          {searchResults.length > 0 && (
-            <View style={styles.resultsContainer}>
-              {searchResults.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.resultItem,
-                    index === searchResults.length - 1 && { borderBottomWidth: 0 }
-                  ]}
-                  onPress={() => handleSelectSearchResult(item)}
-                >
-                  <View style={styles.resultIcon}>
-                    <Ionicons name="location-sharp" size={rs(30)} color={palette.primary} />
-                  </View>
-                  <View style={styles.resultText}>
-                    <Text style={styles.resultTitle} numberOfLines={1}>
-                      {item.display_name.split(',')[0]}
-                    </Text>
-                    <Text style={styles.resultSubtitle} numberOfLines={1}>
-                      {item.display_name.split(',').slice(1).join(',').trim()}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </View>
 
-        <View 
+        <View style={styles.heroCard}>
+          <View style={styles.heroIcon}>
+            <MaterialCommunityIcons name="crosshairs-gps" size={rs(36)} color={palette.primary} />
+          </View>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroTitle}>Bật GPS hoặc ghim trên bản đồ</Text>
+            <Text style={styles.heroText}>
+              GoRide sẽ nhận diện địa chỉ hiện tại nếu bạn cấp quyền. Nếu không, bạn vẫn có thể tìm kiếm hoặc kéo marker thủ công.
+            </Text>
+          </View>
+        </View>
+
+        <AddressSearch
+          label="Tìm điểm đón"
+          placeholder="Nhập tên đường, tòa nhà, quán cafe..."
+          value={query}
+          onChangeText={setQuery}
+          onSelect={handleSearchSelect}
+          searchBias={pickup}
+          helperText="Gợi ý gần vị trí đang chọn. Có thể chọn bằng search hoặc chạm trực tiếp trên bản đồ."
+          style={styles.search}
+        />
+
+        <View
           style={styles.mapCard}
           onStartShouldSetResponder={() => {
             setScrollEnabled(false);
             return false;
           }}
         >
-          {loading ? (
-            <View style={styles.loaderContainer}>
-              <ActivityIndicator size="large" color={palette.primary} />
-              <Text style={styles.loaderText}>Đang lấy vị trí...</Text>
+          <MapPicker
+            mode="pickup"
+            value={pickup}
+            origin={pickup}
+            status={permissionStatus}
+            loading={loadingLocation}
+            error={locationError}
+            height={rvs(560)}
+            onLocationChange={handleMapLocationChange}
+            onRequestCurrentLocation={locateCurrentUser}
+            onInteractionStart={() => setScrollEnabled(false)}
+            onInteractionEnd={() => setScrollEnabled(true)}
+          />
+        </View>
+
+        {locationStatusCopy && (
+          <View style={[styles.statusCard, locationStatusCopy.tone === 'danger' && styles.statusCardDanger]}>
+            <Ionicons name={locationStatusCopy.icon} size={rs(26)} color={locationStatusCopy.color} />
+            <View style={styles.statusCopy}>
+              <Text style={styles.statusTitle}>{locationStatusCopy.title}</Text>
+              <Text style={styles.statusText}>{locationStatusCopy.message}</Text>
             </View>
-          ) : (
-            <>
-              <WebView
-                ref={webViewRef}
-                originWhitelist={['*']}
-                source={{ html: mapHtml }}
-                onMessage={(e) => {
-                  const data = JSON.parse(e.nativeEvent.data);
-                  if (data.type === 'TOUCH_START') {
-                    setScrollEnabled(false);
-                  } else {
-                    handleWebViewMessage(e);
-                  }
-                }}
-                style={styles.map}
-                domStorageEnabled={true}
-                javaScriptEnabled={true}
-                androidLayerType="hardware"
-                onResponderRelease={() => setScrollEnabled(true)}
-              />
-              
-              <TouchableOpacity 
-                style={styles.myLocationButton}
-                activeOpacity={0.8}
-                onPress={async () => {
-                  setLoading(true);
-                  try {
-                    let location = await Location.getCurrentPositionAsync({});
-                    const currentCoords = {
-                      latitude: location.coords.latitude,
-                      longitude: location.coords.longitude,
-                    };
-                    setMarkerPosition(currentCoords);
-                    updateMap(currentCoords);
-                    setSelectedPlace('current');
-                  } catch (e) {
-                    Alert.alert('Lỗi', 'Không thể lấy vị trí hiện tại');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
+          </View>
+        )}
+
+        <View style={styles.section} onTouchStart={() => setScrollEnabled(true)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Điểm đón gợi ý</Text>
+            {resolvingAddress && (
+              <View style={styles.resolvingBadge}>
+                <ActivityIndicator size="small" color={palette.primary} />
+                <Text style={styles.resolvingText}>Đang nhận diện địa chỉ</Text>
+              </View>
+            )}
+          </View>
+
+          {suggestedPickups.map((point) => {
+            const active = Math.abs(point.lat - pickup.lat) < 0.000001 && Math.abs(point.lng - pickup.lng) < 0.000001;
+
+            return (
+              <Pressable
+                key={`${point.lat}-${point.lng}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Chọn ${point.label ?? point.address}`}
+                onPress={() => handleSuggestedPickup(point)}
+                style={({ pressed }) => [
+                  styles.placeCard,
+                  active && styles.placeCardActive,
+                  pressed && styles.pressed,
+                ]}
               >
-                <MaterialCommunityIcons name="crosshairs-gps" size={rs(40)} color={palette.primary} />
-              </TouchableOpacity>
-            </>
-          )}
-
-          <View style={styles.mapLabel}>
-            <Ionicons name="pin" size={rs(24)} color={palette.danger} style={{marginRight: rs(8)}} />
-            <View style={{flex: 1}}>
-              <Text style={styles.mapLabelTitle} numberOfLines={1}>
-                {selectedPlace === 'custom' 
-                  ? (addressInput || 'Vị trí ghim trên bản đồ') 
-                  : currentPlace.label}
-              </Text>
-              <Text style={styles.mapLabelText}>
-                {markerPosition.latitude.toFixed(6)}, {markerPosition.longitude.toFixed(6)}
-              </Text>
-            </View>
-          </View>
+                <View style={[styles.placeIcon, active && styles.placeIconActive]}>
+                  <Ionicons name={point.icon} size={rs(30)} color={active ? '#fff' : palette.primary} />
+                </View>
+                <View style={styles.placeCopy}>
+                  <Text style={styles.placeLabel}>{point.label}</Text>
+                  <Text style={styles.placeDetail} numberOfLines={1} selectable>
+                    {point.address}
+                  </Text>
+                </View>
+                {active && <Ionicons name="checkmark-circle" size={rs(34)} color={palette.primary} />}
+              </Pressable>
+            );
+          })}
         </View>
 
-        <View onTouchStart={() => setScrollEnabled(true)}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lựa chọn nhanh</Text>
-            {places.map((place) => {
-              const active = place.id === selectedPlace;
-
-              return (
-                <TouchableOpacity
-                  key={place.id}
-                  activeOpacity={0.8}
-                  onPress={() => handleSelectPlace(place)}
-                  style={[
-                    styles.placeCard,
-                    active && styles.placeCardActive,
-                  ]}
-                >
-                  <View style={styles.placeInfo}>
-                    <View style={[styles.placeIcon, active && styles.placeIconActive]}>
-                      <Ionicons 
-                        name={place.icon} 
-                        size={rs(32)} 
-                        color={active ? '#fff' : palette.muted} 
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.placeLabel}>{place.label}</Text>
-                      <Text style={styles.placeDetail} numberOfLines={1}>
-                        {place.id === 'current' && !loading ? 'Vị trí hiện tại của bạn' : place.detail}
-                      </Text>
-                    </View>
-                  </View>
-                  {active && (
-                    <Ionicons name="checkmark-circle" size={rs(40)} color={palette.primary} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryHandle} />
+          <View style={styles.summaryHeader}>
+            <View style={styles.pickupDot} />
+            <Text style={styles.summaryTitle}>Chi tiết điểm đón</Text>
           </View>
 
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              <View style={styles.indicator} />
-              <Text style={styles.summaryTitle}>Chi tiết điểm đón</Text>
-            </View>
-            
-            <View style={styles.addressRow}>
-              <View style={styles.dotContainer}>
-                <View style={styles.addressDot} />
-                <View style={styles.addressLine} />
-              </View>
-              <View style={styles.addressContent}>
-                <Text style={styles.summaryValue} numberOfLines={2}>
-                  {selectedPlace === 'custom' 
-                    ? (addressInput || 'Tọa độ đã chọn trên bản đồ') 
-                    : currentPlace.detail}
-                </Text>
-                <Text style={styles.summaryHint}>
-                  Tài xế sẽ đón bạn tại vị trí này
-                </Text>
-              </View>
-            </View>
+          <Text style={styles.summaryValue} numberOfLines={2} selectable>
+            {pickup.address}
+          </Text>
+          <Text style={styles.summaryMeta} selectable>
+            {pickup.lat.toFixed(6)}, {pickup.lng.toFixed(6)}
+          </Text>
 
-            <TouchableOpacity 
-              activeOpacity={0.8}
-              style={styles.primaryButton}
-              onPress={() => {
-                const label = selectedPlace === 'custom' 
-                  ? (addressInput || 'Vị trí ghim trên bản đồ') 
-                  : currentPlace.label;
-                  
-                router.push({
-                  pathname: '/(customer)/booking/destination',
-                  params: {
-                    pickupLat: markerPosition.latitude,
-                    pickupLng: markerPosition.longitude,
-                    pickupLabel: label
-                  }
-                });
-              }}
-            >
-              <Text style={styles.primaryButtonText}>Tiếp tục</Text>
-              <Feather name="arrow-right" size={rs(32)} color="#fff" style={{marginLeft: rs(10)}} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.86}
+            disabled={!canContinue}
+            style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
+            onPress={handleContinue}
+          >
+            <Text style={styles.primaryButtonText}>Tiếp tục chọn điểm đến</Text>
+            <Feather name="arrow-right" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
+          </TouchableOpacity>
         </View>
-        <View style={{height: rvs(40)}} />
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function getLocationStatusCopy(
+  status: LocationPermissionState,
+  loading: boolean,
+  error: string | null,
+):
+  | {
+      icon: keyof typeof Ionicons.glyphMap;
+      color: string;
+      title: string;
+      message: string;
+      tone?: 'danger';
+    }
+  | null {
+  if (loading || status === 'locating') {
+    return {
+      icon: 'locate-outline',
+      color: palette.primary,
+      title: 'Đang lấy vị trí hiện tại',
+      message: 'Bạn vẫn có thể chạm bản đồ nếu muốn chọn nhanh một điểm đón khác.',
+    };
+  }
+
+  if (error || status === 'error') {
+    return {
+      icon: 'warning-outline',
+      color: palette.danger,
+      title: 'Không lấy được GPS',
+      message: error ?? 'GoRide đang dùng vị trí mặc định. Hãy thử lại hoặc chọn thủ công trên bản đồ.',
+      tone: 'danger',
+    };
+  }
+
+  if (status === 'permission-needed') {
+    return {
+      icon: 'shield-outline',
+      color: palette.primaryMid,
+      title: 'Chưa có quyền vị trí',
+      message: 'Bạn có thể bấm nút GPS để xin quyền lại, hoặc chọn điểm đón bằng search/map.',
+    };
+  }
+
+  if (status === 'gps-disabled') {
+    return {
+      icon: 'navigate-outline',
+      color: palette.danger,
+      title: 'GPS đang tắt',
+      message: 'Bản đồ vẫn hoạt động để bạn ghim điểm đón thủ công.',
+      tone: 'danger',
+    };
+  }
+
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -536,288 +370,243 @@ const styles = StyleSheet.create({
   },
   container: {
     flexGrow: 1,
-    paddingHorizontal: rs(36),
-    paddingTop: rvs(40),
+    paddingHorizontal: rs(28),
+    paddingTop: rvs(28),
+    gap: rvs(22),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: rvs(40),
+    gap: rs(18),
   },
   backButton: {
-    width: rs(80),
-    height: rs(80),
-    borderRadius: rs(40),
+    width: rs(70),
+    height: rs(70),
+    borderRadius: rs(35),
     backgroundColor: palette.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: rs(24),
     ...shadow,
+  },
+  headerCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  eyebrow: {
+    color: palette.primaryMid,
+    fontSize: rf(18),
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   title: {
     color: palette.text,
-    fontSize: rf(38),
-    fontWeight: '800',
+    fontSize: rf(36),
+    fontWeight: '900',
   },
-  searchSection: {
-    marginBottom: rvs(32),
-    zIndex: 100,
-  },
-  searchContainer: {
+  heroCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(16),
-  },
-  searchBox: {
-    flex: 1,
-    height: rvs(110),
-    backgroundColor: palette.card,
-    borderRadius: rs(20),
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: rs(24),
-    ...shadow,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: rs(20),
-    fontSize: rf(28),
-    color: palette.text,
-    height: '100%',
-  },
-  searchButton: {
-    width: rs(120),
-    height: rvs(110),
-    backgroundColor: palette.primary,
-    borderRadius: rs(20),
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadow,
-  },
-  searchButtonDisabled: {
-    backgroundColor: palette.muted,
-  },
-  searchButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: rf(26),
-  },
-  resultsContainer: {
-    marginTop: rvs(16),
-    backgroundColor: palette.card,
-    borderRadius: rs(24),
-    ...shadow,
-    overflow: 'hidden',
-  },
-  resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: rs(18),
     padding: rs(24),
-    borderBottomWidth: 1,
-    borderBottomColor: palette.line,
+    borderRadius: rs(34),
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: '#e4d9ff',
   },
-  resultIcon: {
+  heroIcon: {
     width: rs(64),
     height: rs(64),
     borderRadius: rs(32),
-    backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: rs(20),
+    backgroundColor: palette.card,
   },
-  resultText: {
+  heroCopy: {
     flex: 1,
+    gap: rvs(6),
   },
-  resultTitle: {
+  heroTitle: {
     color: palette.text,
-    fontSize: rf(28),
-    fontWeight: '700',
-    marginBottom: rvs(4),
+    fontSize: rf(23),
+    fontWeight: '900',
   },
-  resultSubtitle: {
+  heroText: {
     color: palette.muted,
-    fontSize: rf(24),
+    fontSize: rf(18),
+    lineHeight: rf(25),
+  },
+  search: {
+    zIndex: 10,
   },
   mapCard: {
-    height: rvs(600),
-    borderRadius: rs(40),
-    overflow: 'hidden',
+    borderRadius: rs(36),
     backgroundColor: '#d6ecff',
-    marginBottom: rvs(32),
-    position: 'relative',
     ...shadow,
   },
-  map: {
-    flex: 1,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: palette.primarySoft,
-  },
-  loaderText: {
-    marginTop: rvs(20),
-    color: palette.primary,
-    fontWeight: '600',
-    fontSize: rf(28),
-  },
-  myLocationButton: {
-    position: 'absolute',
-    right: rs(24),
-    top: rvs(24),
-    width: rs(90),
-    height: rs(90),
-    borderRadius: rs(45),
-    backgroundColor: palette.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow,
-  },
-  mapLabel: {
-    position: 'absolute',
-    bottom: rs(24),
-    left: rs(24),
-    right: rs(24),
-    padding: rs(24),
-    borderRadius: rs(24),
-    backgroundColor: 'rgba(255,255,255,0.95)',
+  statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    ...shadow,
+    gap: rs(14),
+    padding: rs(18),
+    borderRadius: rs(26),
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.line,
   },
-  mapLabelTitle: {
+  statusCardDanger: {
+    borderColor: '#ffd0d0',
+    backgroundColor: '#fff7f7',
+  },
+  statusCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  statusTitle: {
     color: palette.text,
-    fontSize: rf(26),
-    fontWeight: '800',
-    marginBottom: rvs(4),
+    fontSize: rf(19),
+    fontWeight: '900',
   },
-  mapLabelText: {
+  statusText: {
     color: palette.muted,
-    fontSize: rf(22),
+    fontSize: rf(17),
+    lineHeight: rf(24),
   },
   section: {
-    marginBottom: rvs(40),
+    gap: rvs(14),
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: rs(12),
   },
   sectionTitle: {
     color: palette.text,
-    fontSize: rf(32),
+    fontSize: rf(25),
+    fontWeight: '900',
+  },
+  resolvingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    paddingHorizontal: rs(12),
+    height: rvs(38),
+    borderRadius: rs(19),
+    backgroundColor: palette.primarySoft,
+  },
+  resolvingText: {
+    color: palette.primary,
+    fontSize: rf(15),
     fontWeight: '800',
-    marginBottom: rvs(24),
   },
   placeCard: {
+    minHeight: rvs(88),
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: rs(28),
-    borderRadius: rs(32),
+    gap: rs(16),
+    paddingVertical: rvs(16),
+    paddingHorizontal: rs(18),
+    borderRadius: rs(28),
     backgroundColor: palette.card,
-    marginBottom: rvs(16),
+    borderWidth: 1,
+    borderColor: palette.line,
     ...shadow,
   },
   placeCardActive: {
-    backgroundColor: palette.primarySoft,
     borderColor: palette.primary,
-    borderWidth: 1,
+    backgroundColor: '#faf8ff',
   },
-  placeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  pressed: {
+    opacity: 0.76,
+    transform: [{ scale: 0.99 }],
   },
   placeIcon: {
-    width: rs(80),
-    height: rs(80),
-    borderRadius: rs(40),
-    backgroundColor: palette.primarySoft,
+    width: rs(54),
+    height: rs(54),
+    borderRadius: rs(27),
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: rs(24),
+    backgroundColor: palette.primarySoft,
   },
   placeIconActive: {
     backgroundColor: palette.primary,
   },
+  placeCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
   placeLabel: {
     color: palette.text,
-    fontSize: rf(28),
-    fontWeight: '800',
-    marginBottom: rvs(4),
+    fontSize: rf(21),
+    fontWeight: '900',
   },
   placeDetail: {
     color: palette.muted,
-    fontSize: rf(24),
-    maxWidth: rs(350),
+    fontSize: rf(17),
   },
   summaryCard: {
-    padding: rs(32),
-    borderRadius: rs(40),
+    padding: rs(26),
+    borderRadius: rs(38),
     backgroundColor: palette.card,
+    gap: rvs(16),
     ...shadow,
   },
-  summaryHeader: {
-    alignItems: 'center',
-    marginBottom: rvs(24),
-  },
-  indicator: {
-    width: rs(80),
-    height: rvs(8),
+  summaryHandle: {
+    alignSelf: 'center',
+    width: rs(72),
+    height: rvs(7),
     borderRadius: rs(4),
     backgroundColor: palette.line,
-    marginBottom: rvs(24),
   },
-  summaryTitle: {
-    color: palette.text,
-    fontSize: rf(30),
-    fontWeight: '800',
-  },
-  addressRow: {
+  summaryHeader: {
     flexDirection: 'row',
-    marginBottom: rvs(32),
-  },
-  dotContainer: {
     alignItems: 'center',
-    width: rs(40),
-    marginRight: rs(20),
+    gap: rs(12),
   },
-  addressDot: {
+  pickupDot: {
     width: rs(16),
     height: rs(16),
     borderRadius: rs(8),
     backgroundColor: palette.primary,
-    marginTop: rvs(10),
   },
-  addressLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: palette.line,
-    marginVertical: rvs(4),
-  },
-  addressContent: {
-    flex: 1,
+  summaryTitle: {
+    color: palette.text,
+    fontSize: rf(23),
+    fontWeight: '900',
   },
   summaryValue: {
     color: palette.text,
-    fontSize: rf(28),
-    fontWeight: '700',
-    marginBottom: rvs(8),
-    lineHeight: rf(36),
+    fontSize: rf(22),
+    fontWeight: '800',
+    lineHeight: rf(31),
   },
-  summaryHint: {
+  summaryMeta: {
     color: palette.muted,
-    fontSize: rf(24),
+    fontSize: rf(17),
+    fontVariant: ['tabular-nums'],
   },
   primaryButton: {
-    height: rvs(110),
-    borderRadius: rs(30),
+    height: rvs(88),
+    borderRadius: rs(28),
     backgroundColor: palette.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow,
   },
+  primaryButtonDisabled: {
+    opacity: 0.55,
+  },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: rf(30),
-    fontWeight: '800',
+    fontSize: rf(24),
+    fontWeight: '900',
+  },
+  primaryButtonIcon: {
+    marginLeft: rs(10),
+  },
+  bottomSpacer: {
+    height: rvs(28),
   },
 });
