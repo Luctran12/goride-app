@@ -4,23 +4,23 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Front-end mobile MVP foundation
-- Phase: Phase 1 - Foundation
-- Branch: codex/frontend-foundation
-- Current commit scope: Commit 5 - Expo map configuration if Google Maps env support is needed
-- Status: User reviewed; ready to merge into `main`
+- Feature: Shared booking map/location UI components
+- Phase: Phase 2 - Shared booking components
+- Branch: codex/map-location-components
+- Current commit scope: Commit 1 - reusable `MapPicker` component
+- Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `9b19b41` - Add Expo Google Maps env config
+- Commit: `c06207d` - Merge frontend foundation
 - Implementation log entry: `2026-05-23 - Phase 1 Foundation - Commit 5`
-- Review status: User reviewed and approved; CodeRabbit CLI review blocked by missing WSL/bash environment
+- Review status: Phase 1 reviewed, merged into `main`, and pushed to GitHub
 
 ## Next Checkpoint
 
-- Phase 1 Foundation is complete.
-- Next phase candidate: Phase 2 - shared map/location UI components (`MapPicker`, `AddressSearch`, `RoutePreview`) on a new branch from `main` after the foundation branch is approved/merged.
-- Do not start Phase 2 until user review is complete and branch strategy is confirmed.
+- Commit 1: create reusable `MapPicker` with native `react-native-maps`, selectable marker, GPS action, overlay states, driver marker, and route polyline.
+- Later Phase 2 commits: `AddressSearch`, `RoutePreview`, and `VehicleOptionCard`.
+- After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
 
