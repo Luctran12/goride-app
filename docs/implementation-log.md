@@ -57,3 +57,36 @@
   - Access token storage is in-memory only until the real auth flow is implemented.
   - Mock trip storage resets on app reload.
   - UI screens do not consume the API layer yet; integration starts in later phases.
+
+## 2026-05-23 - Phase 1 Foundation - Commit 3
+
+- Branch: `codex/frontend-foundation`
+- Commit: `1d1e758`
+- Scope: Added location service for GPS permissions, current location, reverse geocode, Google Places search, and Expo geocode fallback.
+- Files changed:
+  - `lib/location-service.ts`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `requestLocationPermission()` to check device location services and request foreground location permission.
+  - Added `getCurrentLocationPoint()` with balanced GPS accuracy, timeout support, reverse geocode, and current-location label.
+  - Added `reverseGeocode()` with formatted Vietnamese address output and coordinate fallback when geocoding fails.
+  - Added `searchPlaces()` that uses Google Places Autocomplete when `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` exists and Expo geocode fallback when it does not.
+  - Added `getPlaceDetails()` for resolving Google `placeId` into final coordinates/address.
+  - Added `getDefaultLocationPoint()` for TP. Hồ Chí Minh fallback map center.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors in app/components files.
+  - Ran filtered `tsc` check for `location-service` and `lib\\` paths.
+  - Result: no matching errors for the new location service files.
+- Review:
+  - Review skill/tool was not available in this session, so a manual review was performed.
+  - No blocking findings found in this commit.
+  - Permission, GPS disabled, timeout, reverse geocode fallback, and missing Google key paths are represented.
+  - Google search returns predictions with `placeId`; future UI should call `getPlaceDetails()` before confirming a Google prediction.
+- Known risks:
+  - Google Places requests are direct client-side calls and depend on the app key restrictions being configured correctly.
+  - Expo geocode fallback quality depends on platform/provider support.
+  - `tsc --noEmit` still fails on existing React import issues outside this commit scope.
