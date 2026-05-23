@@ -186,8 +186,46 @@
   - `coderabbit --version` failed because the CLI is not installed.
   - Attempted official installer command, but this Windows environment has no working WSL `/bin/bash`, so install failed with `execvpe(/bin/bash) failed: No such file or directory`.
   - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+  - User review completed and approved before Commit 2.
 - Known risks:
   - Component is not wired into passenger screens yet; Phase 3 will replace WebView/Leaflet usage.
   - Direct route line is a simple polyline between points, not Google Directions geometry yet.
   - iOS Google Maps provider requires a native build with the configured key; default provider can still be used when needed.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
+
+## 2026-05-23 - Phase 2 Shared Booking Components - Commit 2
+
+- Branch: `codex/map-location-components`
+- Commit: `8946b50`
+- Scope: Added reusable `AddressSearch` component for pickup and destination flows.
+- Files changed:
+  - `components/booking/address-search.tsx`
+  - `components/booking/index.ts`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added a controlled address search input that accepts `value`, `onChangeText`, `onSelect`, and optional `searchBias`.
+  - Debounces calls to `searchPlaces()` with a default 350ms delay.
+  - Displays loading, short-query, empty, and error states.
+  - Resolves Google Places predictions through `getPlaceDetails()` before returning a final `LocationPoint`.
+  - Falls back to direct search result selection when no `placeId` is available.
+  - Shows a provider hint for Google Places mode or limited no-key fallback mode.
+  - Exports the component and props from `components/booking/index.ts`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 15 existing warnings in current booking screens.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors outside this commit scope.
+  - Ran filtered `tsc` check for `address-search` and `components\\booking` paths.
+  - Result: no matching errors for the new booking component files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted official installer command, but this Windows environment has no working WSL `/bin/bash`, so install failed with `execvpe(/bin/bash) failed: No such file or directory`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+  - User review completed and approved before Commit 3.
+- Known risks:
+  - Component is not wired into passenger screens yet; Phase 3 will integrate it into pickup/destination.
+  - Google Places API usage is client-side and depends on the API key restrictions configured outside this repo.
+  - Expo geocode fallback may return lower-quality results than Google Places.
   - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
