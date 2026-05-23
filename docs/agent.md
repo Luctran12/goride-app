@@ -4,9 +4,19 @@
 
 - Read `docs/TDD.md` to understand the original system design and API contracts.
 - Read `docs/frontend-implementation.md` to understand the current front-end implementation plan.
+- Read `docs/current-phase.md` to understand the active feature, phase, branch, and next expected work.
 - Read `docs/implementation-log.md` to understand what has already been implemented and reviewed.
 - Read `docs/changes-in-implementation.md` if it exists to understand approved deviations from the TDD.
+- If `docs/current-phase.md` is missing or empty, create or fill it before coding with the active feature, current phase, branch, planned commit scope, and next checkpoint.
 - Check `git status --short` before making changes and do not overwrite user changes.
+
+## Expo Front-end Rules
+
+- When coding Expo or React Native UI, use the installed Expo plugin before changing screens, navigation, native config, permissions, maps, or build settings.
+- Inspect the current Expo Router structure and existing screen/component patterns before editing UI code.
+- Prefer existing project patterns before adding new libraries or abstractions.
+- For map, GPS, permissions, and `app.json` or `app.config.*` changes, verify Expo compatibility before implementation.
+- If the Expo plugin is unavailable in a future session, document that limitation in the work update and fall back to official Expo docs plus the existing repo patterns.
 
 ## Branching Strategy
 
@@ -29,7 +39,15 @@
 - If no review skill is available, perform a manual code-review pass focused on bugs, regressions, missing tests, API mismatches, and edge cases.
 - Write a detailed implementation entry in `docs/implementation-log.md`.
 - The implementation log entry must include branch name, commit hash, files changed, behavior implemented, validation run, review findings, and known risks.
+- After writing `docs/implementation-log.md`, update `docs/current-phase.md` with the completed commit, current phase status, next phase or next commit scope, and whether user review is required.
 - Wait for user review before starting the next commit.
+
+## Phase Tracking
+
+- Use `docs/current-phase.md` as the source of truth for which feature is active and which implementation phase is in progress.
+- Keep `docs/current-phase.md` aligned with `docs/frontend-implementation.md`; if the phase changes, update it before starting new code.
+- Do not start a new feature branch or commit scope until `docs/current-phase.md` clearly states the next intended work.
+- When user feedback changes the plan, update `docs/current-phase.md` and record any TDD deviation in `docs/changes-in-implementation.md` when applicable.
 
 ## Handling Design Deviations
 
