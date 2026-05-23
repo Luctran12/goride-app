@@ -264,3 +264,38 @@
   - Component is not wired into `select-vehicle` or `waiting-driver` yet; later phases will integrate it.
   - Route preview displays backend/mock estimate values but does not calculate route geometry or call APIs itself by design.
   - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
+
+## 2026-05-23 - Phase 2 Shared Booking Components - Commit 4
+
+- Branch: `codex/map-location-components`
+- Commit: `976ef74`
+- Scope: Added reusable `VehicleOptionCard` component and vehicle enum mapping helpers.
+- Files changed:
+  - `components/booking/vehicle-option-card.tsx`
+  - `components/booking/index.ts`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `VehicleOptionCard` for rendering selectable ride vehicle options.
+  - Added default GoRide vehicle options for `MOTORBIKE`, `CAR_4_SEAT`, and `CAR_7_SEAT`.
+  - Added selected, loading, disabled, compact, badge, ETA, capacity, and estimated fare display states.
+  - Added `vehicleTypeFromLegacyId()` mapping old UI ids `bike`, `car`, `car_premium` to backend enums.
+  - Added `legacyIdFromVehicleType()` for compatibility with older screen params during migration.
+  - Exports the component, default options, mapping helpers, and props/types from `components/booking/index.ts`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 15 existing warnings in current booking screens.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors outside this commit scope.
+  - Ran filtered `tsc` check for `vehicle-option-card` and `components\\booking` paths.
+  - Result: no matching errors for the new booking component files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted official installer command, but this Windows environment has no working WSL `/bin/bash`, so install failed with `execvpe(/bin/bash) failed: No such file or directory`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+  - User review completed and approved before closing Phase 2.
+- Known risks:
+  - Component is not wired into `select-vehicle` yet; Phase 4 will integrate it with estimate/booking API flow.
+  - Default prices are display fallbacks only until `estimateBooking()` supplies real fares.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
