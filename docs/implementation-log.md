@@ -155,3 +155,39 @@
   - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
   - Native Google Maps config takes effect only after rebuilding native app artifacts; Expo Go/config preview can still validate config resolution.
   - Map UI components are not integrated yet; this commit only prepares the native map key configuration.
+
+## 2026-05-23 - Phase 2 Shared Booking Components - Commit 1
+
+- Branch: `codex/map-location-components`
+- Commit: `ec966bc`
+- Scope: Added reusable native `MapPicker` component for booking and tracking screens.
+- Files changed:
+  - `components/booking/map-picker.tsx`
+  - `components/booking/index.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `MapPicker` using `react-native-maps` instead of WebView/Leaflet.
+  - Supports pickup, destination, and tracking modes.
+  - Supports selectable draggable marker, tap-to-select map coordinates, optional Google provider, and optional GPS action button.
+  - Supports route preview line with `Polyline` when origin and destination are provided.
+  - Supports driver marker for upcoming waiting/tracking screens.
+  - Handles `permission-needed`, `gps-disabled`, `locating`, `ready`, and `error` UI states through overlays.
+  - Exports the component and types from `components/booking/index.ts`.
+  - Uses Expo/React Native component structure outside the `app` route tree so later screens can reuse it.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 15 existing warnings in current booking screens.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors outside this commit scope.
+  - Ran filtered `tsc` check for `map-picker` and `components\\booking` paths.
+  - Result: no matching errors for the new booking component files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted official installer command, but this Windows environment has no working WSL `/bin/bash`, so install failed with `execvpe(/bin/bash) failed: No such file or directory`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - Component is not wired into passenger screens yet; Phase 3 will replace WebView/Leaflet usage.
+  - Direct route line is a simple polyline between points, not Google Directions geometry yet.
+  - iOS Google Maps provider requires a native build with the configured key; default provider can still be used when needed.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.

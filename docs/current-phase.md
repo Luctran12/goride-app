@@ -7,19 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Shared booking map/location UI components
 - Phase: Phase 2 - Shared booking components
 - Branch: codex/map-location-components
-- Current commit scope: Commit 1 - reusable `MapPicker` component
+- Current commit scope: Commit 2 - reusable `AddressSearch` component
 - Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `c06207d` - Merge frontend foundation
-- Implementation log entry: `2026-05-23 - Phase 1 Foundation - Commit 5`
-- Review status: Phase 1 reviewed, merged into `main`, and pushed to GitHub
+- Commit: `ec966bc` - Add reusable map picker component
+- Implementation log entry: `2026-05-23 - Phase 2 Shared Booking Components - Commit 1`
+- Review status: User reviewed, approved to continue; CodeRabbit CLI review blocked by missing WSL/bash environment
 
 ## Next Checkpoint
 
-- Commit 1: create reusable `MapPicker` with native `react-native-maps`, selectable marker, GPS action, overlay states, driver marker, and route polyline.
-- Later Phase 2 commits: `AddressSearch`, `RoutePreview`, and `VehicleOptionCard`.
+- Commit 2: create reusable `AddressSearch` with debounced `searchPlaces()`, loading/empty/error states, and `getPlaceDetails()` resolution for Google predictions.
+- Later Phase 2 commits: `RoutePreview` and `VehicleOptionCard`.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
