@@ -6,9 +6,9 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 - Feature: Front-end mobile MVP foundation
 - Phase: Phase 1 - Foundation
-- Branch: main
-- Current commit scope: Not started
-- Status: Ready to create the first feature branch from `main`
+- Branch: codex/frontend-foundation
+- Current commit scope: Commit 1 - shared ride types and front-end config
+- Status: In progress
 
 ## Last Completed Checkpoint
 
@@ -18,7 +18,6 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Next Checkpoint
 
-- Create branch `codex/frontend-foundation` from `main`.
 - Commit 1: add shared ride types and front-end config.
 - Commit 2: add API client, ride API wrapper, and mock API adapter.
 - Commit 3: add location service for GPS, reverse geocode, and address search fallback.
