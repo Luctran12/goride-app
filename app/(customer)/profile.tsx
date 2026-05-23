@@ -1,6 +1,6 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Href, useRouter } from 'expo-router';
 import React from 'react';
 import {
   Image,
@@ -36,7 +36,7 @@ const shadow = {
 const menuItems: MenuItemProps[] = [
   { icon: 'account-outline', label: 'Thông tin cá nhân' },
   { icon: 'history', label: 'Lịch sử chuyến đi' },
-  { icon: 'cash-multiple', label: 'Thanh toán', route: '/billing' },
+  { icon: 'cash-multiple', label: 'Thanh toán', route: '/(customer)/billing' },
   { icon: 'ticket-percent-outline', label: 'Voucher của tôi' },
   { icon: 'heart-outline', label: 'Địa chỉ yêu thích' },
   { icon: 'cog-outline', label: 'Cài đặt' },
@@ -71,16 +71,24 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.menuCard}>
-          {menuItems.map((item, index) => (
-            <MenuItem
-              key={item.label}
-              {...item}
-              isLast={index === menuItems.length - 1}
-              onPress={item.route ? () => router.push(item.route) : undefined}
-            />
-          ))}
+          {menuItems.map((item, index) => {
+            const route = item.route;
 
-          <TouchableOpacity activeOpacity={0.82} style={styles.logoutRow}>
+            return (
+              <MenuItem
+                key={item.label}
+                {...item}
+                isLast={index === menuItems.length - 1}
+                onPress={route ? () => router.push(route) : undefined}
+              />
+            );
+          })}
+
+          <TouchableOpacity
+            activeOpacity={0.82}
+            style={styles.logoutRow}
+            onPress={() => router.replace('/(customer)/login')}
+          >
             <View style={[styles.menuIcon, styles.logoutIcon]}>
               <MaterialCommunityIcons name="logout" size={rs(34)} color={palette.danger} />
             </View>
@@ -111,7 +119,7 @@ export default function ProfileScreen() {
 type MenuItemProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
-  route?: '/billing';
+  route?: Href;
   isLast?: boolean;
   onPress?: () => void;
 };

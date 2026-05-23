@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function LoginChoiceScreen() {
@@ -33,11 +34,11 @@ export default function LoginChoiceScreen() {
       </View>
 
       <Pressable
-        onPress={() => router.push('/(customer)')}
+        onPress={() => router.push('/(customer)/login')}
         style={({ pressed }) => [styles.roleButton, styles.userButton, pressed && styles.pressed]}
       >
-        <Text style={styles.roleTitle}>Vao voi vai tro User</Text>
-        <Text style={styles.roleDesc}>Chon vi tri hien tai va bat dau dat xe.</Text>
+        <Text style={styles.roleTitle}>Dang nhap voi vai tro User</Text>
+        <Text style={styles.roleDesc}>Vao tai khoan khach hang de bat dau dat xe.</Text>
       </Pressable>
 
       <Pressable
@@ -52,7 +53,7 @@ export default function LoginChoiceScreen() {
       <View style={styles.noteCard}>
         <Text style={styles.noteTitle}>Chu y</Text>
         <Text style={styles.noteText}>
-          Man hinh nay da bo phan dang nhap. Tam thoi chi chon vai tro de di vao 2 luong user va driver.
+          User co man hinh dang nhap va dang ky rieng. Driver hien van dung luong demo.
         </Text>
       </View>
     </ScrollView>
