@@ -90,3 +90,35 @@
   - Google Places requests are direct client-side calls and depend on the app key restrictions being configured correctly.
   - Expo geocode fallback quality depends on platform/provider support.
   - `tsc --noEmit` still fails on existing React import issues outside this commit scope.
+
+## 2026-05-23 - Phase 1 Foundation - Commit 4
+
+- Branch: `codex/frontend-foundation`
+- Commit: `2cf377d`
+- Scope: Added realtime service skeleton with mock fallback.
+- Files changed:
+  - `lib/realtime.ts`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added realtime connection state helpers with mock/remote mode reporting.
+  - Added subscription APIs for trip status/location, notifications, and driver requests.
+  - Added mock event bus support for notifications, driver requests, trip status, and driver location updates.
+  - Added send helpers for driver location, driver heartbeat, and trip status.
+  - Added mock trip accepted/location progress and mock driver request events for upcoming UI integration.
+  - Documented the temporary deviation from STOMP/SockJS real backend integration in `docs/changes-in-implementation.md`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors.
+  - Ran filtered `tsc` check for `realtime` and `lib\\` paths.
+  - Result: no matching errors for the new realtime service files.
+- Review:
+  - Review skill/tool was not available in this session, so a manual review was performed.
+  - No blocking findings found in this commit.
+  - Mock realtime has unsubscribe support for registered handlers.
+  - Remote mode is intentionally a skeleton until STOMP/SockJS dependencies are added.
+- Known risks:
+  - Real backend WebSocket/STOMP integration is not implemented yet.
+  - Mock timers are lightweight demo timers and are not persisted across reloads.
+  - UI screens do not consume the realtime layer yet; integration starts in later phases.
