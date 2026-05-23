@@ -306,6 +306,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: palette.background,
+    marginTop: StatusBar.currentHeight,
   },
   content: {
     flexGrow: 1,
@@ -379,7 +380,7 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   fieldBlock: {
-    gap: rvs(11),
+    gap: rvs(10),
   },
   fieldLabel: {
     color: palette.text,
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   inputWrap: {
-    minHeight: rvs(92),
+    minHeight: rvs(70),
     borderRadius: rs(18),
     borderWidth: 1,
     borderColor: palette.line,
@@ -398,8 +399,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   inputIcon: {
-    width: rs(58),
-    height: rs(58),
+    width: rs(60),
+    height: rs(60),
     borderRadius: rs(17),
     backgroundColor: palette.primarySoft,
     alignItems: 'center',
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   loginMetaRow: {
-    minHeight: rvs(45),
+    minHeight: rvs(40),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -472,7 +473,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   primaryButton: {
-    minHeight: rvs(91),
+    minHeight: rvs(75),
     borderRadius: rs(18),
     backgroundColor: palette.primary,
     flexDirection: 'row',
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   switchCard: {
-    minHeight: rvs(86),
+    minHeight: rvs(75),
     marginHorizontal: rs(36),
     marginTop: rvs(25),
     borderRadius: rs(18),
