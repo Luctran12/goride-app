@@ -6,25 +6,21 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 - Feature: Front-end mobile MVP foundation
 - Phase: Phase 1 - Foundation
-- Branch: main
-- Current commit scope: Not started
-- Status: Ready to create the first feature branch from `main`
+- Branch: codex/frontend-foundation
+- Current commit scope: Commit 5 - Expo map configuration if Google Maps env support is needed
+- Status: User reviewed; ready to merge into `main`
 
 ## Last Completed Checkpoint
 
-- Commit: None for front-end implementation phases
-- Implementation log entry: None
-- Review status: Not started
+- Commit: `9b19b41` - Add Expo Google Maps env config
+- Implementation log entry: `2026-05-23 - Phase 1 Foundation - Commit 5`
+- Review status: User reviewed and approved; CodeRabbit CLI review blocked by missing WSL/bash environment
 
 ## Next Checkpoint
 
-- Create branch `codex/frontend-foundation` from `main`.
-- Commit 1: add shared ride types and front-end config.
-- Commit 2: add API client, ride API wrapper, and mock API adapter.
-- Commit 3: add location service for GPS, reverse geocode, and address search fallback.
-- Commit 4: add realtime service skeleton with mock fallback.
-- Commit 5: update Expo map configuration if Google Maps env support is needed.
-- After each commit, run review, update `docs/implementation-log.md`, then update this file before continuing.
+- Phase 1 Foundation is complete.
+- Next phase candidate: Phase 2 - shared map/location UI components (`MapPicker`, `AddressSearch`, `RoutePreview`) on a new branch from `main` after the foundation branch is approved/merged.
+- Do not start Phase 2 until user review is complete and branch strategy is confirmed.
 
 ## Phase Assessment From Main
 
@@ -33,4 +29,8 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - `app/(customer)/booking/select-vehicle.tsx` still calculates distance locally and uses static vehicle prices.
 - `app/(customer)/booking/waiting-driver.tsx` still uses a hardcoded timer/mock alert instead of realtime subscription.
 - `app/(driver)/index.tsx` is still a static waiting screen without online toggle, request subscription, or GPS loop.
-- No `types/ride.ts`, `lib/api.ts`, `lib/ride-api.ts`, `lib/location-service.ts`, or `lib/realtime.ts` files exist yet.
+- `types/ride.ts` and `lib/config.ts` exist from commit `c599d6e`.
+- `lib/api.ts`, `lib/ride-api.ts`, and `lib/mock-ride-api.ts` exist from commit `efdaf73`.
+- `lib/location-service.ts` exists from commit `1d1e758`.
+- `lib/realtime.ts` exists from commit `2cf377d`.
+- `app.config.js` and cleaned Expo map/location config exist from commit `9b19b41`.
