@@ -229,3 +229,38 @@
   - Google Places API usage is client-side and depends on the API key restrictions configured outside this repo.
   - Expo geocode fallback may return lower-quality results than Google Places.
   - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
+
+## 2026-05-23 - Phase 2 Shared Booking Components - Commit 3
+
+- Branch: `codex/map-location-components`
+- Commit: `f9d74e1`
+- Scope: Added reusable `RoutePreview` component for route and fare summary UI.
+- Files changed:
+  - `components/booking/route-preview.tsx`
+  - `components/booking/index.ts`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added route summary card for pickup/dropoff display.
+  - Supports `BookingEstimate` or direct `estimatedDistance`, `estimatedDuration`, and `estimatedFare` values.
+  - Displays distance, duration, fare, and cash payment summary.
+  - Supports loading estimate state, error state, retry action, compact mode, optional custom footer, and missing-route placeholders.
+  - Formats distance in km, duration in minutes/hours, and fare in VND-style `.` grouping.
+  - Exports the component and props from `components/booking/index.ts`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 15 existing warnings in current booking screens.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors outside this commit scope.
+  - Ran filtered `tsc` check for `route-preview` and `components\\booking` paths.
+  - Result: no matching errors for the new booking component files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted official installer command, but this Windows environment has no working WSL `/bin/bash`, so install failed with `execvpe(/bin/bash) failed: No such file or directory`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+  - User review completed and approved before Commit 4.
+- Known risks:
+  - Component is not wired into `select-vehicle` or `waiting-driver` yet; later phases will integrate it.
+  - Route preview displays backend/mock estimate values but does not calculate route geometry or call APIs itself by design.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.

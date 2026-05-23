@@ -7,19 +7,18 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Shared booking map/location UI components
 - Phase: Phase 2 - Shared booking components
 - Branch: codex/map-location-components
-- Current commit scope: Commit 3 - reusable `RoutePreview` component
+- Current commit scope: Commit 4 - reusable `VehicleOptionCard` component
 - Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `8946b50` - Add reusable address search component
-- Implementation log entry: `2026-05-23 - Phase 2 Shared Booking Components - Commit 2`
+- Commit: `f9d74e1` - Add reusable route preview component
+- Implementation log entry: `2026-05-23 - Phase 2 Shared Booking Components - Commit 3`
 - Review status: User reviewed, approved to continue; CodeRabbit CLI review blocked by missing WSL/bash environment
 
 ## Next Checkpoint
 
-- Commit 3: create reusable `RoutePreview` for pickup/dropoff summary, distance, duration, and fare display.
-- Later Phase 2 commit: `VehicleOptionCard`.
+- Commit 4: create reusable `VehicleOptionCard` for vehicle selection UI and backend vehicle enum mapping.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
