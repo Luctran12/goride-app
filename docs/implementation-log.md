@@ -122,3 +122,36 @@
   - Real backend WebSocket/STOMP integration is not implemented yet.
   - Mock timers are lightweight demo timers and are not persisted across reloads.
   - UI screens do not consume the realtime layer yet; integration starts in later phases.
+
+## 2026-05-23 - Phase 1 Foundation - Commit 5
+
+- Branch: `codex/frontend-foundation`
+- Commit: `9b19b41`
+- Scope: Added Expo dynamic config for Google Maps API key injection and cleaned duplicate Android location permissions.
+- Files changed:
+  - `app.config.js`
+  - `app.json`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `app.config.js` to load the static Expo config from `app.json`.
+  - Injects `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` into `ios.config.googleMapsApiKey` and `android.config.googleMaps.apiKey` when the env value exists.
+  - Keeps the app runnable without a Google Maps key by returning the base Expo config when the env value is missing.
+  - Deduplicates Android permissions in dynamic config and removed duplicate coarse/fine location entries from `app.json`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 15 existing warnings in current booking screens.
+  - Ran `cmd /c npx expo config --json`.
+  - Result: passed; Expo resolves `app.config.js`, preserves plugins, and keeps only coarse/fine location permissions.
+  - Ran env-key smoke test with `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=test-key`.
+  - Result: passed; Android and iOS Google Maps config both receive `test-key`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted official installer command, but this Windows environment has no working WSL `/bin/bash`, so install failed with `execvpe(/bin/bash) failed: No such file or directory`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+  - User review completed and approved before merge to `main`.
+- Known risks:
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
+  - Native Google Maps config takes effect only after rebuilding native app artifacts; Expo Go/config preview can still validate config resolution.
+  - Map UI components are not integrated yet; this commit only prepares the native map key configuration.
