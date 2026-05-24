@@ -1,19 +1,20 @@
-import React, { useEffect, useRef } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  Animated,
-  Pressable,
-  Image,
   Alert,
+  Animated,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { MaterialCommunityIcons, Feather, Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { rf, rs, rvs } from '@/constants/responsive';
+import type { LocationPoint } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -25,8 +26,11 @@ const palette = {
   muted: '#68646e',
   line: '#e8e4ec',
   danger: '#d72828',
+  dangerSoft: '#fff0f0',
   green: '#00b67a',
   greenSoft: '#dff8ef',
+  amber: '#f59e0b',
+  amberSoft: '#fff7df',
 };
 
 const shadow = {
@@ -37,14 +41,34 @@ const shadow = {
   elevation: 7,
 };
 
+type VehicleDisplay = {
+  name: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+};
+
 export default function WaitingDriverScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const tripId = readParam(params.tripId);
+  const tripStatus = readParam(params.tripStatus) ?? 'SEARCHING';
+  const vehicleType = readParam(params.vehicleType);
+  const vehicleTypeEnum = readParam(params.vehicleTypeEnum);
+  const pickup = parseLocationPointParam(params.pickup);
+  const dropoff = parseLocationPointParam(params.dropoff);
+  const pickupAddress = pickup?.address ?? readParam(params.pickupLabel) ?? 'Điểm đón đã chọn';
+  const dropoffAddress = dropoff?.address ?? readParam(params.destLabel) ?? 'Điểm đến đã chọn';
+  const distance = parseNumberParam(readParam(params.estimatedDistance) ?? readParam(params.distance));
+  const duration = parseNumberParam(readParam(params.estimatedDuration));
+  const fare = parseNumberParam(readParam(params.estimatedFare));
+  const paymentLabel = readParam(params.paymentLabel) ?? 'Tiền mặt';
+  const promoCode = readParam(params.promoCode);
+  const vehicle = useMemo(() => getVehicleDisplay(vehicleType, vehicleTypeEnum), [vehicleType, vehicleTypeEnum]);
+  const statusCopy = getStatusCopy(tripStatus);
+
   useEffect(() => {
-    // Pulse animation for the "searching" effect
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.2,
@@ -56,115 +80,269 @@ export default function WaitingDriverScreen() {
           duration: 1000,
           useNativeDriver: true,
         }),
-      ])
-    ).start();
+      ]),
+    );
 
-    // Mock successful driver match after 5 seconds
-    const timer = setTimeout(() => {
-      Alert.alert(
-        "Đã tìm thấy tài xế!",
-        "Tài xế Nguyễn Văn A đang đến đón bạn.",
-        [
-          { text: "OK", onPress: () => router.replace('/(customer)') }
-        ]
-      );
-    }, 5000);
+    pulse.start();
 
-    return () => clearTimeout(timer);
-  }, []);
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   const handleCancel = () => {
-    Alert.alert(
-      "Hủy chuyến",
-      "Bạn có chắc chắn muốn hủy yêu cầu đặt xe này không?",
-      [
-        { text: "Không", style: "cancel" },
-        { text: "Hủy chuyến", style: "destructive", onPress: () => router.replace('/(customer)') }
-      ]
-    );
+    Alert.alert('Hủy chuyến', 'Bạn có chắc chắn muốn hủy yêu cầu đặt xe này không?', [
+      { text: 'Không', style: 'cancel' },
+      { text: 'Hủy chuyến', style: 'destructive', onPress: () => router.replace('/(customer)') },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
-      
-      <View style={styles.container}>
-        <View style={styles.searchingContainer}>
-          <Animated.View 
-            style={[
-              styles.pulseCircle, 
-              { transform: [{ scale: pulseAnim }], opacity: 0.15 }
-            ]} 
-          />
-          <Animated.View 
-            style={[
-              styles.pulseCircle, 
-              { transform: [{ scale: Animated.multiply(pulseAnim, 0.8) }], opacity: 0.25 }
-            ]} 
-          />
-          <View style={styles.centerCircle}>
-            <MaterialCommunityIcons name="radar" size={rs(80)} color="#fff" />
+
+      <ScrollView
+        contentContainerStyle={styles.container}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.searchingCard}>
+          <View style={styles.searchingContainer}>
+            <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }], opacity: 0.15 }]} />
+            <Animated.View
+              style={[
+                styles.pulseCircle,
+                { transform: [{ scale: Animated.multiply(pulseAnim, 0.8) }], opacity: 0.25 },
+              ]}
+            />
+            <View style={styles.centerCircle}>
+              <MaterialCommunityIcons name="radar" size={rs(70)} color="#fff" />
+            </View>
           </View>
+
+          <View style={styles.statusPill}>
+            <View style={[styles.statusDot, { backgroundColor: statusCopy.color }]} />
+            <Text style={styles.statusPillText}>{statusCopy.label}</Text>
+          </View>
+
+          <Text style={styles.waitingTitle}>{statusCopy.title}</Text>
+          <Text style={styles.waitingSubtitle}>{statusCopy.description}</Text>
         </View>
 
-        <Text style={styles.waitingTitle}>Đang tìm tài xế...</Text>
-        <Text style={styles.waitingSubtitle}>
-          Yêu cầu của bạn đã được gửi đến các tài xế gần nhất. Vui lòng đợi trong giây lát.
-        </Text>
+        <View style={styles.tripCodeCard}>
+          <MaterialCommunityIcons name="ticket-confirmation-outline" size={rs(34)} color={palette.primary} />
+          <View style={styles.tripCodeCopy}>
+            <Text style={styles.tripCodeLabel}>Mã chuyến</Text>
+            <Text style={styles.tripCodeValue} selectable>
+              {tripId ? '#' + tripId : 'Đang khởi tạo'}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.tripCard}>
           <View style={styles.tripHeader}>
             <View style={styles.vehicleInfo}>
               <View style={styles.vehicleIconBox}>
-                <MaterialCommunityIcons 
-                  name={params.vehicleType === 'bike' ? 'motorbike' : 'car'} 
-                  size={rs(40)} 
-                  color={palette.primary} 
-                />
+                <MaterialCommunityIcons name={vehicle.icon} size={rs(42)} color={palette.primary} />
               </View>
-              <View>
-                <Text style={styles.vehicleName}>
-                  {params.vehicleType === 'bike' ? 'GoRide Bike' : 
-                   params.vehicleType === 'car' ? 'GoRide Car' : 'GoRide Premium'}
+              <View style={styles.vehicleCopy}>
+                <Text style={styles.vehicleName}>{vehicle.name}</Text>
+                <Text style={styles.priceText}>
+                  {formatFare(fare)} • {paymentLabel}
                 </Text>
-                <Text style={styles.priceText}>15.000đ • Tiền mặt</Text>
               </View>
             </View>
             <View style={styles.distanceBadge}>
-              <Text style={styles.distanceText}>{params.distance} km</Text>
+              <Text style={styles.distanceText}>{formatDistance(distance)}</Text>
             </View>
           </View>
+
+          <View style={styles.metricsRow}>
+            <MetricPill icon="clock-outline" label="Thời gian" value={formatDuration(duration)} />
+            <MetricPill icon="cash" label="Tạm tính" value={formatFare(fare)} highlight />
+          </View>
+
+          {promoCode ? (
+            <View style={styles.promoRow}>
+              <MaterialCommunityIcons name="ticket-percent-outline" size={rs(24)} color={palette.amber} />
+              <Text style={styles.promoText}>Ưu đãi đã chọn: {promoCode}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.divider} />
 
           <View style={styles.addressList}>
             <View style={styles.addressItem}>
               <View style={[styles.dot, { backgroundColor: palette.primary }]} />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {params.pickupLabel}
-              </Text>
+              <View style={styles.addressCopy}>
+                <Text style={styles.addressLabel}>Điểm đón</Text>
+                <Text style={styles.addressText} numberOfLines={2} selectable>
+                  {pickupAddress}
+                </Text>
+              </View>
             </View>
             <View style={styles.addressItem}>
               <View style={[styles.dot, { backgroundColor: palette.danger }]} />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {params.destLabel}
-              </Text>
+              <View style={styles.addressCopy}>
+                <Text style={styles.addressLabel}>Điểm đến</Text>
+                <Text style={styles.addressText} numberOfLines={2} selectable>
+                  {dropoffAddress}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity 
-          activeOpacity={0.8}
-          style={styles.cancelButton}
-          onPress={handleCancel}
-        >
+        <TouchableOpacity activeOpacity={0.8} style={styles.cancelButton} onPress={handleCancel}>
           <Text style={styles.cancelButtonText}>Hủy chuyến</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
+}
+
+function MetricPill({
+  icon,
+  label,
+  value,
+  highlight = false,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <View style={[styles.metricPill, highlight && styles.metricPillHighlight]}>
+      <MaterialCommunityIcons name={icon} size={rs(24)} color={highlight ? palette.green : palette.primary} />
+      <View style={styles.metricCopy}>
+        <Text style={styles.metricLabel}>{label}</Text>
+        <Text style={[styles.metricValue, highlight && styles.metricValueHighlight]}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+function readParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
+}
+
+function parseNumberParam(value: string | undefined) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseLocationPointParam(value: string | string[] | undefined): LocationPoint | null {
+  const rawValue = readParam(value);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const candidates = [rawValue];
+
+  try {
+    candidates.push(decodeURIComponent(rawValue));
+  } catch {
+    // Expo Router usually decodes params already; this fallback protects direct links.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as Partial<LocationPoint>;
+      const lat = Number(parsed.lat);
+      const lng = Number(parsed.lng);
+
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return {
+          lat,
+          lng,
+          address: typeof parsed.address === 'string' && parsed.address ? parsed.address : lat + ', ' + lng,
+          label: typeof parsed.label === 'string' ? parsed.label : undefined,
+          placeId: typeof parsed.placeId === 'string' ? parsed.placeId : undefined,
+        };
+      }
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  return null;
+}
+
+function getVehicleDisplay(vehicleType?: string, vehicleTypeEnum?: string): VehicleDisplay {
+  const normalized = vehicleTypeEnum ?? vehicleType;
+
+  if (normalized === 'MOTORBIKE' || normalized === 'bike') {
+    return { name: 'GoRide Bike', icon: 'motorbike' };
+  }
+
+  if (normalized === 'CAR_7_SEAT' || normalized === 'car_premium') {
+    return { name: 'GoRide Premium', icon: 'car-back' };
+  }
+
+  return { name: 'GoRide Car', icon: 'car' };
+}
+
+function getStatusCopy(status: string) {
+  if (status === 'ACCEPTED') {
+    return {
+      label: 'Đã có tài xế',
+      title: 'Tài xế đang đến',
+      description: 'GoRide đã ghép chuyến thành công. Thông tin tài xế sẽ được cập nhật ở bước realtime.',
+      color: palette.green,
+    };
+  }
+
+  if (status === 'NO_DRIVER') {
+    return {
+      label: 'Chưa có tài xế',
+      title: 'Chưa tìm thấy tài xế',
+      description: 'Hiện chưa có tài xế phù hợp quanh bạn. Bạn có thể chờ thêm hoặc hủy để đặt lại.',
+      color: palette.danger,
+    };
+  }
+
+  return {
+    label: 'Đang tìm tài xế',
+    title: 'Đang tìm tài xế...',
+    description: 'Yêu cầu của bạn đã được tạo và gửi đến hệ thống matching. Vui lòng đợi trong giây lát.',
+    color: palette.primary,
+  };
+}
+
+function formatDistance(distance: number | null) {
+  if (!distance || distance <= 0) {
+    return '-- km';
+  }
+
+  return distance.toFixed(distance < 10 ? 1 : 0) + ' km';
+}
+
+function formatDuration(duration: number | null) {
+  if (!duration || duration <= 0) {
+    return '-- phút';
+  }
+
+  if (duration < 60) {
+    return Math.round(duration) + ' phút';
+  }
+
+  const hours = Math.floor(duration / 60);
+  const minutes = Math.round(duration % 60);
+  return minutes ? hours + ' giờ ' + minutes + ' phút' : hours + ' giờ';
+}
+
+function formatFare(fare: number | null) {
+  if (!fare || fare <= 0) {
+    return '-- đ';
+  }
+
+  return Math.round(fare).toLocaleString('vi-VN') + 'đ';
 }
 
 const styles = StyleSheet.create({
@@ -173,134 +351,254 @@ const styles = StyleSheet.create({
     backgroundColor: palette.background,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
+    paddingHorizontal: rs(28),
+    paddingTop: rvs(24),
+    paddingBottom: rvs(30),
+    gap: rvs(20),
+  },
+  searchingCard: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: rs(60),
+    padding: rs(28),
+    borderRadius: rs(38),
+    backgroundColor: palette.card,
+    ...shadow,
   },
   searchingContainer: {
-    width: rs(400),
-    height: rs(400),
+    width: rs(300),
+    height: rs(300),
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: rvs(60),
+    marginBottom: rvs(18),
   },
   pulseCircle: {
     position: 'absolute',
-    width: rs(360),
-    height: rs(360),
-    borderRadius: rs(180),
+    width: rs(260),
+    height: rs(260),
+    borderRadius: rs(130),
     backgroundColor: palette.primary,
   },
   centerCircle: {
-    width: rs(160),
-    height: rs(160),
-    borderRadius: rs(80),
+    width: rs(138),
+    height: rs(138),
+    borderRadius: rs(69),
     backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow,
   },
-  waitingTitle: {
-    fontSize: rf(44),
-    fontWeight: '800',
-    color: palette.text,
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    paddingHorizontal: rs(16),
+    height: rvs(42),
+    borderRadius: rs(21),
+    backgroundColor: palette.primarySoft,
     marginBottom: rvs(16),
+  },
+  statusDot: {
+    width: rs(12),
+    height: rs(12),
+    borderRadius: rs(6),
+  },
+  statusPillText: {
+    color: palette.primary,
+    fontSize: rf(16),
+    fontWeight: '900',
+  },
+  waitingTitle: {
+    fontSize: rf(36),
+    fontWeight: '900',
+    color: palette.text,
+    marginBottom: rvs(10),
     textAlign: 'center',
   },
   waitingSubtitle: {
-    fontSize: rf(28),
+    fontSize: rf(21),
     color: palette.muted,
     textAlign: 'center',
-    lineHeight: rf(38),
-    marginBottom: rvs(80),
+    lineHeight: rf(30),
+  },
+  tripCodeCard: {
+    minHeight: rvs(86),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(14),
+    padding: rs(18),
+    borderRadius: rs(28),
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: '#e4d9ff',
+  },
+  tripCodeCopy: {
+    flex: 1,
+    gap: rvs(3),
+  },
+  tripCodeLabel: {
+    color: palette.primaryMid,
+    fontSize: rf(16),
+    fontWeight: '800',
+  },
+  tripCodeValue: {
+    color: palette.primary,
+    fontSize: rf(26),
+    fontWeight: '900',
   },
   tripCard: {
-    width: '100%',
     backgroundColor: palette.card,
-    borderRadius: rs(40),
-    padding: rs(32),
+    borderRadius: rs(36),
+    padding: rs(26),
     ...shadow,
   },
   tripHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: rvs(24),
+    gap: rs(16),
+    marginBottom: rvs(20),
   },
   vehicleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(20),
-  },
-  vehicleIconBox: {
-    width: rs(80),
-    height: rs(80),
-    borderRadius: rs(20),
-    backgroundColor: palette.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vehicleName: {
-    fontSize: rf(30),
-    fontWeight: '800',
-    color: palette.text,
-  },
-  priceText: {
-    fontSize: rf(24),
-    color: palette.muted,
-    marginTop: rvs(4),
-  },
-  distanceBadge: {
-    backgroundColor: palette.greenSoft,
-    paddingHorizontal: rs(16),
-    paddingVertical: rvs(8),
-    borderRadius: rs(12),
-  },
-  distanceText: {
-    fontSize: rf(22),
-    fontWeight: '700',
-    color: palette.green,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: palette.line,
-    marginBottom: rvs(24),
-  },
-  addressList: {
-    gap: rvs(16),
-  },
-  addressItem: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(16),
   },
-  dot: {
-    width: rs(14),
-    height: rs(14),
-    borderRadius: rs(7),
-  },
-  addressText: {
-    fontSize: rf(26),
-    color: palette.text,
-    flex: 1,
-    fontWeight: '600',
-  },
-  footer: {
-    paddingHorizontal: rs(36),
-    paddingBottom: rvs(48),
-    paddingTop: rvs(24),
-  },
-  cancelButton: {
-    height: rvs(110),
-    borderRadius: rs(32),
+  vehicleIconBox: {
+    width: rs(72),
+    height: rs(72),
+    borderRadius: rs(22),
     backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelButtonText: {
-    fontSize: rf(30),
+  vehicleCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  vehicleName: {
+    fontSize: rf(25),
+    fontWeight: '900',
+    color: palette.text,
+  },
+  priceText: {
+    fontSize: rf(18),
+    color: palette.muted,
     fontWeight: '800',
+  },
+  distanceBadge: {
+    backgroundColor: palette.greenSoft,
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(8),
+    borderRadius: rs(14),
+  },
+  distanceText: {
+    fontSize: rf(19),
+    fontWeight: '900',
+    color: palette.green,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: rs(12),
+    marginBottom: rvs(16),
+  },
+  metricPill: {
+    flex: 1,
+    minHeight: rvs(72),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    padding: rs(14),
+    borderRadius: rs(22),
+    backgroundColor: palette.primarySoft,
+  },
+  metricPillHighlight: {
+    backgroundColor: palette.greenSoft,
+  },
+  metricCopy: {
+    flex: 1,
+    gap: rvs(2),
+  },
+  metricLabel: {
+    color: palette.muted,
+    fontSize: rf(14),
+    fontWeight: '800',
+  },
+  metricValue: {
+    color: palette.primary,
+    fontSize: rf(18),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  metricValueHighlight: {
+    color: palette.green,
+  },
+  promoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    padding: rs(14),
+    borderRadius: rs(22),
+    backgroundColor: palette.amberSoft,
+    marginBottom: rvs(16),
+  },
+  promoText: {
+    flex: 1,
+    color: palette.amber,
+    fontSize: rf(16),
+    fontWeight: '900',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: palette.line,
+    marginBottom: rvs(20),
+  },
+  addressList: {
+    gap: rvs(18),
+  },
+  addressItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: rs(14),
+  },
+  dot: {
+    width: rs(16),
+    height: rs(16),
+    borderRadius: rs(8),
+    marginTop: rvs(8),
+  },
+  addressCopy: {
+    flex: 1,
+    gap: rvs(3),
+  },
+  addressLabel: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '800',
+  },
+  addressText: {
+    fontSize: rf(21),
+    color: palette.text,
+    flex: 1,
+    lineHeight: rf(29),
+    fontWeight: '800',
+  },
+  footer: {
+    paddingHorizontal: rs(28),
+    paddingBottom: rvs(34),
+    paddingTop: rvs(18),
+    backgroundColor: palette.background,
+  },
+  cancelButton: {
+    height: rvs(88),
+    borderRadius: rs(28),
+    backgroundColor: palette.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: rf(25),
+    fontWeight: '900',
     color: palette.danger,
   },
 });

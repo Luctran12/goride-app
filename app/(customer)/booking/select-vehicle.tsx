@@ -20,7 +20,7 @@ import {
   legacyIdFromVehicleType,
 } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
-import { estimateBooking } from '@/lib/ride-api';
+import { createBooking, estimateBooking } from '@/lib/ride-api';
 import type { BookingDraft, BookingEstimate, LocationPoint, PaymentMethod, VehicleType } from '@/types/ride';
 
 const palette = {
@@ -148,6 +148,8 @@ export default function SelectVehicleScreen() {
   const [estimate, setEstimate] = useState<BookingEstimate | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
   const [retrySeed, setRetrySeed] = useState(0);
 
   const draft = useMemo<BookingDraft | null>(() => {
@@ -217,36 +219,61 @@ export default function SelectVehicleScreen() {
     paymentOptions.find((option) => option.method === selectedPayment) ?? paymentOptions[0];
   const selectedPromotion =
     promotionOptions.find((option) => option.code === selectedPromotionCode) ?? promotionOptions[0];
-  const canContinue = Boolean(draft && estimate && !estimateLoading && !estimateError);
+  const canContinue = Boolean(draft && estimate && !estimateLoading && !estimateError && !bookingLoading);
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!draft || !estimate) {
       Alert.alert('Chưa có giá ước tính', 'Vui lòng chờ GoRide tính giá hoặc thử lại trước khi đặt xe.');
       return;
     }
 
-    router.push({
-      pathname: '/(customer)/booking/waiting-driver',
-      params: {
-        pickup: JSON.stringify(draft.pickup),
-        dropoff: JSON.stringify(draft.dropoff),
-        pickupLat: String(draft.pickup.lat),
-        pickupLng: String(draft.pickup.lng),
-        pickupLabel: draft.pickup.label ?? draft.pickup.address,
-        destLat: String(draft.dropoff.lat),
-        destLng: String(draft.dropoff.lng),
-        destLabel: draft.dropoff.label ?? draft.dropoff.address,
-        vehicleType: legacyIdFromVehicleType(selectedVehicle),
-        vehicleTypeEnum: selectedVehicle,
-        distance: estimate.estimatedDistance.toFixed(1),
-        estimatedDuration: String(estimate.estimatedDuration),
-        estimatedFare: String(estimate.estimatedFare),
-        pricingConfigId: String(estimate.pricingConfigId),
-        paymentMethod: selectedPayment,
-        paymentLabel: selectedPaymentOption.label,
-        promoCode: selectedPromotionCode ?? '',
-      },
-    });
+    if (bookingLoading) {
+      return;
+    }
+
+    const activeDraft = draft;
+    const activeEstimate = estimate;
+
+    setBookingLoading(true);
+    setBookingError(null);
+
+    try {
+      const booking = await createBooking(activeDraft, activeEstimate);
+      const estimatedFare = booking.estimatedFare ?? activeEstimate.estimatedFare;
+      const estimatedDistance = booking.estimatedDistance ?? activeEstimate.estimatedDistance;
+
+      router.push({
+        pathname: '/(customer)/booking/waiting-driver',
+        params: {
+          tripId: String(booking.tripId),
+          tripStatus: booking.status,
+          pickup: JSON.stringify(activeDraft.pickup),
+          dropoff: JSON.stringify(activeDraft.dropoff),
+          pickupLat: String(activeDraft.pickup.lat),
+          pickupLng: String(activeDraft.pickup.lng),
+          pickupLabel: activeDraft.pickup.label ?? activeDraft.pickup.address,
+          destLat: String(activeDraft.dropoff.lat),
+          destLng: String(activeDraft.dropoff.lng),
+          destLabel: activeDraft.dropoff.label ?? activeDraft.dropoff.address,
+          vehicleType: legacyIdFromVehicleType(selectedVehicle),
+          vehicleTypeEnum: selectedVehicle,
+          distance: estimatedDistance.toFixed(1),
+          estimatedDistance: String(estimatedDistance),
+          estimatedDuration: String(activeEstimate.estimatedDuration),
+          estimatedFare: String(estimatedFare),
+          pricingConfigId: String(activeEstimate.pricingConfigId),
+          paymentMethod: selectedPayment,
+          paymentLabel: selectedPaymentOption.label,
+          promoCode: selectedPromotionCode ?? '',
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tạo booking';
+      setBookingError(message);
+      Alert.alert('Không thể đặt xe', `${message}. Vui lòng thử lại, lộ trình của bạn vẫn được giữ nguyên.`);
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   return (
@@ -277,6 +304,13 @@ export default function SelectVehicleScreen() {
           paymentLabel={selectedPaymentOption.label}
           onRetry={() => setRetrySeed((value) => value + 1)}
         />
+
+        {bookingError && (
+          <View style={styles.bookingErrorCard}>
+            <Ionicons name="warning-outline" size={rs(26)} color={palette.danger} />
+            <Text style={styles.bookingErrorText}>{bookingError}</Text>
+          </View>
+        )}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dịch vụ đề xuất</Text>
@@ -359,8 +393,14 @@ export default function SelectVehicleScreen() {
           style={[styles.confirmButton, !canContinue && styles.confirmButtonDisabled]}
           onPress={handleConfirmBooking}
         >
-          <Text style={styles.confirmButtonText}>Đặt {selectedOption.title}</Text>
-          <Feather name="arrow-right" size={rs(32)} color="#fff" style={styles.confirmButtonIcon} />
+          {bookingLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.confirmButtonText}>Đặt {selectedOption.title}</Text>
+              <Feather name="arrow-right" size={rs(32)} color="#fff" style={styles.confirmButtonIcon} />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -700,6 +740,23 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: rf(16),
     fontWeight: '700',
+  },
+  bookingErrorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    padding: rs(16),
+    borderRadius: rs(22),
+    backgroundColor: '#fff0f0',
+    borderWidth: 1,
+    borderColor: '#ffd0d0',
+  },
+  bookingErrorText: {
+    flex: 1,
+    color: palette.danger,
+    fontSize: rf(17),
+    fontWeight: '800',
+    lineHeight: rf(24),
   },
   footer: {
     paddingHorizontal: rs(28),
