@@ -48,7 +48,37 @@ const shadow = {
 export default function SelectVehicleScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const route = useMemo(() => resolveRouteFromParams(params as SearchParams), [params]);
+  const pickupParam = readParam(params.pickup);
+  const dropoffParam = readParam(params.dropoff);
+  const pickupLatParam = readParam(params.pickupLat);
+  const pickupLngParam = readParam(params.pickupLng);
+  const pickupLabelParam = readParam(params.pickupLabel);
+  const destLatParam = readParam(params.destLat);
+  const destLngParam = readParam(params.destLng);
+  const destLabelParam = readParam(params.destLabel);
+  const route = useMemo(
+    () =>
+      resolveRouteFromParams({
+        pickup: pickupParam,
+        dropoff: dropoffParam,
+        pickupLat: pickupLatParam,
+        pickupLng: pickupLngParam,
+        pickupLabel: pickupLabelParam,
+        destLat: destLatParam,
+        destLng: destLngParam,
+        destLabel: destLabelParam,
+      }),
+    [
+      destLabelParam,
+      destLatParam,
+      destLngParam,
+      dropoffParam,
+      pickupLabelParam,
+      pickupLatParam,
+      pickupLngParam,
+      pickupParam,
+    ],
+  );
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('MOTORBIKE');
   const [estimate, setEstimate] = useState<BookingEstimate | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
