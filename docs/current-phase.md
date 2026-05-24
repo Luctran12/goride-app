@@ -6,21 +6,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 - Feature: Passenger pickup/destination screens
 - Phase: Phase 3 - Passenger pickup/destination
-- Branch: codex/passenger-pickup-destination
-- Current commit scope: Review fix - align Expo native dependency versions for map runtime
-- Status: User reviewed and approved; merging to main
+- Branch: codex/passenger-destination-map
+- Current commit scope: Commit 2 - refactor destination screen to `MapPicker` and `AddressSearch`
+- Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `71f4688` - Align Expo native dependency versions
-- Implementation log entry: `2026-05-24 - Phase 3 Passenger Pickup/Destination - Review Fix 1`
-- Review status: User reviewed and approved; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Main merge: `23cec00` - Merge passenger pickup map flow
+- Main push: `origin/main` is up to date with the pickup map flow and Expo-native dependency alignment.
+- Review status: User reviewed and approved the pickup map flow before this branch.
 
 ## Next Checkpoint
 
-- Commit this review checkpoint, merge `codex/passenger-pickup-destination` into `main`, then push `main` to GitHub.
-- After merge/push, next Phase 3 commit can refactor `app/(customer)/booking/destination.tsx` with `MapPicker`, `AddressSearch`, pickup JSON decoding, and route preview line.
-- Do not start the destination refactor until the merge/push checkpoint is complete.
+- Commit 2: refactor `app/(customer)/booking/destination.tsx` with `MapPicker`, `AddressSearch`, pickup JSON decoding, destination reverse geocode, and route preview line.
+- Keep legacy params (`pickupLat`, `pickupLng`, `pickupLabel`, `destLat`, `destLng`, `destLabel`) during migration so `select-vehicle.tsx` remains compatible until Phase 4.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
