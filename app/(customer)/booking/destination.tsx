@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddressSearch, MapPicker } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
@@ -40,32 +39,9 @@ const shadow = {
   elevation: 7,
 };
 
-const suggestedDestinations: (LocationPoint & { icon: keyof typeof Ionicons.glyphMap })[] = [
-  {
-    lat: 10.7948,
-    lng: 106.7218,
-    label: 'Landmark 81',
-    address: '720A Điện Biên Phủ, Bình Thạnh',
-    icon: 'business-outline',
-  },
-  {
-    lat: 10.7715,
-    lng: 106.7043,
-    label: 'Bitexco Financial Tower',
-    address: '2 Hải Triều, Quận 1',
-    icon: 'business-outline',
-  },
-  {
-    lat: 10.7721,
-    lng: 106.6983,
-    label: 'Chợ Bến Thành',
-    address: 'Lê Lợi, Quận 1',
-    icon: 'storefront-outline',
-  },
-];
-
 export default function DestinationScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { pickup, usedFallbackPickup } = useMemo(() => resolvePickupFromParams(params), [params]);
   const [dropoff, setDropoff] = useState<LocationPoint | null>(null);
@@ -97,11 +73,6 @@ export default function DestinationScreen() {
     }
   };
 
-  const handleSuggestedDestination = (point: LocationPoint) => {
-    setDropoff(point);
-    setQuery(point.label ?? point.address);
-  };
-
   const handleConfirm = () => {
     if (!dropoff) {
       return;
@@ -127,7 +98,7 @@ export default function DestinationScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
 
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: rvs(320) + insets.bottom }]}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}
@@ -197,88 +168,54 @@ export default function DestinationScreen() {
           />
         </View>
 
-        <View style={styles.section} onTouchStart={() => setScrollEnabled(true)}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Điểm đến gợi ý</Text>
-            {resolvingAddress && (
-              <View style={styles.resolvingBadge}>
-                <ActivityIndicator size="small" color={palette.primary} />
-                <Text style={styles.resolvingText}>Đang nhận diện địa chỉ</Text>
-              </View>
-            )}
-          </View>
-
-          {suggestedDestinations.map((point) => {
-            const active = dropoff ? isSamePoint(point, dropoff) : false;
-
-            return (
-              <Pressable
-                key={`${point.lat}-${point.lng}`}
-                accessibilityRole="button"
-                accessibilityLabel={`Chọn ${point.label ?? point.address}`}
-                onPress={() => handleSuggestedDestination(point)}
-                style={({ pressed }) => [
-                  styles.placeCard,
-                  active && styles.placeCardActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={[styles.placeIcon, active && styles.placeIconActive]}>
-                  <Ionicons name={point.icon} size={rs(30)} color={active ? '#fff' : palette.danger} />
-                </View>
-                <View style={styles.placeCopy}>
-                  <Text style={styles.placeLabel}>{point.label}</Text>
-                  <Text style={styles.placeDetail} numberOfLines={1} selectable>
-                    {point.address}
-                  </Text>
-                </View>
-                {active && <Ionicons name="checkmark-circle" size={rs(34)} color={palette.primary} />}
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryHandle} />
-          <View style={styles.summaryHeader}>
-            <View style={styles.pickupDot} />
-            <View style={styles.summaryLine} />
-            <View style={[styles.pickupDot, styles.dropoffDot]} />
-            <Text style={styles.summaryTitle}>Lộ trình đã chọn</Text>
-          </View>
-
-          <View style={styles.addressBlock}>
-            <Text style={styles.addressLabel}>Điểm đón</Text>
-            <Text style={styles.addressValue} numberOfLines={2} selectable>
-              {pickup.address}
-            </Text>
-          </View>
-
-          <View style={styles.addressBlock}>
-            <Text style={styles.addressLabel}>Điểm đến</Text>
-            <Text style={[styles.addressValue, !dropoff && styles.placeholderText]} numberOfLines={2} selectable>
-              {dropoff?.address ?? 'Chọn điểm đến bằng search hoặc chạm trên bản đồ'}
-            </Text>
-            {dropoff && (
-              <Text style={styles.summaryMeta} selectable>
-                {dropoff.lat.toFixed(6)}, {dropoff.lng.toFixed(6)}
-              </Text>
-            )}
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={!dropoff}
-            style={[styles.primaryButton, !dropoff && styles.primaryButtonDisabled]}
-            onPress={handleConfirm}
-          >
-            <Text style={styles.primaryButtonText}>Xác nhận điểm đến</Text>
-            <Feather name="check" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      <View style={[styles.summaryCard, styles.floatingSummaryCard, { bottom: insets.bottom + rvs(12) }]}>
+        <View style={styles.summaryHandle} />
+        <View style={styles.summaryHeader}>
+          <View style={styles.pickupDot} />
+          <View style={styles.summaryLine} />
+          <View style={[styles.pickupDot, styles.dropoffDot]} />
+          <Text style={styles.summaryTitle}>Lộ trình đã chọn</Text>
+        </View>
+
+        {resolvingAddress && (
+          <View style={styles.resolvingBadge}>
+            <ActivityIndicator size="small" color={palette.primary} />
+            <Text style={styles.resolvingText}>Đang nhận diện địa chỉ</Text>
+          </View>
+        )}
+
+        <View style={styles.addressBlock}>
+          <Text style={styles.addressLabel}>Điểm đón</Text>
+          <Text style={styles.addressValue} numberOfLines={1} selectable>
+            {pickup.address}
+          </Text>
+        </View>
+
+        <View style={styles.addressBlock}>
+          <Text style={styles.addressLabel}>Điểm đến</Text>
+          <Text style={[styles.addressValue, !dropoff && styles.placeholderText]} numberOfLines={2} selectable>
+            {dropoff?.address ?? 'Chọn điểm đến bằng search hoặc chạm trên bản đồ'}
+          </Text>
+          {dropoff && (
+            <Text style={styles.summaryMeta} selectable>
+              {dropoff.lat.toFixed(6)}, {dropoff.lng.toFixed(6)}
+            </Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.86}
+          disabled={!dropoff}
+          style={[styles.primaryButton, !dropoff && styles.primaryButtonDisabled]}
+          onPress={handleConfirm}
+        >
+          <Text style={styles.primaryButtonText}>Xác nhận điểm đến</Text>
+          <Feather name="check" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -374,9 +311,6 @@ function readParam(value: string | string[] | undefined) {
   return value;
 }
 
-function isSamePoint(a: LocationPoint, b: LocationPoint) {
-  return Math.abs(a.lat - b.lat) < 0.000001 && Math.abs(a.lng - b.lng) < 0.000001;
-}
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -477,23 +411,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#d6ecff',
     ...shadow,
   },
-  section: {
-    gap: rvs(14),
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rs(12),
-  },
-  sectionTitle: {
-    color: palette.text,
-    fontSize: rf(25),
-    fontWeight: '900',
-  },
   resolvingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: rs(8),
     paddingHorizontal: rs(12),
     height: rvs(38),
@@ -505,57 +426,18 @@ const styles = StyleSheet.create({
     fontSize: rf(15),
     fontWeight: '800',
   },
-  placeCard: {
-    minHeight: rvs(88),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(16),
-    paddingVertical: rvs(16),
-    paddingHorizontal: rs(18),
-    borderRadius: rs(28),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    ...shadow,
-  },
-  placeCardActive: {
-    borderColor: palette.primary,
-    backgroundColor: '#faf8ff',
-  },
-  pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.99 }],
-  },
-  placeIcon: {
-    width: rs(54),
-    height: rs(54),
-    borderRadius: rs(27),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff0f0',
-  },
-  placeIconActive: {
-    backgroundColor: palette.danger,
-  },
-  placeCopy: {
-    flex: 1,
-    gap: rvs(4),
-  },
-  placeLabel: {
-    color: palette.text,
-    fontSize: rf(21),
-    fontWeight: '900',
-  },
-  placeDetail: {
-    color: palette.muted,
-    fontSize: rf(17),
-  },
   summaryCard: {
     padding: rs(26),
     borderRadius: rs(38),
     backgroundColor: palette.card,
     gap: rvs(16),
     ...shadow,
+  },
+  floatingSummaryCard: {
+    position: 'absolute',
+    left: rs(20),
+    right: rs(20),
+    zIndex: 30,
   },
   summaryHandle: {
     alignSelf: 'center',

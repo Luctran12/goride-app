@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddressSearch, MapPicker } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
@@ -45,31 +44,9 @@ const shadow = {
   elevation: 7,
 };
 
-const suggestedPickups: (LocationPoint & { icon: keyof typeof Ionicons.glyphMap })[] = [
-  {
-    ...getDefaultLocationPoint(),
-    label: 'Trung tâm TP.HCM',
-    address: 'Khu vực trung tâm TP.HCM',
-    icon: 'navigate-outline',
-  },
-  {
-    lat: 10.7712,
-    lng: 106.6917,
-    label: 'Về nhà',
-    address: '42 Nguyễn Trãi, Quận 1',
-    icon: 'home-outline',
-  },
-  {
-    lat: 10.7765,
-    lng: 106.7009,
-    label: 'Văn phòng',
-    address: '18 Lê Lợi, Quận 3',
-    icon: 'business-outline',
-  },
-];
-
 export default function PickupScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const defaultPoint = useMemo(() => getDefaultLocationPoint(), []);
   const [pickup, setPickup] = useState<LocationPoint>(defaultPoint);
   const [query, setQuery] = useState('');
@@ -140,13 +117,6 @@ export default function PickupScreen() {
     }
   };
 
-  const handleSuggestedPickup = (point: LocationPoint) => {
-    setPickup(point);
-    setQuery(point.label ?? point.address);
-    setPermissionStatus('ready');
-    setLocationError(null);
-  };
-
   const handleContinue = () => {
     router.push({
       pathname: '/(customer)/booking/destination',
@@ -167,7 +137,7 @@ export default function PickupScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
 
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: rvs(260) + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         scrollEnabled={scrollEnabled}
         showsVerticalScrollIndicator={false}
@@ -201,7 +171,7 @@ export default function PickupScreen() {
           onChangeText={setQuery}
           onSelect={handleSearchSelect}
           searchBias={pickup}
-          helperText="Gợi ý gần vị trí đang chọn. Có thể chọn bằng search hoặc chạm trực tiếp trên bản đồ."
+          helperText="Bạn có thể chọn bằng search, chạm trên bản đồ hoặc kéo marker để đặt điểm đón."
           style={styles.search}
         />
 
@@ -237,74 +207,40 @@ export default function PickupScreen() {
           </View>
         )}
 
-        <View style={styles.section} onTouchStart={() => setScrollEnabled(true)}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Điểm đón gợi ý</Text>
-            {resolvingAddress && (
-              <View style={styles.resolvingBadge}>
-                <ActivityIndicator size="small" color={palette.primary} />
-                <Text style={styles.resolvingText}>Đang nhận diện địa chỉ</Text>
-              </View>
-            )}
-          </View>
-
-          {suggestedPickups.map((point) => {
-            const active = Math.abs(point.lat - pickup.lat) < 0.000001 && Math.abs(point.lng - pickup.lng) < 0.000001;
-
-            return (
-              <Pressable
-                key={`${point.lat}-${point.lng}`}
-                accessibilityRole="button"
-                accessibilityLabel={`Chọn ${point.label ?? point.address}`}
-                onPress={() => handleSuggestedPickup(point)}
-                style={({ pressed }) => [
-                  styles.placeCard,
-                  active && styles.placeCardActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={[styles.placeIcon, active && styles.placeIconActive]}>
-                  <Ionicons name={point.icon} size={rs(30)} color={active ? '#fff' : palette.primary} />
-                </View>
-                <View style={styles.placeCopy}>
-                  <Text style={styles.placeLabel}>{point.label}</Text>
-                  <Text style={styles.placeDetail} numberOfLines={1} selectable>
-                    {point.address}
-                  </Text>
-                </View>
-                {active && <Ionicons name="checkmark-circle" size={rs(34)} color={palette.primary} />}
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryHandle} />
-          <View style={styles.summaryHeader}>
-            <View style={styles.pickupDot} />
-            <Text style={styles.summaryTitle}>Chi tiết điểm đón</Text>
-          </View>
-
-          <Text style={styles.summaryValue} numberOfLines={2} selectable>
-            {pickup.address}
-          </Text>
-          <Text style={styles.summaryMeta} selectable>
-            {pickup.lat.toFixed(6)}, {pickup.lng.toFixed(6)}
-          </Text>
-
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={!canContinue}
-            style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
-            onPress={handleContinue}
-          >
-            <Text style={styles.primaryButtonText}>Tiếp tục chọn điểm đến</Text>
-            <Feather name="arrow-right" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      <View style={[styles.summaryCard, styles.floatingSummaryCard, { bottom: insets.bottom + rvs(12) }]}>
+        <View style={styles.summaryHandle} />
+        <View style={styles.summaryHeader}>
+          <View style={styles.pickupDot} />
+          <Text style={styles.summaryTitle}>Chi tiết điểm đón</Text>
+        </View>
+
+        {resolvingAddress && (
+          <View style={styles.resolvingBadge}>
+            <ActivityIndicator size="small" color={palette.primary} />
+            <Text style={styles.resolvingText}>Đang nhận diện địa chỉ</Text>
+          </View>
+        )}
+
+        <Text style={styles.summaryValue} numberOfLines={2} selectable>
+          {pickup.address}
+        </Text>
+        <Text style={styles.summaryMeta} selectable>
+          {pickup.lat.toFixed(6)}, {pickup.lng.toFixed(6)}
+        </Text>
+
+        <TouchableOpacity
+          activeOpacity={0.86}
+          disabled={!canContinue}
+          style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
+          onPress={handleContinue}
+        >
+          <Text style={styles.primaryButtonText}>Tiếp tục chọn điểm đến</Text>
+          <Feather name="arrow-right" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -472,23 +408,11 @@ const styles = StyleSheet.create({
     fontSize: rf(17),
     lineHeight: rf(24),
   },
-  section: {
-    gap: rvs(14),
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rs(12),
-  },
-  sectionTitle: {
-    color: palette.text,
-    fontSize: rf(25),
-    fontWeight: '900',
-  },
+
   resolvingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: rs(8),
     paddingHorizontal: rs(12),
     height: rvs(38),
@@ -500,57 +424,19 @@ const styles = StyleSheet.create({
     fontSize: rf(15),
     fontWeight: '800',
   },
-  placeCard: {
-    minHeight: rvs(88),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(16),
-    paddingVertical: rvs(16),
-    paddingHorizontal: rs(18),
-    borderRadius: rs(28),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    ...shadow,
-  },
-  placeCardActive: {
-    borderColor: palette.primary,
-    backgroundColor: '#faf8ff',
-  },
-  pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.99 }],
-  },
-  placeIcon: {
-    width: rs(54),
-    height: rs(54),
-    borderRadius: rs(27),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.primarySoft,
-  },
-  placeIconActive: {
-    backgroundColor: palette.primary,
-  },
-  placeCopy: {
-    flex: 1,
-    gap: rvs(4),
-  },
-  placeLabel: {
-    color: palette.text,
-    fontSize: rf(21),
-    fontWeight: '900',
-  },
-  placeDetail: {
-    color: palette.muted,
-    fontSize: rf(17),
-  },
+
   summaryCard: {
     padding: rs(26),
     borderRadius: rs(38),
     backgroundColor: palette.card,
     gap: rvs(16),
     ...shadow,
+  },
+  floatingSummaryCard: {
+    position: 'absolute',
+    left: rs(20),
+    right: rs(20),
+    zIndex: 30,
   },
   summaryHandle: {
     alignSelf: 'center',
