@@ -7,20 +7,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger pickup/destination screens
 - Phase: Phase 4 - Estimate and booking
 - Branch: codex/passenger-estimate-booking
-- Current commit scope: Review change - payment method and promotion selectors on `select-vehicle`
-- Status: In progress
+- Current commit scope: Next commit - create booking and pass trip data to waiting driver
+- Status: Ready for next commit after user approval
 
 ## Last Completed Checkpoint
 
-- Commit: `8a0a3d8` - Fix map picker interaction behavior
-- Implementation log entry: `2026-05-24 - Phase 4 Estimate and Booking - Review Fix 2`
-- Review status: User requested additional `select-vehicle` UI for payment methods and promotions; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Commit: `2a332fc` - Make pickup and destination CTAs sticky
+- Implementation log entry: `2026-05-24 - Phase 4 Estimate and Booking - Review Change 4`
+- Review status: User approved runtime review on 2026-05-24; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Add `CASH`, `MOMO`, and `VNPAY` payment selection UI with `CASH` as default.
-- Add promotion selector UI and pass selected payment/promo params forward.
-- Record TDD/plan deviation because original MVP plan scoped online payment methods out.
+- Commit 2 can wire `createBooking()` and pass `tripId`/estimate data into `waiting-driver`.
+- Keep payment/promo params compatible with the upcoming booking request and waiting screen handoff.
+- Preserve the approved sticky pickup/destination CTA behavior while editing booking flow.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main

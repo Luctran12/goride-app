@@ -412,3 +412,176 @@
   - Destination search quality depends on Google Maps API key; without it, the existing `expo-location` geocode fallback is used.
   - No device/emulator runtime test was run in this environment after this commit.
   - CodeRabbit review remains blocked until CodeRabbit CLI is installed in a shell with `sh`/WSL or a supported Windows installer path is available.
+
+## 2026-05-24 - Phase 4 Estimate and Booking - Commit 1
+
+- Branch: `codex/passenger-estimate-booking`
+- Commit: `d1bbb97`
+- Scope: Refactored vehicle selection screen to consume the new route params and request booking estimates for the selected vehicle.
+- Files changed:
+  - `app/(customer)/booking/select-vehicle.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Replaced the old inline route summary and static vehicle list with shared `RoutePreview` and `VehicleOptionCard` components.
+  - Parses `pickup` and `dropoff` JSON route params from the new map flow, with fallback support for legacy `pickupLat`, `pickupLng`, `pickupLabel`, `destLat`, `destLng`, and `destLabel` params.
+  - Builds a `BookingDraft` using backend vehicle enums (`MOTORBIKE`, `CAR_4_SEAT`, `CAR_7_SEAT`) and `paymentMethod: CASH`.
+  - Calls `estimateBooking(draft)` whenever route or selected vehicle changes, using the existing backend/mock API adapter.
+  - Shows estimate loading, error, retry, distance, duration, fare, and cash payment summary through `RoutePreview`.
+  - Vehicle cards show backend-compatible selected vehicle state and selected fare once estimate resolves.
+  - Continue action keeps the current waiting-driver navigation compatible by passing legacy `vehicleType`, `distance`, labels, and new estimate metadata (`vehicleTypeEnum`, `estimatedFare`, `estimatedDuration`, `pricingConfigId`).
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 5 existing warnings in old `waiting-driver.tsx`.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors outside this commit scope.
+  - Initial full `tsc` surfaced one new `select-vehicle.tsx` nullability issue around `BookingDraft`; fixed it by narrowing to `activeDraft` before the async estimate call.
+  - Ran filtered `tsc` output search for `select-vehicle` after the fix.
+  - Result: no matching TypeScript errors for the changed select vehicle screen.
+  - Ran `git diff --check` before commit.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - This commit does not call `createBooking()` yet; pressing the booking button still navigates to `waiting-driver` with estimate params for compatibility.
+  - `waiting-driver.tsx` still displays some static/mock values until Phase 5 or the next booking commit updates it.
+  - If backend estimate API shape differs from `docs/TDD.md`, the existing mock/backend adapter may need adjustment.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in a shell with `sh`/WSL or a supported Windows installer path is available.
+
+## 2026-05-24 - Phase 4 Estimate and Booking - Review Fix 1
+
+- Branch: `codex/passenger-estimate-booking`
+- Commit: `7b8c2cf`
+- Scope: Fixed runtime update loop in `select-vehicle` estimate loading effect.
+- Files changed:
+  - `app/(customer)/booking/select-vehicle.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Stabilized route param parsing by reading individual primitive params (`pickup`, `dropoff`, legacy coordinate/label params) before `useMemo()`.
+  - Removed `useLocalSearchParams()` object identity from the route parsing dependency list.
+  - Keeps `route` and `BookingDraft` stable across renders unless the actual route param values or selected vehicle changes.
+  - Prevents `loadEstimate()` from re-running after its own `setEstimateLoading`, `setEstimate`, or `setEstimateError` state updates.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 5 existing warnings in old `waiting-driver.tsx`.
+  - Ran filtered `tsc` output search for `select-vehicle`.
+  - Result: no matching TypeScript errors for the changed select vehicle screen.
+  - Ran `git diff --check` before commit.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - Needs user runtime re-check in Expo Go to confirm the Metro warning is gone.
+  - `createBooking()` is still intentionally deferred to the next small commit.
+  - `waiting-driver.tsx` still uses mock/static UI until a later phase.
+
+## 2026-05-24 - Phase 4 Estimate and Booking - Review Fix 2
+
+- Branch: `codex/passenger-estimate-booking`
+- Commit: `8a0a3d8`
+- Scope: Fixed `MapPicker` interaction behavior reported during runtime review.
+- Files changed:
+  - `components/booking/map-picker.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Stabilized `MapPicker` camera effects by deriving route/visible coordinates from primitive lat/lng values instead of object identity.
+  - Deduplicated visible coordinates so pickup screens do not fit to duplicate `value`/`origin` points.
+  - Prevented destination map camera from snapping back to pickup/dropoff when the parent screen re-renders due scroll interaction state.
+  - Added a stable coordinate key and centered anchor for selected markers so tap/drag selections display the chosen point more reliably.
+  - Removed `tracksViewChanges={false}` from the selectable location marker to avoid stale custom marker rendering after coordinate changes.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 5 existing warnings in old `waiting-driver.tsx`.
+  - Ran filtered `tsc` output search for `map-picker`, `pickup`, and `destination`.
+  - Result: no matching TypeScript errors for the changed map/pickup/destination scope.
+  - Ran `git diff --check` before commit.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - Needs user runtime re-check in Expo Go because map gesture behavior cannot be verified from this terminal-only environment.
+  - Camera auto-fit now only reacts to actual coordinate changes; if future callers need imperative recenter without coordinate change, `MapPicker` may need an explicit recenter trigger prop.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in a shell with `sh`/WSL or a supported Windows installer path is available.
+
+## 2026-05-24 - Phase 4 Estimate and Booking - Review Change 3
+
+- Branch: `codex/passenger-estimate-booking`
+- Commit: `984fe35`
+- Scope: Added payment method selector and promotion selector to the vehicle selection screen.
+- Files changed:
+  - `app/(customer)/booking/select-vehicle.tsx`
+  - `types/ride.ts`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `PaymentMethod` support for `CASH`, `MOMO`, and `VNPAY` in shared ride types.
+  - Added selectable payment cards on `select-vehicle`, with `CASH` as the default option.
+  - Added a promotion selector with no-promo, `GORIDE10`, and `NEWUSER` options.
+  - Footer now summarizes the selected payment method and selected promo state.
+  - Route preview payment label follows the selected payment method.
+  - Continue action passes `paymentMethod`, `paymentLabel`, and `promoCode` params forward to `waiting-driver` while keeping existing route/estimate params.
+  - Recorded the implementation deviation in `docs/changes-in-implementation.md` because online payment methods were originally outside the MVP plan.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 5 existing warnings in old `waiting-driver.tsx`.
+  - Ran filtered `tsc` output search for `select-vehicle`, `PaymentMethod`, and `ride.ts`.
+  - Result: no matching TypeScript errors for the changed select vehicle/type scope.
+  - Ran `git diff --check` before commit.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - Payment and promo selection are UI/param plumbing only; MoMo/VNPay processing and promo discount calculation are not implemented yet.
+  - Fare estimate remains backend/mock estimate and is not discounted locally.
+  - `waiting-driver.tsx` does not yet render the selected payment/promo params.
+  - Backend `POST /bookings` may need API contract alignment before accepting `MOMO`, `VNPAY`, or promo code.
+
+## 2026-05-24 - Phase 4 Estimate and Booking - Review Change 4
+
+- Branch: `codex/passenger-estimate-booking`
+- Commit: `2a332fc`
+- Scope: Removed hardcoded suggested pickup/destination cards and made the confirmation CTAs sticky/floating on the map selection screens.
+- Files changed:
+  - `app/(customer)/booking/pickup.tsx`
+  - `app/(customer)/booking/destination.tsx`
+- Behavior implemented:
+  - Removed the hardcoded `suggestedPickups` list and its card section from the pickup screen.
+  - Removed the hardcoded `suggestedDestinations` list and its card section from the destination screen.
+  - Moved the pickup summary and "Tiếp tục chọn điểm đến" action into an absolute floating card anchored inside the visible screen with safe-area-aware bottom spacing.
+  - Moved the route summary and "Xác nhận điểm đến" action into an absolute floating card anchored inside the visible screen with safe-area-aware bottom spacing.
+  - Added extra ScrollView bottom padding so content/map status can still scroll behind the floating card without hiding actionable content.
+  - Kept the reverse-geocode loading badge visible inside the floating card after map tap/drag.
+  - Updated pickup helper text to avoid pointing users toward removed hardcoded suggestion cards.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 5 existing warnings in old `waiting-driver.tsx`.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit 2>&1 | findstr /i "pickup destination"`.
+  - Result: no matching TypeScript errors for the changed pickup/destination screens.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files/docs only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime review on 2026-05-24: approved sticky pickup/destination CTA behavior.
+- Known risks:
+  - Floating cards reduce visible map area near the bottom; user runtime review should confirm the card height feels right on the target phone size.
+  - Keyboard behavior for destination search was not manually tested in this terminal-only environment.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in a shell with `sh`/WSL or a supported Windows installer path is available.
