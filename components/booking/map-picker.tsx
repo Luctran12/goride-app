@@ -90,29 +90,44 @@ export function MapPicker({
   const mapProvider = provider === 'google' ? PROVIDER_GOOGLE : undefined;
   const activeStatus = loading ? 'locating' : status;
   const hasBlockingOverlay = activeStatus === 'locating' || Boolean(error);
+  const valueLat = value?.lat;
+  const valueLng = value?.lng;
+  const originLat = origin?.lat;
+  const originLng = origin?.lng;
+  const destinationLat = destination?.lat;
+  const destinationLng = destination?.lng;
+  const driverLat = driverLocation?.lat;
+  const driverLng = driverLocation?.lng;
+  const selectedRegion = useMemo(
+    () => createRegion({ lat: selectedPoint.lat, lng: selectedPoint.lng }),
+    [selectedPoint.lat, selectedPoint.lng],
+  );
 
   const routeCoordinates = useMemo(
-    () => compactLatLng([origin, destination]),
-    [origin, destination],
+    () => compactRawLatLng([[originLat, originLng], [destinationLat, destinationLng]]),
+    [destinationLat, destinationLng, originLat, originLng],
   );
   const showOriginMarker = Boolean(origin && (!hasSelectionMarker || !isSameCoordinate(origin, selectedPoint)));
   const showDestinationMarker = Boolean(destination && (!hasSelectionMarker || !isSameCoordinate(destination, selectedPoint)));
 
   const visibleCoordinates = useMemo(
-    () => compactLatLng([value, origin, destination, driverLocation]),
-    [destination, driverLocation, origin, value],
+    () =>
+      compactRawLatLng([
+        [valueLat, valueLng],
+        [originLat, originLng],
+        [destinationLat, destinationLng],
+        [driverLat, driverLng],
+      ]),
+    [destinationLat, destinationLng, driverLat, driverLng, originLat, originLng, valueLat, valueLng],
   );
-
-  const visibleCoordinatesKey = visibleCoordinates
-    .map((coordinate) => `${coordinate.latitude.toFixed(6)},${coordinate.longitude.toFixed(6)}`)
-    .join('|');
+  const visibleCoordinateCount = visibleCoordinates.length;
 
   useEffect(() => {
     if (!mapRef.current) {
       return;
     }
 
-    if (visibleCoordinates.length > 1) {
+    if (visibleCoordinateCount > 1) {
       mapRef.current.fitToCoordinates(visibleCoordinates, {
         edgePadding: {
           top: rs(90),
@@ -125,8 +140,8 @@ export function MapPicker({
       return;
     }
 
-    mapRef.current.animateToRegion(createRegion(selectedPoint), 450);
-  }, [selectedPoint, visibleCoordinates, visibleCoordinatesKey]);
+    mapRef.current.animateToRegion(selectedRegion, 450);
+  }, [selectedRegion, visibleCoordinateCount, visibleCoordinates]);
 
   const handleCoordinateSelect = (coordinate: LatLng) => {
     if (!selectable || !onLocationChange) {
@@ -261,13 +276,14 @@ function LocationMarker({
 
   return (
     <Marker
+      key={`${title}-${point.lat.toFixed(6)}-${point.lng.toFixed(6)}`}
       coordinate={toLatLng(point)}
+      anchor={{ x: 0.5, y: 0.5 }}
       draggable={draggable}
       title={title}
       description={point.address}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      tracksViewChanges={false}
     >
       <View style={[styles.pin, { borderColor: color }]}>
         <View style={[styles.pinDot, { backgroundColor: color }]} />
@@ -381,8 +397,29 @@ function getModeLabel(mode: MapPickerMode) {
   return mode === 'pickup' ? 'Chọn điểm đón' : 'Chọn điểm đến';
 }
 
-function compactLatLng(points: (Coordinates | null | undefined)[]) {
-  return points.filter(Boolean).map((point) => toLatLng(point as Coordinates));
+function compactRawLatLng(points: [number | null | undefined, number | null | undefined][]) {
+  const seen = new Set<string>();
+  const coordinates: LatLng[] = [];
+
+  for (const [lat, lng] of points) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      continue;
+    }
+
+    const key = `${lat?.toFixed(6)},${lng?.toFixed(6)}`;
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    coordinates.push({
+      latitude: lat as number,
+      longitude: lng as number,
+    });
+  }
+
+  return coordinates;
 }
 
 function toLatLng(point: Coordinates): LatLng {
