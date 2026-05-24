@@ -585,3 +585,41 @@
   - Floating cards reduce visible map area near the bottom; user runtime review should confirm the card height feels right on the target phone size.
   - Keyboard behavior for destination search was not manually tested in this terminal-only environment.
   - CodeRabbit review remains blocked until CodeRabbit CLI is installed in a shell with `sh`/WSL or a supported Windows installer path is available.
+
+## 2026-05-24 - Phase 4 Estimate and Booking - Commit 2
+
+- Branch: `codex/passenger-estimate-booking`
+- Commit: `63483e0`
+- Scope: Wired booking creation from `select-vehicle` and refreshed `waiting-driver` to consume booking handoff data.
+- Files changed:
+  - `app/(customer)/booking/select-vehicle.tsx`
+  - `app/(customer)/booking/waiting-driver.tsx`
+- Behavior implemented:
+  - `select-vehicle` now calls `createBooking(draft, estimate)` before navigating to `waiting-driver`.
+  - Added booking loading state to disable duplicate booking submissions and show an inline loading spinner in the confirm button.
+  - Added booking error state and alert copy so failed booking attempts keep the selected route/payment/promo on screen for retry.
+  - Passes `tripId`, `tripStatus`, route JSON, legacy route labels, vehicle enum/legacy type, estimate values, pricing config, payment method/label, and promo code to `waiting-driver`.
+  - Reworked `waiting-driver` to parse the handoff params and display trip ID, status, selected vehicle, estimated fare, distance, duration, payment method, promo code, pickup address, and dropoff address.
+  - Removed the old hardcoded 5-second mock success alert that sent users back to passenger home before realtime is implemented.
+  - Cleaned old unused imports and fixed the pulse animation effect cleanup/dependencies in `waiting-driver`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit 2>&1 | findstr /i "select-vehicle waiting-driver ride-api mock-ride-api ride.ts"`.
+  - Result: no matching TypeScript errors for the changed booking/waiting-driver scope.
+  - Ran full `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime review on 2026-05-24: approved create booking handoff and waiting-driver display.
+- Known risks:
+  - `waiting-driver` still does not subscribe to realtime trip status/location; that remains Phase 5.
+  - Promo code is still UI/param handoff only and is not sent to `POST /bookings` because current TDD booking contract does not include a promo field.
+  - If backend rejects `MOMO` or `VNPAY` before payment provider work lands, the booking error state will show the API error and keep the user on `select-vehicle`.
+  - Device/runtime review is still needed to confirm navigation params display correctly in Expo.

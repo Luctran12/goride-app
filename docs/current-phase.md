@@ -7,20 +7,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger pickup/destination screens
 - Phase: Phase 4 - Estimate and booking
 - Branch: codex/passenger-estimate-booking
-- Current commit scope: Next commit - create booking and pass trip data to waiting driver
+- Current commit scope: Next commit - Phase 5 passenger realtime tracking
 - Status: Ready for next commit after user approval
 
 ## Last Completed Checkpoint
 
-- Commit: `2a332fc` - Make pickup and destination CTAs sticky
-- Implementation log entry: `2026-05-24 - Phase 4 Estimate and Booking - Review Change 4`
+- Commit: `63483e0` - Create booking before waiting driver
+- Implementation log entry: `2026-05-24 - Phase 4 Estimate and Booking - Commit 2`
 - Review status: User approved runtime review on 2026-05-24; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Commit 2 can wire `createBooking()` and pass `tripId`/estimate data into `waiting-driver`.
-- Keep payment/promo params compatible with the upcoming booking request and waiting screen handoff.
-- Preserve the approved sticky pickup/destination CTA behavior while editing booking flow.
+- Begin Phase 5 passenger realtime tracking by wiring `waiting-driver` to trip status/location subscriptions or mock realtime fallback.
+- Preserve approved `createBooking()` handoff behavior and the displayed `tripId`/estimate/payment/promo summary.
+- If runtime feedback appears before Phase 5, handle it as a small review-fix commit on the same branch.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
