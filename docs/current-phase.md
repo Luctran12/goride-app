@@ -5,22 +5,21 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 ## Active Work
 
 - Feature: Passenger pickup/destination screens
-- Phase: Phase 3 - Passenger pickup/destination
-- Branch: codex/passenger-destination-map
-- Current commit scope: Commit 2 - refactor destination screen to `MapPicker` and `AddressSearch`
-- Status: User reviewed and approved; ready to merge to main
+- Phase: Phase 4 - Estimate and booking
+- Branch: codex/passenger-estimate-booking
+- Current commit scope: Commit 1 - refactor `select-vehicle` to parse JSON route params and call `estimateBooking`
+- Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `5a26736` - Refactor passenger destination screen
-- Implementation log entry: `2026-05-24 - Phase 3 Passenger Pickup/Destination - Commit 2`
-- Review status: User reviewed and approved; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Local main merge: `92f5cd2` - Merge passenger destination map flow
+- Review status: User reviewed and approved the Phase 3 destination map flow before this branch.
+- `main` is ahead of `origin/main` locally with the reviewed destination merge; push was not requested at this checkpoint.
 
 ## Next Checkpoint
 
-- Commit this review checkpoint, then merge `codex/passenger-destination-map` into `main` locally.
-- Next phase candidate after merge: Phase 4 - estimate and booking flow in `select-vehicle.tsx`.
-- Start Phase 4 from `main` on a new branch after the merge checkpoint is complete.
+- Commit 1: refactor `app/(customer)/booking/select-vehicle.tsx` to consume `pickup`/`dropoff`, use `RoutePreview` + `VehicleOptionCard`, and call `estimateBooking()` for selected vehicle.
+- Keep actual `createBooking()` for a later small commit unless the estimate refactor remains very small.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main

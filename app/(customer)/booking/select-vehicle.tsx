@@ -1,18 +1,27 @@
-import React, { useMemo, useState } from 'react';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Pressable,
-  SafeAreaView,
+  Alert,
+  ActivityIndicator,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
-  View,
-  Image,
-  StatusBar,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { MaterialCommunityIcons, Feather, Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import {
+  DEFAULT_VEHICLE_OPTIONS,
+  RoutePreview,
+  VehicleOptionCard,
+  legacyIdFromVehicleType,
+} from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
+import { estimateBooking } from '@/lib/ride-api';
+import type { BookingDraft, BookingEstimate, LocationPoint, VehicleType } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -36,73 +45,104 @@ const shadow = {
   elevation: 7,
 };
 
-const vehicleTypes = [
-  {
-    id: 'bike',
-    name: 'GoRide Bike',
-    icon: 'motorbike',
-    price: '15,000đ',
-    estimate: '3 phút',
-    capacity: 1,
-    desc: 'Nhanh chóng & Tiết kiệm',
-  },
-  {
-    id: 'car',
-    name: 'GoRide Car',
-    icon: 'car',
-    price: '45,000đ',
-    estimate: '5 phút',
-    capacity: 4,
-    desc: 'Thoải mái & Tiện nghi',
-  },
-  {
-    id: 'car_premium',
-    name: 'GoRide Premium',
-    icon: 'car-back',
-    price: '65,000đ',
-    estimate: '5 phút',
-    capacity: 4,
-    desc: 'Sang trọng & Đẳng cấp',
-  },
-];
-
 export default function SelectVehicleScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicleTypes[0].id);
+  const route = useMemo(() => resolveRouteFromParams(params as SearchParams), [params]);
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('MOTORBIKE');
+  const [estimate, setEstimate] = useState<BookingEstimate | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [retrySeed, setRetrySeed] = useState(0);
 
-  const pickupCoords = {
-    lat: parseFloat(params.pickupLat as string),
-    lng: parseFloat(params.pickupLng as string),
-  };
-  const destCoords = {
-    lat: parseFloat(params.destLat as string),
-    lng: parseFloat(params.destLng as string),
-  };
+  const draft = useMemo<BookingDraft | null>(() => {
+    if (!route.pickup || !route.dropoff) {
+      return null;
+    }
 
-  const distance = useMemo(() => {
-    if (!pickupCoords.lat || !destCoords.lat) return 0;
-    
-    // Haversine formula to calculate distance
-    const R = 6371; // Radius of the earth in km
-    const dLat = (destCoords.lat - pickupCoords.lat) * (Math.PI / 180);
-    const dLon = (destCoords.lng - pickupCoords.lng) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(pickupCoords.lat * (Math.PI / 180)) * 
-      Math.cos(destCoords.lat * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }, [pickupCoords, destCoords]);
+    return {
+      pickup: route.pickup,
+      dropoff: route.dropoff,
+      vehicleType: selectedVehicle,
+      paymentMethod: 'CASH',
+    };
+  }, [route.dropoff, route.pickup, selectedVehicle]);
+
+  useEffect(() => {
+    if (!draft) {
+      setEstimate(null);
+      setEstimateError('Thiếu điểm đón hoặc điểm đến. Vui lòng chọn lại lộ trình.');
+      return;
+    }
+
+    const activeDraft = draft;
+    let cancelled = false;
+
+    async function loadEstimate() {
+      setEstimateLoading(true);
+      setEstimateError(null);
+
+      try {
+        const nextEstimate = await estimateBooking(activeDraft);
+
+        if (!cancelled) {
+          setEstimate(nextEstimate);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setEstimate(null);
+          setEstimateError(error instanceof Error ? error.message : 'Không thể tính giá ước tính');
+        }
+      } finally {
+        if (!cancelled) {
+          setEstimateLoading(false);
+        }
+      }
+    }
+
+    void loadEstimate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft, retrySeed]);
+
+  const vehicleOptions = useMemo(
+    () =>
+      DEFAULT_VEHICLE_OPTIONS.map((option) => ({
+        ...option,
+        estimatedFare: option.vehicleType === selectedVehicle ? estimate?.estimatedFare ?? null : null,
+        metaLabel: option.vehicleType === selectedVehicle ? 'Đang chọn' : option.metaLabel,
+      })),
+    [estimate?.estimatedFare, selectedVehicle],
+  );
+
+  const selectedOption = vehicleOptions.find((option) => option.vehicleType === selectedVehicle) ?? vehicleOptions[0];
+  const canContinue = Boolean(draft && estimate && !estimateLoading && !estimateError);
 
   const handleConfirmBooking = () => {
+    if (!draft || !estimate) {
+      Alert.alert('Chưa có giá ước tính', 'Vui lòng chờ GoRide tính giá hoặc thử lại trước khi đặt xe.');
+      return;
+    }
+
     router.push({
       pathname: '/(customer)/booking/waiting-driver',
       params: {
-        ...params,
-        vehicleType: selectedVehicle,
-        distance: distance.toFixed(1),
+        pickup: JSON.stringify(draft.pickup),
+        dropoff: JSON.stringify(draft.dropoff),
+        pickupLat: String(draft.pickup.lat),
+        pickupLng: String(draft.pickup.lng),
+        pickupLabel: draft.pickup.label ?? draft.pickup.address,
+        destLat: String(draft.dropoff.lat),
+        destLng: String(draft.dropoff.lng),
+        destLabel: draft.dropoff.label ?? draft.dropoff.address,
+        vehicleType: legacyIdFromVehicleType(selectedVehicle),
+        vehicleTypeEnum: selectedVehicle,
+        distance: estimate.estimatedDistance.toFixed(1),
+        estimatedDuration: String(estimate.estimatedDuration),
+        estimatedFare: String(estimate.estimatedFare),
+        pricingConfigId: String(estimate.pricingConfigId),
       },
     });
   };
@@ -110,107 +150,52 @@ export default function SelectVehicleScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
-      
+
       <View style={styles.header}>
-        <TouchableOpacity 
-          activeOpacity={0.7}
-          onPress={() => router.back()} 
-          style={styles.backButton}
-        >
+        <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={rs(40)} color={palette.primary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Chọn loại xe</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.eyebrow}>GoRide Passenger</Text>
+          <Text style={styles.title}>Chọn loại xe</Text>
+        </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.container}
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.routeCard}>
-          <View style={styles.routeHeader}>
-            <View style={styles.routeTitleRow}>
-              <MaterialCommunityIcons name="map-marker-distance" size={rs(32)} color={palette.primary} />
-              <Text style={styles.routeTitle}>Lộ trình dự kiến</Text>
-            </View>
-            <View style={styles.distanceBadge}>
-              <Text style={styles.distanceText}>{distance.toFixed(1)} km</Text>
-            </View>
-          </View>
+        <RoutePreview
+          pickup={route.pickup}
+          dropoff={route.dropoff}
+          estimate={estimate}
+          loading={estimateLoading}
+          error={estimateError}
+          paymentLabel="Tiền mặt"
+          onRetry={() => setRetrySeed((value) => value + 1)}
+        />
 
-          <View style={styles.addressList}>
-            <View style={styles.addressItem}>
-              <View style={styles.dotContainer}>
-                <View style={[styles.dot, { backgroundColor: palette.primary }]} />
-                <View style={styles.line} />
-              </View>
-              <View style={styles.addressInfo}>
-                <Text style={styles.addressLabel}>Điểm đón</Text>
-                <Text style={styles.addressText} numberOfLines={1}>
-                  {params.pickupLabel || 'Vị trí đã chọn'}
-                </Text>
-              </View>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Dịch vụ đề xuất</Text>
+          {estimateLoading && (
+            <View style={styles.loadingPill}>
+              <ActivityIndicator size="small" color={palette.primary} />
+              <Text style={styles.loadingText}>Đang tính giá</Text>
             </View>
-
-            <View style={styles.addressItem}>
-              <View style={styles.dotContainer}>
-                <View style={[styles.dot, { backgroundColor: palette.danger }]} />
-              </View>
-              <View style={styles.addressInfo}>
-                <Text style={styles.addressLabel}>Điểm đến</Text>
-                <Text style={styles.addressText} numberOfLines={1}>
-                  {params.destLabel || 'Vị trí đã chọn'}
-                </Text>
-              </View>
-            </View>
-          </View>
+          )}
         </View>
 
-        <Text style={styles.sectionTitle}>Dịch vụ đề xuất</Text>
-
         <View style={styles.vehicleList}>
-          {vehicleTypes.map((vehicle) => {
-            const active = vehicle.id === selectedVehicle;
-            return (
-              <TouchableOpacity
-                key={vehicle.id}
-                activeOpacity={0.8}
-                style={[styles.vehicleCard, active && styles.vehicleCardActive]}
-                onPress={() => setSelectedVehicle(vehicle.id)}
-              >
-                <View style={[styles.vehicleIconBox, active && styles.vehicleIconBoxActive]}>
-                  <MaterialCommunityIcons
-                    name={vehicle.icon as any}
-                    size={rs(48)}
-                    color={active ? '#fff' : palette.muted}
-                  />
-                </View>
-                
-                <View style={styles.vehicleContent}>
-                  <View style={styles.vehicleRow}>
-                    <Text style={styles.vehicleName}>{vehicle.name}</Text>
-                    <Text style={styles.vehiclePrice}>{vehicle.price}</Text>
-                  </View>
-                  <Text style={styles.vehicleDesc}>{vehicle.desc}</Text>
-                  <View style={styles.vehicleFooter}>
-                    <View style={styles.estimateBox}>
-                      <Ionicons name="time-outline" size={rs(24)} color={palette.muted} />
-                      <Text style={styles.vehicleMetaText}>{vehicle.estimate}</Text>
-                    </View>
-                    <View style={styles.capacityBox}>
-                      <Ionicons name="person-outline" size={rs(24)} color={palette.muted} />
-                      <Text style={styles.vehicleMetaText}>{vehicle.capacity}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {active && (
-                  <View style={styles.activeIndicator}>
-                    <Ionicons name="checkmark-circle" size={rs(36)} color={palette.primary} />
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
+          {vehicleOptions.map((option) => (
+            <VehicleOptionCard
+              key={option.vehicleType}
+              option={option}
+              selected={option.vehicleType === selectedVehicle}
+              loading={option.vehicleType === selectedVehicle && estimateLoading}
+              onPress={setSelectedVehicle}
+            />
+          ))}
         </View>
       </ScrollView>
 
@@ -225,24 +210,115 @@ export default function SelectVehicleScreen() {
               <Text style={styles.paymentMethod}>Tiền mặt</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.changePaymentButton}>
-            <Text style={styles.changePaymentText}>Thay đổi</Text>
-          </TouchableOpacity>
+          <View style={styles.fareSummary}>
+            <Text style={styles.fareLabel}>Tạm tính</Text>
+            <Text style={styles.fareValue}>{estimate ? formatFare(estimate.estimatedFare) : '-- đ'}</Text>
+          </View>
         </View>
-        
-        <TouchableOpacity 
-          activeOpacity={0.8}
-          style={styles.confirmButton} 
+
+        <TouchableOpacity
+          activeOpacity={0.86}
+          disabled={!canContinue}
+          style={[styles.confirmButton, !canContinue && styles.confirmButtonDisabled]}
           onPress={handleConfirmBooking}
         >
-          <Text style={styles.confirmButtonText}>
-            Đặt {vehicleTypes.find(v => v.id === selectedVehicle)?.name}
-          </Text>
-          <Feather name="arrow-right" size={rs(32)} color="#fff" style={{marginLeft: rs(12)}} />
+          <Text style={styles.confirmButtonText}>Đặt {selectedOption.title}</Text>
+          <Feather name="arrow-right" size={rs(32)} color="#fff" style={styles.confirmButtonIcon} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
+}
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+type RoutePoints = {
+  pickup: LocationPoint | null;
+  dropoff: LocationPoint | null;
+};
+
+function resolveRouteFromParams(params: SearchParams): RoutePoints {
+  return {
+    pickup: parseLocationPointParam(params.pickup) ?? parseLegacyLocation(params, 'pickup'),
+    dropoff: parseLocationPointParam(params.dropoff) ?? parseLegacyLocation(params, 'dest'),
+  };
+}
+
+function parseLocationPointParam(value: string | string[] | undefined): LocationPoint | null {
+  const rawValue = readParam(value);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const candidates = [rawValue];
+
+  try {
+    candidates.push(decodeURIComponent(rawValue));
+  } catch {
+    // Expo Router usually decodes params already; this protects direct links.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      return normalizeLocationPoint(JSON.parse(candidate));
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  return null;
+}
+
+function parseLegacyLocation(params: SearchParams, prefix: 'pickup' | 'dest'): LocationPoint | null {
+  const lat = Number(readParam(params[`${prefix}Lat`]));
+  const lng = Number(readParam(params[`${prefix}Lng`]));
+  const label = readParam(params[`${prefix}Label`]);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+    address: label || (prefix === 'pickup' ? 'Điểm đón đã chọn' : 'Điểm đến đã chọn'),
+    label: label || (prefix === 'pickup' ? 'Điểm đón' : 'Điểm đến'),
+  };
+}
+
+function normalizeLocationPoint(value: unknown): LocationPoint | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const candidate = value as Partial<LocationPoint>;
+  const lat = Number(candidate.lat);
+  const lng = Number(candidate.lng);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+    address: typeof candidate.address === 'string' && candidate.address ? candidate.address : `${lat}, ${lng}`,
+    label: typeof candidate.label === 'string' ? candidate.label : undefined,
+    placeId: typeof candidate.placeId === 'string' ? candidate.placeId : undefined,
+  };
+}
+
+function readParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
+}
+
+function formatFare(value: number) {
+  return `${Math.round(value).toLocaleString('vi-VN')}đ`;
 }
 
 const styles = StyleSheet.create({
@@ -250,249 +326,145 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
-  container: {
-    paddingHorizontal: rs(36),
-    paddingTop: rvs(20),
-    paddingBottom: rvs(40),
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: rs(36),
-    paddingTop: rvs(40),
-    paddingBottom: rvs(20),
+    gap: rs(18),
+    paddingHorizontal: rs(28),
+    paddingTop: rvs(28),
+    paddingBottom: rvs(18),
   },
   backButton: {
-    width: rs(80),
-    height: rs(80),
-    borderRadius: rs(40),
+    width: rs(70),
+    height: rs(70),
+    borderRadius: rs(35),
     backgroundColor: palette.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: rs(24),
     ...shadow,
+  },
+  headerCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  eyebrow: {
+    color: palette.primaryMid,
+    fontSize: rf(18),
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   title: {
-    fontSize: rf(38),
-    fontWeight: '800',
     color: palette.text,
+    fontSize: rf(36),
+    fontWeight: '900',
   },
-  routeCard: {
-    backgroundColor: palette.card,
-    borderRadius: rs(40),
-    padding: rs(32),
-    marginBottom: rvs(40),
-    ...shadow,
+  container: {
+    paddingHorizontal: rs(28),
+    paddingBottom: rvs(36),
+    gap: rvs(24),
   },
-  routeHeader: {
+  sectionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: rvs(32),
-    paddingBottom: rvs(24),
-    borderBottomWidth: 1,
-    borderBottomColor: palette.line,
-  },
-  routeTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: rs(12),
   },
-  routeTitle: {
-    fontSize: rf(30),
-    fontWeight: '800',
-    color: palette.text,
-  },
-  distanceBadge: {
-    backgroundColor: palette.primarySoft,
-    paddingHorizontal: rs(20),
-    paddingVertical: rvs(8),
-    borderRadius: rs(16),
-  },
-  distanceText: {
-    fontSize: rf(24),
-    fontWeight: '700',
-    color: palette.primary,
-  },
-  addressList: {
-    gap: rvs(8),
-  },
-  addressItem: {
-    flexDirection: 'row',
-  },
-  dotContainer: {
-    width: rs(40),
-    alignItems: 'center',
-    marginRight: rs(20),
-  },
-  dot: {
-    width: rs(16),
-    height: rs(16),
-    borderRadius: rs(8),
-    marginTop: rvs(8),
-  },
-  line: {
-    width: 2,
-    flex: 1,
-    backgroundColor: palette.line,
-    marginVertical: rvs(4),
-  },
-  addressInfo: {
-    flex: 1,
-    paddingBottom: rvs(16),
-  },
-  addressLabel: {
-    fontSize: rf(22),
-    color: palette.muted,
-    marginBottom: rvs(4),
-  },
-  addressText: {
-    fontSize: rf(26),
-    fontWeight: '700',
-    color: palette.text,
-  },
   sectionTitle: {
-    fontSize: rf(32),
-    fontWeight: '800',
+    flex: 1,
     color: palette.text,
-    marginBottom: rvs(24),
+    fontSize: rf(28),
+    fontWeight: '900',
+  },
+  loadingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    paddingHorizontal: rs(14),
+    height: rvs(40),
+    borderRadius: rs(20),
+    backgroundColor: palette.primarySoft,
+  },
+  loadingText: {
+    color: palette.primary,
+    fontSize: rf(16),
+    fontWeight: '800',
   },
   vehicleList: {
-    gap: rvs(20),
-  },
-  vehicleCard: {
-    flexDirection: 'row',
-    backgroundColor: palette.card,
-    borderRadius: rs(32),
-    padding: rs(24),
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-    ...shadow,
-  },
-  vehicleCardActive: {
-    borderColor: palette.primary,
-    backgroundColor: palette.primarySoft,
-  },
-  vehicleIconBox: {
-    width: rs(100),
-    height: rs(100),
-    borderRadius: rs(24),
-    backgroundColor: palette.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: rs(24),
-  },
-  vehicleIconBoxActive: {
-    backgroundColor: palette.primary,
-  },
-  vehicleContent: {
-    flex: 1,
-  },
-  vehicleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: rvs(4),
-  },
-  vehicleName: {
-    fontSize: rf(28),
-    fontWeight: '800',
-    color: palette.text,
-  },
-  vehiclePrice: {
-    fontSize: rf(28),
-    fontWeight: '800',
-    color: palette.primary,
-  },
-  vehicleDesc: {
-    fontSize: rf(22),
-    color: palette.muted,
-    marginBottom: rvs(8),
-  },
-  vehicleFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(24),
-  },
-  estimateBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(8),
-  },
-  capacityBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(8),
-  },
-  vehicleMetaText: {
-    fontSize: rf(22),
-    color: palette.muted,
-    fontWeight: '600',
-  },
-  activeIndicator: {
-    marginLeft: rs(12),
+    gap: rvs(16),
   },
   footer: {
+    paddingHorizontal: rs(28),
+    paddingTop: rvs(20),
+    paddingBottom: rvs(34),
+    borderTopLeftRadius: rs(34),
+    borderTopRightRadius: rs(34),
     backgroundColor: palette.card,
-    paddingHorizontal: rs(36),
-    paddingTop: rvs(24),
-    paddingBottom: rvs(48),
-    borderTopLeftRadius: rs(40),
-    borderTopRightRadius: rs(40),
     ...shadow,
   },
   paymentSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: rvs(24),
+    gap: rs(16),
+    marginBottom: rvs(18),
   },
   paymentInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(20),
+    gap: rs(16),
   },
   paymentIconBox: {
-    width: rs(80),
-    height: rs(80),
-    borderRadius: rs(20),
-    backgroundColor: palette.greenSoft,
+    width: rs(66),
+    height: rs(66),
+    borderRadius: rs(22),
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: palette.greenSoft,
   },
   paymentLabel: {
-    fontSize: rf(22),
     color: palette.muted,
+    fontSize: rf(18),
+    fontWeight: '700',
   },
   paymentMethod: {
-    fontSize: rf(26),
-    fontWeight: '700',
     color: palette.text,
+    fontSize: rf(22),
+    fontWeight: '900',
   },
-  changePaymentButton: {
-    paddingHorizontal: rs(24),
-    paddingVertical: rvs(12),
-    borderRadius: rs(16),
-    backgroundColor: palette.primarySoft,
+  fareSummary: {
+    alignItems: 'flex-end',
+    gap: rvs(3),
   },
-  changePaymentText: {
-    fontSize: rf(24),
+  fareLabel: {
+    color: palette.muted,
+    fontSize: rf(17),
     fontWeight: '700',
+  },
+  fareValue: {
     color: palette.primary,
+    fontSize: rf(26),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   confirmButton: {
-    height: rvs(110),
+    height: rvs(92),
+    borderRadius: rs(30),
     backgroundColor: palette.primary,
-    borderRadius: rs(32),
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     ...shadow,
   },
+  confirmButtonDisabled: {
+    opacity: 0.55,
+  },
   confirmButtonText: {
     color: '#fff',
-    fontSize: rf(30),
-    fontWeight: '800',
+    fontSize: rf(25),
+    fontWeight: '900',
+  },
+  confirmButtonIcon: {
+    marginLeft: rs(12),
   },
 });
