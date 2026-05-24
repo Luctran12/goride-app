@@ -369,3 +369,46 @@
   - User still needs to restart Expo with cache cleared so Metro loads the updated `react-native-maps` JS/native pairing.
   - If testing with a custom development build that was built before this dependency change, the native app must be rebuilt.
   - Dependency install reported 15 moderate `npm audit` vulnerabilities; they were not changed in this focused runtime fix.
+
+## 2026-05-24 - Phase 3 Passenger Pickup/Destination - Commit 2
+
+- Branch: `codex/passenger-destination-map`
+- Commit: `5a26736`
+- Scope: Refactored passenger destination screen from WebView/Leaflet to reusable native map/search components.
+- Files changed:
+  - `app/(customer)/booking/destination.tsx`
+  - `components/booking/map-picker.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Replaced the old Leaflet WebView destination map with `MapPicker` using `react-native-maps`.
+  - Added `AddressSearch` for destination lookup using the shared location service and search bias around pickup/current destination.
+  - Added pickup decoding from the new `pickup` JSON route param, with fallback support for legacy `pickupLat`, `pickupLng`, and `pickupLabel` params.
+  - Destination starts as `null`; the map centers on pickup and shows only the pickup marker until user searches, taps, or selects a suggested destination.
+  - Map tap updates destination immediately, then reverse geocodes selected coordinates via `reverseGeocode()`.
+  - Route polyline appears after both pickup and destination are available.
+  - Confirm action passes both new JSON params (`pickup`, `dropoff`) and legacy params (`pickupLat`, `pickupLng`, `pickupLabel`, `destLat`, `destLng`, `destLabel`) so existing `select-vehicle.tsx` remains compatible until Phase 4.
+  - Adjusted `MapPicker` so destination mode can center on pickup without rendering a selected destination marker before one exists.
+  - Removed WebView/Leaflet/Nominatim/direct `expo-location` logic from `destination.tsx`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 9 existing warnings in old `select-vehicle` and `waiting-driver` screens.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors outside this commit scope.
+  - Ran filtered `tsc` output search for `destination` and `map-picker`.
+  - Result: no matching TypeScript errors for the changed destination/map files.
+  - Ran `rg "WebView|react-native-webview|Leaflet|leaflet|nominatim|Location\."` against `pickup.tsx` and `destination.tsx`.
+  - Result: no matches, confirming both pickup and destination no longer use WebView/Leaflet/Nominatim/direct `expo-location`.
+  - Ran `git diff --check` before commit.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+  - User review completed and approved before merging this branch into `main`.
+- Known risks:
+  - `select-vehicle.tsx` still consumes legacy params and calculates local mock distance/fare until Phase 4.
+  - Destination search quality depends on Google Maps API key; without it, the existing `expo-location` geocode fallback is used.
+  - No device/emulator runtime test was run in this environment after this commit.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in a shell with `sh`/WSL or a supported Windows installer path is available.

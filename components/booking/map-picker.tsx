@@ -84,7 +84,9 @@ export function MapPicker({
 }: MapPickerProps) {
   const mapRef = useRef<MapView | null>(null);
   const selectable = allowSelection ?? mode !== 'tracking';
-  const selectedPoint = value ?? (mode === 'destination' ? destination : origin) ?? defaultPoint;
+  const selectionPoint = value ?? (mode === 'destination' ? destination : origin) ?? null;
+  const selectedPoint = selectionPoint ?? origin ?? defaultPoint;
+  const hasSelectionMarker = selectable && Boolean(selectionPoint);
   const mapProvider = provider === 'google' ? PROVIDER_GOOGLE : undefined;
   const activeStatus = loading ? 'locating' : status;
   const hasBlockingOverlay = activeStatus === 'locating' || Boolean(error);
@@ -93,8 +95,8 @@ export function MapPicker({
     () => compactLatLng([origin, destination]),
     [origin, destination],
   );
-  const showOriginMarker = Boolean(origin && (!selectable || !isSameCoordinate(origin, selectedPoint)));
-  const showDestinationMarker = Boolean(destination && (!selectable || !isSameCoordinate(destination, selectedPoint)));
+  const showOriginMarker = Boolean(origin && (!hasSelectionMarker || !isSameCoordinate(origin, selectedPoint)));
+  const showDestinationMarker = Boolean(destination && (!hasSelectionMarker || !isSameCoordinate(destination, selectedPoint)));
 
   const visibleCoordinates = useMemo(
     () => compactLatLng([value, origin, destination, driverLocation]),
@@ -181,7 +183,7 @@ export function MapPicker({
           <LocationMarker point={destination} tone="destination" title="Điểm đến" />
         )}
 
-        {selectable && (
+        {hasSelectionMarker && (
           <LocationMarker
             point={selectedPoint}
             draggable
