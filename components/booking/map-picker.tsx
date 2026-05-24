@@ -87,7 +87,7 @@ export function MapPicker({
   const selectedPoint = value ?? (mode === 'destination' ? destination : origin) ?? defaultPoint;
   const mapProvider = provider === 'google' ? PROVIDER_GOOGLE : undefined;
   const activeStatus = loading ? 'locating' : status;
-  const hasBlockingOverlay = activeStatus === 'locating' || activeStatus === 'permission-needed' || Boolean(error);
+  const hasBlockingOverlay = activeStatus === 'locating' || Boolean(error);
 
   const routeCoordinates = useMemo(
     () => compactLatLng([origin, destination]),

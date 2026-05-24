@@ -299,3 +299,73 @@
   - Component is not wired into `select-vehicle` yet; Phase 4 will integrate it with estimate/booking API flow.
   - Default prices are display fallbacks only until `estimateBooking()` supplies real fares.
   - CodeRabbit review remains blocked until CodeRabbit CLI is installed in WSL or another supported shell.
+
+## 2026-05-23 - Phase 3 Passenger Pickup/Destination - Commit 1
+
+- Branch: `codex/passenger-pickup-destination`
+- Commit: `052e5d0`
+- Scope: Refactored passenger pickup screen from WebView/Leaflet to reusable native map/search components.
+- Files changed:
+  - `app/(customer)/booking/pickup.tsx`
+  - `components/booking/map-picker.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Replaced the old Leaflet WebView pickup map with `MapPicker` using `react-native-maps`.
+  - Added `AddressSearch` for pickup lookup using the shared location service and search bias near the selected point.
+  - Added GPS permission flow through `requestLocationPermission()` and `getCurrentLocationPoint()`.
+  - Handles permission denied, GPS disabled, locating, ready, and error states without blocking manual map selection.
+  - Map tap/drag updates the marker immediately, then reverse geocodes the selected coordinates via `reverseGeocode()`.
+  - Added suggested pickup cards for default/current demo locations.
+  - Continue action now passes both the new `pickup` JSON route param and legacy `pickupLat`, `pickupLng`, `pickupLabel` params so the existing destination screen remains compatible until Commit 2.
+  - Adjusted `MapPicker` overlay pointer behavior so `permission-needed` and `gps-disabled` guidance does not block tap/drag selection on the map.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 12 existing warnings in old `destination`, `select-vehicle`, and `waiting-driver` screens.
+  - Ran `cmd /c npx tsc --noEmit`.
+  - Result: failed due existing project-wide JSX React import errors outside this commit scope.
+  - Ran filtered `tsc` output search for `pickup` and `map-picker`.
+  - Result: no matching TypeScript errors for the changed pickup/map files.
+  - Ran `git diff --check` before commit.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - `destination.tsx` still uses the old WebView/Leaflet flow until Commit 2.
+  - The pickup screen passes both JSON and legacy params during migration; legacy params can be removed after downstream screens are refactored.
+  - No device/emulator map runtime test was run in this environment.
+  - CodeRabbit review remains blocked until CodeRabbit CLI is installed in a shell with `sh`/WSL or a supported Windows installer path is available.
+
+## 2026-05-24 - Phase 3 Passenger Pickup/Destination - Review Fix 1
+
+- Branch: `codex/passenger-pickup-destination`
+- Commit: `71f4688`
+- Scope: Fixed Expo runtime native module mismatch that caused `RNMapsAirModule` to be missing when opening the pickup map screen.
+- Files changed:
+  - `app.json`
+  - `package.json`
+  - `package-lock.json`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Aligned Expo-native dependency versions with Expo SDK 54 expected versions reported by `npx expo install --check`.
+  - Updated `react-native-maps` from `^1.27.2` to `1.20.1`, matching the SDK 54 native module version and avoiding the missing `RNMapsAirModule` runtime error.
+  - Updated `expo`, `expo-linking`, `expo-location`, `expo-web-browser`, and `react-native-webview` to SDK-compatible versions.
+  - Added `expo-web-browser` to the Expo plugin list because the CLI could not auto-write this requirement into dynamic config.
+- Validation:
+  - Ran `cmd /c npx expo install --check` with network access.
+  - Result: passed with `Dependencies are up to date`.
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 12 existing warnings in old `destination`, `select-vehicle`, and `waiting-driver` screens.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+  - User runtime review completed and approved before merging this branch into `main`.
+- Known risks:
+  - User still needs to restart Expo with cache cleared so Metro loads the updated `react-native-maps` JS/native pairing.
+  - If testing with a custom development build that was built before this dependency change, the native app must be rebuilt.
+  - Dependency install reported 15 moderate `npm audit` vulnerabilities; they were not changed in this focused runtime fix.

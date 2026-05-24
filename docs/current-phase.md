@@ -4,28 +4,28 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Shared booking map/location UI components
-- Phase: Phase 2 - Shared booking components
-- Branch: codex/map-location-components
-- Current commit scope: Phase 2 review checkpoint
-- Status: User reviewed and approved; ready to close Phase 2
+- Feature: Passenger pickup/destination screens
+- Phase: Phase 3 - Passenger pickup/destination
+- Branch: codex/passenger-pickup-destination
+- Current commit scope: Review fix - align Expo native dependency versions for map runtime
+- Status: User reviewed and approved; merging to main
 
 ## Last Completed Checkpoint
 
-- Commit: `976ef74` - Add reusable vehicle option card
-- Implementation log entry: `2026-05-23 - Phase 2 Shared Booking Components - Commit 4`
-- Review status: User reviewed and approved; CodeRabbit CLI review blocked by missing WSL/bash environment
+- Commit: `71f4688` - Align Expo native dependency versions
+- Implementation log entry: `2026-05-24 - Phase 3 Passenger Pickup/Destination - Review Fix 1`
+- Review status: User reviewed and approved; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Close Phase 2 by committing this review checkpoint.
-- Merge Phase 2 into `main` locally, then create the Phase 3 branch from `main`.
-- Next phase: Phase 3 - refactor passenger pickup/destination screens to use `MapPicker` and `AddressSearch`.
+- Commit this review checkpoint, merge `codex/passenger-pickup-destination` into `main`, then push `main` to GitHub.
+- After merge/push, next Phase 3 commit can refactor `app/(customer)/booking/destination.tsx` with `MapPicker`, `AddressSearch`, pickup JSON decoding, and route preview line.
+- Do not start the destination refactor until the merge/push checkpoint is complete.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
 
-- `app/(customer)/booking/pickup.tsx` still uses `react-native-webview` and Leaflet HTML.
+- `app/(customer)/booking/pickup.tsx` is refactored on `codex/passenger-pickup-destination` to use `MapPicker`, `AddressSearch`, GPS permission handling, and Expo-compatible `react-native-maps`.
 - `app/(customer)/booking/destination.tsx` still uses `react-native-webview` and Leaflet HTML.
 - `app/(customer)/booking/select-vehicle.tsx` still calculates distance locally and uses static vehicle prices.
 - `app/(customer)/booking/waiting-driver.tsx` still uses a hardcoded timer/mock alert instead of realtime subscription.
