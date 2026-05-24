@@ -4,23 +4,23 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Passenger pickup/destination screens
-- Phase: Phase 4 - Estimate and booking
-- Branch: codex/passenger-estimate-booking
-- Current commit scope: Next commit - Phase 5 passenger realtime tracking
-- Status: Ready for next commit after user approval
+- Feature: Passenger realtime tracking
+- Phase: Phase 5 - Passenger realtime tracking
+- Branch: codex/passenger-realtime-tracking
+- Current commit scope: Commit 1 - wire waiting-driver trip realtime subscription and REST fallback
+- Status: In progress
 
 ## Last Completed Checkpoint
 
 - Commit: `63483e0` - Create booking before waiting driver
 - Implementation log entry: `2026-05-24 - Phase 4 Estimate and Booking - Commit 2`
-- Review status: User approved runtime review on 2026-05-24; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Review status: User approved runtime review on 2026-05-24; Phase 5 branch is stacked from `codex/passenger-estimate-booking` because `main` does not yet contain the approved Phase 4 commits
 
 ## Next Checkpoint
 
-- Begin Phase 5 passenger realtime tracking by wiring `waiting-driver` to trip status/location subscriptions or mock realtime fallback.
-- Preserve approved `createBooking()` handoff behavior and the displayed `tripId`/estimate/payment/promo summary.
-- If runtime feedback appears before Phase 5, handle it as a small review-fix commit on the same branch.
+- Subscribe `waiting-driver` to trip status/location updates through `lib/realtime.ts` mock/remote interface.
+- Add REST fallback polling with `getDriverLocation(tripId)` while realtime is disconnected or unavailable.
+- Keep existing trip ID, route, estimate, payment, and promo summary visible.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main

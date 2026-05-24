@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -13,8 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MapPicker } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
-import type { LocationPoint } from '@/types/ride';
+import { getDriverLocation } from '@/lib/ride-api';
+import { connectRealtime, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
+import type { DriverLocationUpdate, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -46,6 +49,8 @@ type VehicleDisplay = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
+type RealtimeMode = 'connecting' | 'mock' | 'remote' | 'fallback' | 'unavailable';
+
 export default function WaitingDriverScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -53,6 +58,7 @@ export default function WaitingDriverScreen() {
 
   const tripId = readParam(params.tripId);
   const tripStatus = readParam(params.tripStatus) ?? 'SEARCHING';
+  const numericTripId = parseNumberParam(tripId);
   const vehicleType = readParam(params.vehicleType);
   const vehicleTypeEnum = readParam(params.vehicleTypeEnum);
   const pickup = parseLocationPointParam(params.pickup);
@@ -65,7 +71,21 @@ export default function WaitingDriverScreen() {
   const paymentLabel = readParam(params.paymentLabel) ?? 'Tiền mặt';
   const promoCode = readParam(params.promoCode);
   const vehicle = useMemo(() => getVehicleDisplay(vehicleType, vehicleTypeEnum), [vehicleType, vehicleTypeEnum]);
-  const statusCopy = getStatusCopy(tripStatus);
+  const [liveStatus, setLiveStatus] = useState<TripStatus>(() => normalizeTripStatus(tripStatus));
+  const [driverLocation, setDriverLocation] = useState<DriverLocationUpdate | null>(null);
+  const [realtimeMode, setRealtimeMode] = useState<RealtimeMode>(numericTripId ? 'connecting' : 'unavailable');
+  const [trackingError, setTrackingError] = useState<string | null>(null);
+  const [lastTrackingAt, setLastTrackingAt] = useState<string | null>(null);
+  const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
+  const statusCopy = getStatusCopy(liveStatus);
+  const realtimeCopy = getRealtimeCopy(realtimeMode);
+  const fallbackPollingEnabled = Boolean(numericTripId && (realtimeMode === 'fallback' || realtimeMode === 'remote'));
+
+  const applyDriverLocation = useCallback((location: DriverLocationUpdate) => {
+    setDriverLocation(location);
+    setLastTrackingAt(location.updatedAt ?? new Date().toISOString());
+    setTrackingError(null);
+  }, []);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -87,6 +107,91 @@ export default function WaitingDriverScreen() {
 
     return () => pulse.stop();
   }, [pulseAnim]);
+
+  useEffect(() => {
+    setLiveStatus(normalizeTripStatus(tripStatus));
+  }, [tripStatus]);
+
+  useEffect(() => {
+    if (!numericTripId) {
+      setRealtimeMode('unavailable');
+      setTrackingError('Chưa có mã chuyến để theo dõi vị trí tài xế.');
+      return;
+    }
+
+    let isActive = true;
+    let subscription: RealtimeSubscription | null = null;
+
+    setRealtimeMode('connecting');
+    setTrackingError(null);
+
+    connectRealtime()
+      .then((connection) => {
+        if (!isActive) {
+          return;
+        }
+
+        setRealtimeMode(connection.mode);
+        subscription = subscribeTrip(numericTripId, {
+          onStatus: (message) => {
+            setLiveStatus(message.status);
+            setLastTrackingAt(message.updatedAt);
+            setTrackingError(null);
+          },
+          onLocation: applyDriverLocation,
+          onNotification: (notification) => {
+            setLatestNotification(notification);
+          },
+          onError: (error) => {
+            setTrackingError(error.message);
+            setRealtimeMode('fallback');
+          },
+        });
+      })
+      .catch((error: unknown) => {
+        if (!isActive) {
+          return;
+        }
+
+        setTrackingError(getErrorMessage(error));
+        setRealtimeMode('fallback');
+      });
+
+    return () => {
+      isActive = false;
+      subscription?.unsubscribe();
+    };
+  }, [applyDriverLocation, numericTripId]);
+
+  useEffect(() => {
+    if (!numericTripId || !fallbackPollingEnabled) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadFallbackLocation = async () => {
+      try {
+        const location = await getDriverLocation(numericTripId);
+
+        if (isActive) {
+          applyDriverLocation(location);
+        }
+      } catch (error: unknown) {
+        if (isActive) {
+          setTrackingError(getErrorMessage(error));
+        }
+      }
+    };
+
+    loadFallbackLocation();
+    const fallbackTimer = setInterval(loadFallbackLocation, 5000);
+
+    return () => {
+      isActive = false;
+      clearInterval(fallbackTimer);
+    };
+  }, [applyDriverLocation, fallbackPollingEnabled, numericTripId]);
 
   const handleCancel = () => {
     Alert.alert('Hủy chuyến', 'Bạn có chắc chắn muốn hủy yêu cầu đặt xe này không?', [
@@ -125,6 +230,71 @@ export default function WaitingDriverScreen() {
 
           <Text style={styles.waitingTitle}>{statusCopy.title}</Text>
           <Text style={styles.waitingSubtitle}>{statusCopy.description}</Text>
+        </View>
+
+        <View style={styles.trackingCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIcon}>
+              <MaterialCommunityIcons name="map-marker-path" size={rs(26)} color={palette.primary} />
+            </View>
+            <View style={styles.sectionCopy}>
+              <Text style={styles.sectionTitle}>Theo dõi tài xế</Text>
+              <Text style={styles.sectionSubtitle}>{driverLocation ? 'Vị trí tài xế đang được cập nhật' : 'Đang chờ tín hiệu vị trí tài xế'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.mapFrame}>
+            <MapPicker
+              mode="tracking"
+              origin={pickup}
+              destination={dropoff}
+              driverLocation={driverLocation}
+              status="ready"
+              height={rvs(360)}
+              allowSelection={false}
+              showGpsButton={false}
+              showUserLocation={false}
+            />
+          </View>
+
+          <View style={styles.driverSignalCard}>
+            <MaterialCommunityIcons
+              name={driverLocation ? 'navigation-variant' : 'satellite-uplink'}
+              size={rs(28)}
+              color={driverLocation ? palette.green : palette.primary}
+            />
+            <View style={styles.driverSignalCopy}>
+              <Text style={styles.driverSignalLabel}>
+                {driverLocation ? 'Tọa độ tài xế' : 'Chưa có tọa độ tài xế'}
+              </Text>
+              <Text style={styles.driverSignalValue} selectable>
+                {driverLocation
+                  ? formatCoordinates(driverLocation) + ' • ' + formatTrackingTime(lastTrackingAt)
+                  : 'GoRide sẽ hiển thị marker tài xế ngay khi nhận được tín hiệu realtime.'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.realtimeCard}>
+          <View style={[styles.realtimeIcon, { backgroundColor: realtimeCopy.background }]}>
+            <MaterialCommunityIcons name={realtimeCopy.icon} size={rs(26)} color={realtimeCopy.color} />
+          </View>
+          <View style={styles.realtimeCopy}>
+            <Text style={styles.realtimeTitle}>{realtimeCopy.title}</Text>
+            <Text style={styles.realtimeDescription}>{realtimeCopy.description}</Text>
+            {trackingError ? (
+              <Text style={styles.trackingErrorText} selectable>
+                {trackingError}
+              </Text>
+            ) : null}
+            {latestNotification ? (
+              <View style={styles.notificationBox}>
+                <Text style={styles.notificationTitle}>{latestNotification.title}</Text>
+                <Text style={styles.notificationBody}>{latestNotification.body}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.tripCodeCard}>
@@ -288,13 +458,49 @@ function getVehicleDisplay(vehicleType?: string, vehicleTypeEnum?: string): Vehi
   return { name: 'GoRide Car', icon: 'car' };
 }
 
-function getStatusCopy(status: string) {
+function getStatusCopy(status: TripStatus) {
   if (status === 'ACCEPTED') {
     return {
       label: 'Đã có tài xế',
       title: 'Tài xế đang đến',
-      description: 'GoRide đã ghép chuyến thành công. Thông tin tài xế sẽ được cập nhật ở bước realtime.',
+      description: 'GoRide đã ghép chuyến thành công. Bạn có thể theo dõi tài xế trên bản đồ.',
       color: palette.green,
+    };
+  }
+
+  if (status === 'ARRIVED') {
+    return {
+      label: 'Tài xế đã đến',
+      title: 'Tài xế đang chờ bạn',
+      description: 'Tài xế đã đến điểm đón. Hãy kiểm tra biển số và bắt đầu chuyến đi an toàn nhé.',
+      color: palette.green,
+    };
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return {
+      label: 'Đang di chuyển',
+      title: 'Chuyến đi đang diễn ra',
+      description: 'GoRide đang theo dõi hành trình để cập nhật trạng thái chuyến cho bạn.',
+      color: palette.primary,
+    };
+  }
+
+  if (status === 'COMPLETED') {
+    return {
+      label: 'Hoàn thành',
+      title: 'Chuyến đi đã hoàn thành',
+      description: 'Cảm ơn bạn đã sử dụng GoRide. Hóa đơn cuối cùng sẽ được đồng bộ từ backend.',
+      color: palette.green,
+    };
+  }
+
+  if (status === 'CANCELLED') {
+    return {
+      label: 'Đã hủy',
+      title: 'Chuyến đi đã hủy',
+      description: 'Yêu cầu đặt xe đã được hủy. Bạn có thể quay lại trang chủ để đặt chuyến mới.',
+      color: palette.danger,
     };
   }
 
@@ -313,6 +519,80 @@ function getStatusCopy(status: string) {
     description: 'Yêu cầu của bạn đã được tạo và gửi đến hệ thống matching. Vui lòng đợi trong giây lát.',
     color: palette.primary,
   };
+}
+
+function getRealtimeCopy(mode: RealtimeMode): {
+  title: string;
+  description: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  color: string;
+  background: string;
+} {
+  if (mode === 'mock') {
+    return {
+      title: 'Realtime demo đang chạy',
+      description: 'Chưa cần backend thật: mock event bus sẽ đẩy trạng thái và vị trí tài xế để test UI.',
+      icon: 'broadcast',
+      color: palette.green,
+      background: palette.greenSoft,
+    };
+  }
+
+  if (mode === 'remote') {
+    return {
+      title: 'Đã kết nối kênh realtime',
+      description: 'App đang nghe trạng thái chuyến và kiểm tra vị trí bằng REST fallback để tránh mất tín hiệu.',
+      icon: 'access-point-network',
+      color: palette.primary,
+      background: palette.primarySoft,
+    };
+  }
+
+  if (mode === 'fallback') {
+    return {
+      title: 'Đang dùng REST fallback',
+      description: 'WebSocket chưa sẵn sàng hoặc bị ngắt, app sẽ hỏi vị trí tài xế định kỳ mỗi 5 giây.',
+      icon: 'refresh-circle',
+      color: palette.amber,
+      background: palette.amberSoft,
+    };
+  }
+
+  if (mode === 'unavailable') {
+    return {
+      title: 'Chưa thể theo dõi realtime',
+      description: 'Mã chuyến chưa hợp lệ nên GoRide chưa mở được kênh tracking.',
+      icon: 'alert-circle-outline',
+      color: palette.danger,
+      background: palette.dangerSoft,
+    };
+  }
+
+  return {
+    title: 'Đang kết nối realtime',
+    description: 'GoRide đang mở kênh trạng thái và vị trí tài xế cho chuyến này.',
+    icon: 'loading',
+    color: palette.primary,
+    background: palette.primarySoft,
+  };
+}
+
+const tripStatuses: TripStatus[] = [
+  'SEARCHING',
+  'ACCEPTED',
+  'ARRIVED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+  'NO_DRIVER',
+];
+
+function normalizeTripStatus(status?: string): TripStatus {
+  return tripStatuses.includes(status as TripStatus) ? (status as TripStatus) : 'SEARCHING';
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Không thể cập nhật vị trí tài xế lúc này.';
 }
 
 function formatDistance(distance: number | null) {
@@ -343,6 +623,28 @@ function formatFare(fare: number | null) {
   }
 
   return Math.round(fare).toLocaleString('vi-VN') + 'đ';
+}
+
+function formatCoordinates(location: DriverLocationUpdate) {
+  return location.lat.toFixed(5) + ', ' + location.lng.toFixed(5);
+}
+
+function formatTrackingTime(value: string | null) {
+  if (!value) {
+    return 'chưa có cập nhật';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 const styles = StyleSheet.create({
@@ -419,6 +721,126 @@ const styles = StyleSheet.create({
     color: palette.muted,
     textAlign: 'center',
     lineHeight: rf(30),
+  },
+  trackingCard: {
+    backgroundColor: palette.card,
+    borderRadius: rs(36),
+    padding: rs(16),
+    gap: rvs(16),
+    ...shadow,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+    paddingHorizontal: rs(8),
+  },
+  sectionIcon: {
+    width: rs(52),
+    height: rs(52),
+    borderRadius: rs(18),
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionCopy: {
+    flex: 1,
+    gap: rvs(3),
+  },
+  sectionTitle: {
+    fontSize: rf(24),
+    color: palette.text,
+    fontWeight: '900',
+  },
+  sectionSubtitle: {
+    fontSize: rf(16),
+    color: palette.muted,
+    fontWeight: '700',
+  },
+  mapFrame: {
+    borderRadius: rs(28),
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  driverSignalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+    padding: rs(14),
+    borderRadius: rs(24),
+    backgroundColor: '#f8f6fb',
+  },
+  driverSignalCopy: {
+    flex: 1,
+    gap: rvs(3),
+  },
+  driverSignalLabel: {
+    fontSize: rf(16),
+    color: palette.muted,
+    fontWeight: '800',
+  },
+  driverSignalValue: {
+    fontSize: rf(18),
+    color: palette.text,
+    fontWeight: '900',
+    lineHeight: rf(25),
+  },
+  realtimeCard: {
+    minHeight: rvs(104),
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: rs(14),
+    padding: rs(18),
+    borderRadius: rs(28),
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  realtimeIcon: {
+    width: rs(52),
+    height: rs(52),
+    borderRadius: rs(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  realtimeCopy: {
+    flex: 1,
+    gap: rvs(6),
+  },
+  realtimeTitle: {
+    fontSize: rf(19),
+    color: palette.text,
+    fontWeight: '900',
+  },
+  realtimeDescription: {
+    fontSize: rf(16),
+    color: palette.muted,
+    fontWeight: '700',
+    lineHeight: rf(23),
+  },
+  trackingErrorText: {
+    color: palette.danger,
+    fontSize: rf(15),
+    fontWeight: '800',
+    lineHeight: rf(21),
+  },
+  notificationBox: {
+    padding: rs(12),
+    borderRadius: rs(18),
+    backgroundColor: palette.primarySoft,
+    gap: rvs(3),
+  },
+  notificationTitle: {
+    color: palette.primary,
+    fontSize: rf(16),
+    fontWeight: '900',
+  },
+  notificationBody: {
+    color: palette.primaryMid,
+    fontSize: rf(15),
+    fontWeight: '700',
+    lineHeight: rf(21),
   },
   tripCodeCard: {
     minHeight: rvs(86),
