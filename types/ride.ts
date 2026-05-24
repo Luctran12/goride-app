@@ -11,7 +11,7 @@ export type LocationPoint = Coordinates & {
 
 export type VehicleType = 'MOTORBIKE' | 'CAR_4_SEAT' | 'CAR_7_SEAT';
 
-export type PaymentMethod = 'CASH';
+export type PaymentMethod = 'CASH' | 'MOMO' | 'VNPAY';
 
 export type TripStatus =
   | 'SEARCHING'

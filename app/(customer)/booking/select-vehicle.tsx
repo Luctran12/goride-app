@@ -21,7 +21,7 @@ import {
 } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
 import { estimateBooking } from '@/lib/ride-api';
-import type { BookingDraft, BookingEstimate, LocationPoint, VehicleType } from '@/types/ride';
+import type { BookingDraft, BookingEstimate, LocationPoint, PaymentMethod, VehicleType } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -44,6 +44,69 @@ const shadow = {
   shadowRadius: 24,
   elevation: 7,
 };
+
+type PaymentOption = {
+  method: PaymentMethod;
+  label: string;
+  helper: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  tone: string;
+  softTone: string;
+};
+
+type PromotionOption = {
+  code: string | null;
+  title: string;
+  description: string;
+  badge?: string;
+};
+
+const paymentOptions: PaymentOption[] = [
+  {
+    method: 'CASH',
+    label: 'Tiền mặt',
+    helper: 'Thanh toán sau chuyến',
+    icon: 'cash',
+    tone: palette.green,
+    softTone: palette.greenSoft,
+  },
+  {
+    method: 'MOMO',
+    label: 'MoMo',
+    helper: 'Ví điện tử',
+    icon: 'wallet-outline',
+    tone: '#b0006d',
+    softTone: '#ffe8f5',
+  },
+  {
+    method: 'VNPAY',
+    label: 'VNPay',
+    helper: 'QR ngân hàng',
+    icon: 'bank-transfer',
+    tone: '#0b63ce',
+    softTone: '#e8f1ff',
+  },
+];
+
+const promotionOptions: PromotionOption[] = [
+  {
+    code: null,
+    title: 'Không dùng ưu đãi',
+    description: 'Giữ nguyên giá ước tính',
+  },
+  {
+    code: 'GORIDE10',
+    title: 'GORIDE10',
+    description: 'Giảm 10% khi thanh toán online',
+    badge: 'Online',
+  },
+  {
+    code: 'NEWUSER',
+    title: 'NEWUSER',
+    description: 'Ưu đãi khách mới, áp dụng khi tạo booking',
+    badge: 'Mới',
+  },
+];
 
 export default function SelectVehicleScreen() {
   const router = useRouter();
@@ -80,6 +143,8 @@ export default function SelectVehicleScreen() {
     ],
   );
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('MOTORBIKE');
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('CASH');
+  const [selectedPromotionCode, setSelectedPromotionCode] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<BookingEstimate | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
@@ -94,9 +159,9 @@ export default function SelectVehicleScreen() {
       pickup: route.pickup,
       dropoff: route.dropoff,
       vehicleType: selectedVehicle,
-      paymentMethod: 'CASH',
+      paymentMethod: selectedPayment,
     };
-  }, [route.dropoff, route.pickup, selectedVehicle]);
+  }, [route.dropoff, route.pickup, selectedPayment, selectedVehicle]);
 
   useEffect(() => {
     if (!draft) {
@@ -148,6 +213,10 @@ export default function SelectVehicleScreen() {
   );
 
   const selectedOption = vehicleOptions.find((option) => option.vehicleType === selectedVehicle) ?? vehicleOptions[0];
+  const selectedPaymentOption =
+    paymentOptions.find((option) => option.method === selectedPayment) ?? paymentOptions[0];
+  const selectedPromotion =
+    promotionOptions.find((option) => option.code === selectedPromotionCode) ?? promotionOptions[0];
   const canContinue = Boolean(draft && estimate && !estimateLoading && !estimateError);
 
   const handleConfirmBooking = () => {
@@ -173,6 +242,9 @@ export default function SelectVehicleScreen() {
         estimatedDuration: String(estimate.estimatedDuration),
         estimatedFare: String(estimate.estimatedFare),
         pricingConfigId: String(estimate.pricingConfigId),
+        paymentMethod: selectedPayment,
+        paymentLabel: selectedPaymentOption.label,
+        promoCode: selectedPromotionCode ?? '',
       },
     });
   };
@@ -202,7 +274,7 @@ export default function SelectVehicleScreen() {
           estimate={estimate}
           loading={estimateLoading}
           error={estimateError}
-          paymentLabel="Tiền mặt"
+          paymentLabel={selectedPaymentOption.label}
           onRetry={() => setRetrySeed((value) => value + 1)}
         />
 
@@ -227,17 +299,52 @@ export default function SelectVehicleScreen() {
             />
           ))}
         </View>
+
+        <View style={styles.optionSection}>
+          <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+          <View style={styles.paymentGrid}>
+            {paymentOptions.map((option) => (
+              <PaymentMethodCard
+                key={option.method}
+                option={option}
+                selected={option.method === selectedPayment}
+                onPress={setSelectedPayment}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.optionSection}>
+          <Text style={styles.sectionTitle}>Ưu đãi</Text>
+          <View style={styles.promoList}>
+            {promotionOptions.map((option) => (
+              <PromotionCard
+                key={option.code ?? 'none'}
+                option={option}
+                selected={option.code === selectedPromotionCode}
+                onPress={setSelectedPromotionCode}
+              />
+            ))}
+          </View>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <View style={styles.paymentSection}>
           <View style={styles.paymentInfo}>
-            <View style={styles.paymentIconBox}>
-              <MaterialCommunityIcons name="cash" size={rs(32)} color={palette.green} />
+            <View style={[styles.paymentIconBox, { backgroundColor: selectedPaymentOption.softTone }]}>
+              <MaterialCommunityIcons
+                name={selectedPaymentOption.icon}
+                size={rs(32)}
+                color={selectedPaymentOption.tone}
+              />
             </View>
             <View>
               <Text style={styles.paymentLabel}>Thanh toán</Text>
-              <Text style={styles.paymentMethod}>Tiền mặt</Text>
+              <Text style={styles.paymentMethod}>{selectedPaymentOption.label}</Text>
+              <Text style={styles.promotionSummary} numberOfLines={1}>
+                {selectedPromotion.code ? `Ưu đãi: ${selectedPromotion.code}` : 'Chưa dùng ưu đãi'}
+              </Text>
             </View>
           </View>
           <View style={styles.fareSummary}>
@@ -257,6 +364,71 @@ export default function SelectVehicleScreen() {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+  );
+}
+
+function PaymentMethodCard({
+  option,
+  selected,
+  onPress,
+}: {
+  option: PaymentOption;
+  selected: boolean;
+  onPress: (method: PaymentMethod) => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.86}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={() => onPress(option.method)}
+      style={[styles.paymentOptionCard, selected && styles.paymentOptionCardSelected]}
+    >
+      <View style={[styles.paymentOptionIcon, { backgroundColor: option.softTone }]}>
+        <MaterialCommunityIcons name={option.icon} size={rs(30)} color={option.tone} />
+      </View>
+      <View style={styles.paymentOptionCopy}>
+        <Text style={styles.paymentOptionTitle}>{option.label}</Text>
+        <Text style={styles.paymentOptionHelper}>{option.helper}</Text>
+      </View>
+      {selected && <Ionicons name="checkmark-circle" size={rs(26)} color={palette.primary} />}
+    </TouchableOpacity>
+  );
+}
+
+function PromotionCard({
+  option,
+  selected,
+  onPress,
+}: {
+  option: PromotionOption;
+  selected: boolean;
+  onPress: (code: string | null) => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.86}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={() => onPress(option.code)}
+      style={[styles.promoCard, selected && styles.promoCardSelected]}
+    >
+      <View style={[styles.promoIcon, selected && styles.promoIconSelected]}>
+        <MaterialCommunityIcons name="ticket-percent-outline" size={rs(28)} color={selected ? '#fff' : palette.primary} />
+      </View>
+      <View style={styles.promoCopy}>
+        <View style={styles.promoTitleRow}>
+          <Text style={styles.promoTitle}>{option.title}</Text>
+          {option.badge && (
+            <View style={styles.promoBadge}>
+              <Text style={styles.promoBadgeText}>{option.badge}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.promoDescription}>{option.description}</Text>
+      </View>
+      {selected && <Ionicons name="checkmark-circle" size={rs(28)} color={palette.primary} />}
+    </TouchableOpacity>
   );
 }
 
@@ -423,6 +595,112 @@ const styles = StyleSheet.create({
   vehicleList: {
     gap: rvs(16),
   },
+  optionSection: {
+    gap: rvs(14),
+  },
+  paymentGrid: {
+    gap: rvs(12),
+  },
+  paymentOptionCard: {
+    minHeight: rvs(84),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(14),
+    paddingVertical: rvs(14),
+    paddingHorizontal: rs(16),
+    borderRadius: rs(26),
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.card,
+    ...shadow,
+  },
+  paymentOptionCardSelected: {
+    borderColor: palette.primary,
+    backgroundColor: '#faf8ff',
+  },
+  paymentOptionIcon: {
+    width: rs(52),
+    height: rs(52),
+    borderRadius: rs(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentOptionCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  paymentOptionTitle: {
+    color: palette.text,
+    fontSize: rf(21),
+    fontWeight: '900',
+  },
+  paymentOptionHelper: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '700',
+  },
+  promoList: {
+    gap: rvs(12),
+  },
+  promoCard: {
+    minHeight: rvs(86),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(14),
+    paddingVertical: rvs(14),
+    paddingHorizontal: rs(16),
+    borderRadius: rs(26),
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.card,
+  },
+  promoCardSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primarySoft,
+  },
+  promoIcon: {
+    width: rs(52),
+    height: rs(52),
+    borderRadius: rs(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primarySoft,
+  },
+  promoIconSelected: {
+    backgroundColor: palette.primary,
+  },
+  promoCopy: {
+    flex: 1,
+    gap: rvs(5),
+  },
+  promoTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+  },
+  promoTitle: {
+    color: palette.text,
+    fontSize: rf(20),
+    fontWeight: '900',
+  },
+  promoBadge: {
+    paddingHorizontal: rs(9),
+    height: rvs(26),
+    borderRadius: rs(13),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.card,
+  },
+  promoBadgeText: {
+    color: palette.primary,
+    fontSize: rf(13),
+    fontWeight: '900',
+  },
+  promoDescription: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '700',
+  },
   footer: {
     paddingHorizontal: rs(28),
     paddingTop: rvs(20),
@@ -461,6 +739,12 @@ const styles = StyleSheet.create({
     color: palette.text,
     fontSize: rf(22),
     fontWeight: '900',
+  },
+  promotionSummary: {
+    maxWidth: rs(300),
+    color: palette.muted,
+    fontSize: rf(15),
+    fontWeight: '700',
   },
   fareSummary: {
     alignItems: 'flex-end',

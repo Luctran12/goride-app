@@ -7,26 +7,27 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger pickup/destination screens
 - Phase: Phase 4 - Estimate and booking
 - Branch: codex/passenger-estimate-booking
-- Current commit scope: Commit 1 - refactor `select-vehicle` to parse JSON route params and call `estimateBooking`
+- Current commit scope: Review change - payment method and promotion selectors on `select-vehicle`
 - Status: In progress
 
 ## Last Completed Checkpoint
 
-- Local main merge: `92f5cd2` - Merge passenger destination map flow
-- Review status: User reviewed and approved the Phase 3 destination map flow before this branch.
-- `main` is ahead of `origin/main` locally with the reviewed destination merge; push was not requested at this checkpoint.
+- Commit: `8a0a3d8` - Fix map picker interaction behavior
+- Implementation log entry: `2026-05-24 - Phase 4 Estimate and Booking - Review Fix 2`
+- Review status: User requested additional `select-vehicle` UI for payment methods and promotions; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Commit 1: refactor `app/(customer)/booking/select-vehicle.tsx` to consume `pickup`/`dropoff`, use `RoutePreview` + `VehicleOptionCard`, and call `estimateBooking()` for selected vehicle.
-- Keep actual `createBooking()` for a later small commit unless the estimate refactor remains very small.
+- Add `CASH`, `MOMO`, and `VNPAY` payment selection UI with `CASH` as default.
+- Add promotion selector UI and pass selected payment/promo params forward.
+- Record TDD/plan deviation because original MVP plan scoped online payment methods out.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
 
 - `app/(customer)/booking/pickup.tsx` is refactored on `codex/passenger-pickup-destination` to use `MapPicker`, `AddressSearch`, GPS permission handling, and Expo-compatible `react-native-maps`.
 - `app/(customer)/booking/destination.tsx` is refactored on `codex/passenger-destination-map` to use `MapPicker`, `AddressSearch`, pickup JSON decoding, destination reverse geocode, and route polyline.
-- `app/(customer)/booking/select-vehicle.tsx` still calculates distance locally and uses static vehicle prices.
+- `app/(customer)/booking/select-vehicle.tsx` is refactored on `codex/passenger-estimate-booking` to parse JSON route params, call `estimateBooking()`, and use stable estimate effect dependencies.
 - `app/(customer)/booking/waiting-driver.tsx` still uses a hardcoded timer/mock alert instead of realtime subscription.
 - `app/(driver)/index.tsx` is still a static waiting screen without online toggle, request subscription, or GPS loop.
 - `types/ride.ts` and `lib/config.ts` exist from commit `c599d6e`.
