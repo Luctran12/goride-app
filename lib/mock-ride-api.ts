@@ -5,6 +5,7 @@ import type {
   Coordinates,
   DriverAction,
   DriverLocationUpdate,
+  DriverSummary,
   PricingConfig,
   TripDetail,
   TripStatus,
@@ -37,6 +38,15 @@ const MOCK_PRICING: PricingConfig[] = [
   },
 ];
 
+const MOCK_DRIVER: DriverSummary = {
+  id: 5,
+  fullName: 'Trần Minh Quân',
+  phone: '0908 456 789',
+  vehiclePlate: '51F-268.89',
+  vehicleType: 'CAR_4_SEAT',
+  averageRating: 4.9,
+};
+
 let nextTripId = 100;
 const trips = new Map<number, TripDetail>();
 
@@ -56,6 +66,13 @@ function calculateDistanceKm(from: Coordinates, to: Coordinates) {
 
 function roundToNearestThousand(value: number) {
   return Math.round(value / 1000) * 1000;
+}
+
+function getMidpointDriverCoordinate(from: Coordinates, to: Coordinates) {
+  return {
+    lat: (from.lat + to.lat) / 2 + 0.00025,
+    lng: (from.lng + to.lng) / 2 + 0.00025,
+  };
 }
 
 export async function mockGetPricing() {
@@ -89,6 +106,7 @@ export async function mockCreateBooking(
     status: 'SEARCHING',
     pickup: draft.pickup,
     dropoff: draft.dropoff,
+    driver: MOCK_DRIVER,
     estimatedFare: estimate.estimatedFare,
     estimatedDistance: estimate.estimatedDistance,
     estimatedDuration: estimate.estimatedDuration,
@@ -115,12 +133,13 @@ export async function mockGetTrip(tripId: number): Promise<TripDetail> {
 
 export async function mockGetDriverLocation(tripId: number): Promise<DriverLocationUpdate> {
   const trip = await mockGetTrip(tripId);
+  const driverCoordinate = getMidpointDriverCoordinate(trip.pickup, trip.dropoff);
 
   return {
     tripId,
-    driverId: 5,
-    lat: trip.pickup.lat + 0.002,
-    lng: trip.pickup.lng + 0.002,
+    driverId: trip.driver?.id ?? MOCK_DRIVER.id,
+    lat: driverCoordinate.lat,
+    lng: driverCoordinate.lng,
     bearing: 120,
     speed: 8,
     updatedAt: new Date().toISOString(),
@@ -139,7 +158,12 @@ export async function mockRespondToTrip(tripId: number, action: DriverAction) {
   const trip = trips.get(tripId);
 
   if (trip) {
-    trips.set(tripId, { ...trip, status, acceptedAt: action === 'ACCEPT' ? new Date().toISOString() : null });
+    trips.set(tripId, {
+      ...trip,
+      driver: action === 'ACCEPT' ? trip.driver ?? MOCK_DRIVER : trip.driver,
+      status,
+      acceptedAt: action === 'ACCEPT' ? new Date().toISOString() : null,
+    });
   }
 
   return { tripId, status };

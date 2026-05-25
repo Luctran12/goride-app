@@ -1,4 +1,5 @@
 import { USE_MOCK_REALTIME, WS_URL } from '@/lib/config';
+import { mockGetDriverLocation } from '@/lib/mock-ride-api';
 import type { DriverLocationUpdate, DriverTripRequest, TripStatus, WsNotification } from '@/types/ride';
 
 export type TripStatusMessage = {
@@ -189,6 +190,14 @@ function queueMockTripProgress(tripId: number) {
   }, 2500);
 
   setTimeout(() => {
+    void emitMockDriverLocation(tripId);
+  }, 3500);
+}
+
+async function emitMockDriverLocation(tripId: number) {
+  try {
+    emit('driverLocation', await mockGetDriverLocation(tripId));
+  } catch {
     emit('driverLocation', {
       tripId,
       driverId: 5,
@@ -198,7 +207,7 @@ function queueMockTripProgress(tripId: number) {
       speed: 8,
       updatedAt: new Date().toISOString(),
     });
-  }, 3500);
+  }
 }
 
 function queueMockDriverRequest(driverId: number) {

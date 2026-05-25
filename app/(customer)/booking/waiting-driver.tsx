@@ -13,11 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { MapPicker } from '@/components/booking';
+import { DriverInfoCard, MapPicker } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
-import { getDriverLocation } from '@/lib/ride-api';
+import { getDriverLocation, getTrip } from '@/lib/ride-api';
 import { connectRealtime, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
-import type { DriverLocationUpdate, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
+import type { DriverLocationUpdate, LocationPoint, TripDetail, TripStatus, WsNotification } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -77,9 +77,33 @@ export default function WaitingDriverScreen() {
   const [trackingError, setTrackingError] = useState<string | null>(null);
   const [lastTrackingAt, setLastTrackingAt] = useState<string | null>(null);
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
+  const [tripDetail, setTripDetail] = useState<TripDetail | null>(null);
+  const [tripDetailLoading, setTripDetailLoading] = useState(false);
+  const [tripDetailError, setTripDetailError] = useState<string | null>(null);
+  const [tripDetailUpdatedAt, setTripDetailUpdatedAt] = useState<string | null>(null);
   const statusCopy = getStatusCopy(liveStatus);
   const realtimeCopy = getRealtimeCopy(realtimeMode);
   const fallbackPollingEnabled = Boolean(numericTripId && (realtimeMode === 'fallback' || realtimeMode === 'remote'));
+
+  const hydrateTripDetail = useCallback(async () => {
+    if (!numericTripId) {
+      return;
+    }
+
+    setTripDetailLoading(true);
+
+    try {
+      const detail = await getTrip(numericTripId);
+      setTripDetail(detail);
+      setTripDetailUpdatedAt(new Date().toISOString());
+      setTripDetailError(null);
+      setLiveStatus((currentStatus) => mergeTripStatus(currentStatus, detail.status));
+    } catch (error: unknown) {
+      setTripDetailError(getErrorMessage(error));
+    } finally {
+      setTripDetailLoading(false);
+    }
+  }, [numericTripId]);
 
   const applyDriverLocation = useCallback((location: DriverLocationUpdate) => {
     setDriverLocation(location);
@@ -113,6 +137,10 @@ export default function WaitingDriverScreen() {
   }, [tripStatus]);
 
   useEffect(() => {
+    void hydrateTripDetail();
+  }, [hydrateTripDetail]);
+
+  useEffect(() => {
     if (!numericTripId) {
       setRealtimeMode('unavailable');
       setTrackingError('Chưa có mã chuyến để theo dõi vị trí tài xế.');
@@ -137,10 +165,12 @@ export default function WaitingDriverScreen() {
             setLiveStatus(message.status);
             setLastTrackingAt(message.updatedAt);
             setTrackingError(null);
+            void hydrateTripDetail();
           },
           onLocation: applyDriverLocation,
           onNotification: (notification) => {
             setLatestNotification(notification);
+            void hydrateTripDetail();
           },
           onError: (error) => {
             setTrackingError(error.message);
@@ -161,7 +191,7 @@ export default function WaitingDriverScreen() {
       isActive = false;
       subscription?.unsubscribe();
     };
-  }, [applyDriverLocation, numericTripId]);
+  }, [applyDriverLocation, hydrateTripDetail, numericTripId]);
 
   useEffect(() => {
     if (!numericTripId || !fallbackPollingEnabled) {
@@ -296,6 +326,14 @@ export default function WaitingDriverScreen() {
             ) : null}
           </View>
         </View>
+
+        <DriverInfoCard
+          driver={tripDetail?.driver}
+          status={liveStatus}
+          loading={tripDetailLoading}
+          error={tripDetailError}
+          lastUpdatedAt={tripDetailUpdatedAt}
+        />
 
         <View style={styles.tripCodeCard}>
           <MaterialCommunityIcons name="ticket-confirmation-outline" size={rs(34)} color={palette.primary} />
@@ -589,6 +627,20 @@ const tripStatuses: TripStatus[] = [
 
 function normalizeTripStatus(status?: string): TripStatus {
   return tripStatuses.includes(status as TripStatus) ? (status as TripStatus) : 'SEARCHING';
+}
+
+function mergeTripStatus(currentStatus: TripStatus, incomingStatus: TripStatus) {
+  const incomingIsTerminal = incomingStatus === 'COMPLETED' || incomingStatus === 'CANCELLED' || incomingStatus === 'NO_DRIVER';
+
+  if (incomingStatus === 'SEARCHING' && currentStatus !== 'SEARCHING') {
+    return currentStatus;
+  }
+
+  if (incomingIsTerminal || currentStatus === 'SEARCHING') {
+    return incomingStatus;
+  }
+
+  return incomingStatus;
 }
 
 function getErrorMessage(error: unknown) {

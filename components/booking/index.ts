@@ -1,5 +1,7 @@
 export { AddressSearch } from './address-search';
 export type { AddressSearchProps } from './address-search';
+export { DriverInfoCard } from './driver-info-card';
+export type { DriverInfoCardProps } from './driver-info-card';
 export { MapPicker } from './map-picker';
 export type { MapPickerMode, MapPickerProps } from './map-picker';
 export { RoutePreview } from './route-preview';
