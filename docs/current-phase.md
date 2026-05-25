@@ -7,19 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger realtime tracking
 - Phase: Phase 5 - Passenger realtime tracking
 - Branch: codex/passenger-realtime-tracking
-- Current commit scope: Next commit - Phase 5 passenger tracking refinement or realtime adapter hardening
-- Status: Ready for next commit after user approval
+- Current commit scope: Commit 3 - passenger status timeline on waiting-driver
+- Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `b97b8c6` - Add passenger realtime tracking view
-- Implementation log entry: `2026-05-24 - Phase 5 Passenger Realtime Tracking - Commit 1`
-- Review status: User approved runtime/code review on 2026-05-24; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Commit: `66ce39d` - Use car icon for passenger driver marker
+- Implementation log entry: `2026-05-25 - Phase 5 Passenger Realtime Tracking - Review Change 2`
+- Review status: User approved runtime/code review on 2026-05-25; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Continue Phase 5 with the next small commit: richer passenger trip status/driver details or realtime adapter hardening, depending on runtime feedback.
-- Preserve existing trip ID, route, estimate, payment, promo, and tracking summary behavior.
+- Add a passenger-facing trip status timeline to `waiting-driver` so the user can see searching, accepted, arrived, in-progress, and completed stages.
+- Preserve existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking summary behavior.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
@@ -27,7 +27,7 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - `app/(customer)/booking/pickup.tsx` is refactored on `codex/passenger-pickup-destination` to use `MapPicker`, `AddressSearch`, GPS permission handling, and Expo-compatible `react-native-maps`.
 - `app/(customer)/booking/destination.tsx` is refactored on `codex/passenger-destination-map` to use `MapPicker`, `AddressSearch`, pickup JSON decoding, destination reverse geocode, and route polyline.
 - `app/(customer)/booking/select-vehicle.tsx` is refactored on `codex/passenger-estimate-booking` to parse JSON route params, call `estimateBooking()`, and use stable estimate effect dependencies.
-- `app/(customer)/booking/waiting-driver.tsx` is now wired to shared realtime trip subscription, driver marker rendering, and REST fallback polling on `codex/passenger-realtime-tracking`.
+- `app/(customer)/booking/waiting-driver.tsx` is now wired to shared realtime trip subscription, driver marker rendering, REST fallback polling, and trip detail hydration on `codex/passenger-realtime-tracking`.
 - `app/(driver)/index.tsx` is still a static waiting screen without online toggle, request subscription, or GPS loop.
 - `types/ride.ts` and `lib/config.ts` exist from commit `c599d6e`.
 - `lib/api.ts`, `lib/ride-api.ts`, and `lib/mock-ride-api.ts` exist from commit `efdaf73`.

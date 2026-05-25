@@ -658,3 +658,110 @@
   - The current remote realtime adapter is still a lightweight skeleton, so remote mode keeps REST fallback polling active until a real STOMP client is implemented.
   - Runtime review is needed on a device/dev client because `MapPicker` depends on native `react-native-maps`.
   - REST fallback currently updates driver coordinates only; richer driver profile/ETA details remain for later tracking/status commits.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 2
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `7d3f4d5`
+- Scope: Added passenger-facing driver detail hydration and changed mock driver GPS to appear near the selected route midpoint.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `components/booking/driver-info-card.tsx`
+  - `components/booking/index.ts`
+  - `lib/mock-ride-api.ts`
+  - `lib/realtime.ts`
+- Behavior implemented:
+  - Added reusable `DriverInfoCard` to show pending, matched, unavailable, and synced driver states.
+  - `waiting-driver` now hydrates trip details with `getTrip(tripId)` on mount and after realtime status/notification events.
+  - Driver name, rating, vehicle type, plate, phone, and last sync time render after the mock/backend trip includes driver data.
+  - Mock booking data now includes a sample driver so the waiting screen can demo the accepted-trip UI.
+  - Mock REST driver location now calculates coordinates near the midpoint between pickup and dropoff, with a tiny offset so the marker is easy to spot.
+  - Mock realtime trip progress now emits driver location from the same route-aware mock location source instead of a hardcoded coordinate far from the user's route.
+  - Preserved the previously approved trip ID, fare, payment, promo, route summary, realtime state, and tracking map sections.
+- Runtime feedback addressed:
+  - User reported on 2026-05-25 that the screen showed "Realtime demo đang chạy" and driver details, but the driver marker was not visible on the map.
+  - Adjusted mock GPS data so the driver marker should appear near the middle of the selected pickup/dropoff route.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /i "waiting-driver driver-info-card mock-ride-api realtime ride-api ride.ts"`.
+  - Result: no matching TypeScript errors for the changed Phase 5 scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Waiting for user runtime/code review before starting the next Phase 5 commit.
+- Known risks:
+  - Device runtime review is needed to confirm the map camera and custom driver marker render the new midpoint location clearly.
+  - Real backend trip detail shape must include `driver` fields compatible with `DriverSummary` for the card to show full details.
+  - Remote WebSocket/STOMP is still a skeleton; mock realtime and REST fallback are currently the reliable demo paths.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Review Fix 1
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `640d4d5`
+- Scope: Fixed driver marker visibility on the passenger tracking map after runtime review.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `components/booking/map-picker.tsx`
+- Runtime feedback addressed:
+  - User reported the screen showed realtime demo mode and driver details, but the driver marker was still not visible on the map.
+- Behavior implemented:
+  - Enabled driver-location polling in mock realtime mode as well as remote/fallback mode, so the waiting screen no longer depends on a single mock realtime location event.
+  - Changed `DriverMarker` from a custom child marker with `tracksViewChanges={false}` to a native green map pin with a coordinate-based key.
+  - The native pin avoids Android/Fabric custom-marker rendering issues and should be easier to verify on physical devices.
+  - Preserved route-aware mock coordinates from commit `7d3f4d5`, so the driver marker should still appear near the midpoint between pickup and dropoff.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /i "waiting-driver map-picker mock-ride-api realtime driver-info-card"`.
+  - Result: no matching TypeScript errors for the changed tracking/map scope.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime review on 2026-05-25: approved native green driver marker visibility on the map.
+- Known risks:
+  - The driver marker now uses a native green pin instead of the custom motorbike icon to prioritize visibility and reliability.
+  - If marker still does not appear, the next check should inspect whether the coordinate text under the map shows a driver location; that will tell us whether the issue is data flow or map rendering.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Review Change 2
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `66ce39d`
+- Scope: Changed the passenger tracking driver marker from a native green pin to a car-style custom marker.
+- Files changed:
+  - `components/booking/map-picker.tsx`
+- Runtime feedback addressed:
+  - User confirmed the native marker is visible and requested a Grab/Uber-style car marker instead of the default map pin.
+- Behavior implemented:
+  - Replaced the native green pin with a custom green ride-hailing marker bubble.
+  - Added a white `car-sports` icon inside the marker for clearer driver identity on the route.
+  - Kept the coordinate-based marker key, centered anchor, and high z-index from the visibility fix so marker refresh/rendering remains reliable.
+  - Did not restore `tracksViewChanges={false}` because that setting was a likely cause of the earlier custom marker visibility issue on Android/Fabric.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /i "map-picker waiting-driver"`.
+  - Result: no matching TypeScript errors for the changed map marker scope.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-25: approved custom car marker on the passenger tracking map.
+- Known risks:
+  - This returns to a custom marker, so if a device renders it inconsistently we should switch to an image asset marker or keep the native pin fallback.
