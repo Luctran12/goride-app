@@ -874,3 +874,39 @@
 - Known risks:
   - ETA values are front-end demo estimates, not live traffic-aware backend ETA.
   - Pickup ETA currently derives from the existing trip duration instead of a route from driver to pickup.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 6
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `47225da`
+- Scope: Finished passenger waiting-driver footer behavior with contextual trip actions.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Replaced the always-visible `Hủy chuyến` footer button with state-aware footer actions.
+  - `SEARCHING`, `ACCEPTED`, and `ARRIVED` keep the cancel action, matching TDD cancellable states before the trip starts.
+  - `IN_PROGRESS` locks cancellation and shows a disabled "Chuyến đang diễn ra" action with helper copy.
+  - `COMPLETED` switches footer CTA to "Về trang chủ".
+  - `NO_DRIVER` and `CANCELLED` switch footer CTA to "Đặt chuyến mới".
+  - Footer now includes helper text so the passenger understands why an action is available or locked.
+  - Preserved trip ID, route, estimate, payment, promo, driver detail, ETA card, status timeline, realtime state, and tracking map behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"TripStatus"`.
+  - Result: no matching TypeScript errors for the changed waiting-driver scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-25: approved contextual passenger footer actions.
+- Known risks:
+  - Cancel still performs local navigation only because the passenger cancel API client is not implemented yet.
+  - `COMPLETED` currently returns home without a rating/payment receipt flow; those are future passenger polish items.
