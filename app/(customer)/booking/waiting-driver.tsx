@@ -83,7 +83,9 @@ export default function WaitingDriverScreen() {
   const [tripDetailUpdatedAt, setTripDetailUpdatedAt] = useState<string | null>(null);
   const statusCopy = getStatusCopy(liveStatus);
   const realtimeCopy = getRealtimeCopy(realtimeMode);
-  const fallbackPollingEnabled = Boolean(numericTripId && (realtimeMode === 'fallback' || realtimeMode === 'remote'));
+  const fallbackPollingEnabled = Boolean(
+    numericTripId && (realtimeMode === 'fallback' || realtimeMode === 'remote' || realtimeMode === 'mock'),
+  );
 
   const hydrateTripDetail = useCallback(async () => {
     if (!numericTripId) {

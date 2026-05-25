@@ -295,15 +295,12 @@ function LocationMarker({
 function DriverMarker({ coordinate }: { coordinate: Coordinates }) {
   return (
     <Marker
+      key={`driver-${coordinate.lat.toFixed(6)}-${coordinate.lng.toFixed(6)}`}
       coordinate={toLatLng(coordinate)}
       title="Tài xế"
-      description="Vị trí tài xế gần nhất"
-      tracksViewChanges={false}
-    >
-      <View style={styles.driverPin}>
-        <MaterialCommunityIcons name="motorbike" size={rs(30)} color={palette.card} />
-      </View>
-    </Marker>
+      description="Vị trí tài xế gần nhất trên tuyến"
+      pinColor={palette.green}
+    />
   );
 }
 
