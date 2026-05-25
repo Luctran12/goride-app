@@ -801,3 +801,38 @@
 - Known risks:
   - Timeline status accuracy depends on backend/realtime status events using the TDD `TripStatus` names.
   - Runtime review is needed to confirm the card height feels right on smaller mobile screens.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 4
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `4844021`
+- Scope: Added mock realtime trip progression so the approved passenger timeline can be tested end-to-end.
+- Files changed:
+  - `lib/realtime.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Mock `subscribeTrip()` now progresses through `ACCEPTED`, `ARRIVED`, `IN_PROGRESS`, and `COMPLETED`.
+  - Added passenger notifications for `TRIP_ACCEPTED`, `DRIVER_ARRIVED`, `TRIP_STARTED`, and `TRIP_COMPLETED`.
+  - Mock trip progress now updates the mock REST trip store through `mockUpdateTripStatus()` before emitting realtime status events.
+  - `sendTripStatus()` also updates the mock REST trip store in mock mode, keeping future driver/demo status updates aligned with `GET /bookings/{tripId}`.
+  - Added per-trip mock timer cleanup so resubscribing to the same trip does not stack duplicate demo progression timers.
+  - `disconnectRealtime()` now clears queued mock trip timers along with handlers.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"lib\\\\realtime\\.ts" /C:"mock-ride-api\\.ts" /C:"waiting-driver\\.tsx" /C:"trip-status-timeline\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed realtime/timeline scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-25: approved mock trip progression through `ARRIVED`, `IN_PROGRESS`, and `COMPLETED`.
+- Known risks:
+  - The progression timing is demo-only and should be replaced by driver/backend status updates for production.
+  - Hot reload can restart the waiting screen and replay mock progression from the beginning for the same trip.
