@@ -50,6 +50,13 @@ type VehicleDisplay = {
 };
 
 type RealtimeMode = 'connecting' | 'mock' | 'remote' | 'fallback' | 'unavailable';
+type FooterAction = {
+  label: string;
+  helper: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  variant: 'danger' | 'primary' | 'success' | 'disabled';
+  onPress?: () => void;
+};
 
 export default function WaitingDriverScreen() {
   const router = useRouter();
@@ -231,6 +238,11 @@ export default function WaitingDriverScreen() {
       { text: 'Hủy chuyến', style: 'destructive', onPress: () => router.replace('/(customer)') },
     ]);
   };
+  const handleBackHome = () => router.replace('/(customer)');
+  const footerAction = getFooterAction(liveStatus, {
+    onCancel: handleCancel,
+    onBackHome: handleBackHome,
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -413,8 +425,32 @@ export default function WaitingDriverScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity activeOpacity={0.8} style={styles.cancelButton} onPress={handleCancel}>
-          <Text style={styles.cancelButtonText}>Hủy chuyến</Text>
+        <Text style={styles.footerHelper}>{footerAction.helper}</Text>
+        <TouchableOpacity
+          activeOpacity={footerAction.variant === 'disabled' ? 1 : 0.84}
+          disabled={footerAction.variant === 'disabled'}
+          style={[
+            styles.footerButton,
+            footerAction.variant === 'danger' && styles.footerButtonDanger,
+            footerAction.variant === 'primary' && styles.footerButtonPrimary,
+            footerAction.variant === 'success' && styles.footerButtonSuccess,
+            footerAction.variant === 'disabled' && styles.footerButtonDisabled,
+          ]}
+          onPress={footerAction.onPress}
+        >
+          <MaterialCommunityIcons
+            name={footerAction.icon}
+            size={rs(26)}
+            color={footerAction.variant === 'disabled' ? palette.muted : palette.card}
+          />
+          <Text
+            style={[
+              styles.footerButtonText,
+              footerAction.variant === 'disabled' && styles.footerButtonTextDisabled,
+            ]}
+          >
+            {footerAction.label}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -624,6 +660,61 @@ function getRealtimeCopy(mode: RealtimeMode): {
     icon: 'loading',
     color: palette.primary,
     background: palette.primarySoft,
+  };
+}
+
+function getFooterAction(
+  status: TripStatus,
+  handlers: {
+    onCancel: () => void;
+    onBackHome: () => void;
+  },
+): FooterAction {
+  if (status === 'COMPLETED') {
+    return {
+      label: 'Về trang chủ',
+      helper: 'Chuyến đi đã hoàn thành. Bạn có thể quay lại để đặt chuyến mới.',
+      icon: 'home-variant-outline',
+      variant: 'success',
+      onPress: handlers.onBackHome,
+    };
+  }
+
+  if (status === 'NO_DRIVER') {
+    return {
+      label: 'Đặt chuyến mới',
+      helper: 'Chưa tìm được tài xế phù hợp. Quay lại để thử tuyến hoặc loại xe khác.',
+      icon: 'refresh',
+      variant: 'primary',
+      onPress: handlers.onBackHome,
+    };
+  }
+
+  if (status === 'CANCELLED') {
+    return {
+      label: 'Đặt chuyến mới',
+      helper: 'Chuyến đã hủy. Bạn có thể quay lại màn passenger để đặt lại.',
+      icon: 'plus-circle-outline',
+      variant: 'primary',
+      onPress: handlers.onBackHome,
+    };
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return {
+      label: 'Chuyến đang diễn ra',
+      helper: 'Bạn không thể hủy khi chuyến đã bắt đầu. Hãy tiếp tục theo dõi hành trình.',
+      icon: 'lock-check-outline',
+      variant: 'disabled',
+    };
+  }
+
+  return {
+    label: 'Hủy chuyến',
+    helper: 'Bạn có thể hủy trước khi chuyến bắt đầu. Sau khi lên xe, nút hủy sẽ bị khóa.',
+    icon: 'close-circle-outline',
+    variant: 'danger',
+    onPress: handlers.onCancel,
   };
 }
 
@@ -1074,17 +1165,43 @@ const styles = StyleSheet.create({
     paddingBottom: rvs(34),
     paddingTop: rvs(18),
     backgroundColor: palette.background,
+    gap: rvs(10),
   },
-  cancelButton: {
+  footerHelper: {
+    color: palette.muted,
+    fontSize: rf(15),
+    fontWeight: '800',
+    lineHeight: rf(21),
+    textAlign: 'center',
+  },
+  footerButton: {
     height: rvs(88),
     borderRadius: rs(28),
-    backgroundColor: palette.dangerSoft,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: rs(10),
   },
-  cancelButtonText: {
+  footerButtonDanger: {
+    backgroundColor: palette.danger,
+  },
+  footerButtonPrimary: {
+    backgroundColor: palette.primary,
+  },
+  footerButtonSuccess: {
+    backgroundColor: palette.green,
+  },
+  footerButtonDisabled: {
+    backgroundColor: '#efecf1',
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  footerButtonText: {
     fontSize: rf(25),
     fontWeight: '900',
-    color: palette.danger,
+    color: palette.card,
+  },
+  footerButtonTextDisabled: {
+    color: palette.muted,
   },
 });

@@ -7,8 +7,8 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger realtime tracking
 - Phase: Phase 5 - Passenger realtime tracking
 - Branch: codex/passenger-realtime-tracking
-- Current commit scope: Next commit - realtime adapter hardening or move toward driver flow
-- Status: Ready for next commit after user approval
+- Current commit scope: Commit 6 - passenger waiting-driver contextual footer actions
+- Status: In progress
 
 ## Last Completed Checkpoint
 
@@ -18,7 +18,7 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Next Checkpoint
 
-- Continue Phase 5 with realtime adapter hardening or move toward driver flow depending on runtime feedback.
+- Finish passenger waiting-driver behavior by making footer actions match trip state: cancel when cancellable, book again when ended/no-driver, and lock cancellation in-progress.
 - Preserve existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking summary behavior.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
