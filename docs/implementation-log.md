@@ -836,3 +836,41 @@
 - Known risks:
   - The progression timing is demo-only and should be replaced by driver/backend status updates for production.
   - Hot reload can restart the waiting screen and replay mock progression from the beginning for the same trip.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 5
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `a74fc80`
+- Scope: Added passenger ETA summary polish to the waiting-driver tracking screen.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `components/booking/index.ts`
+  - `components/booking/trip-eta-card.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added reusable `TripEtaCard` component for a high-level passenger ETA/status summary.
+  - ETA card adapts copy and tone for `SEARCHING`, `ACCEPTED`, `ARRIVED`, `IN_PROGRESS`, `COMPLETED`, `NO_DRIVER`, and `CANCELLED`.
+  - Uses existing estimate duration/distance, driver location presence, and latest realtime/trip-detail update timestamp.
+  - For `ACCEPTED`, the pickup ETA is derived from the estimated trip duration and driver location presence for demo clarity.
+  - For `IN_PROGRESS`, the destination ETA uses the existing estimated trip duration.
+  - Inserted ETA summary above the status timeline so passenger sees the most actionable timing information first.
+  - Preserved trip ID, route, estimate, payment, promo, driver detail, realtime state, status timeline, and tracking map behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"trip-eta-card\\.tsx" /C:"components\\\\booking\\\\index\\.ts"`.
+  - Result: no matching TypeScript errors for the changed ETA/waiting-driver scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-25: approved passenger ETA summary card.
+- Known risks:
+  - ETA values are front-end demo estimates, not live traffic-aware backend ETA.
+  - Pickup ETA currently derives from the existing trip duration instead of a route from driver to pickup.
