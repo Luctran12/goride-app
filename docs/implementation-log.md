@@ -696,7 +696,7 @@
   - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
   - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
 - User review:
-  - Waiting for user runtime/code review before starting the next Phase 5 commit.
+  - User runtime/code review on 2026-05-25: approved commit `478ae0e` passenger trip status timeline.
 - Known risks:
   - Device runtime review is needed to confirm the map camera and custom driver marker render the new midpoint location clearly.
   - Real backend trip detail shape must include `driver` fields compatible with `DriverSummary` for the card to show full details.
@@ -765,3 +765,39 @@
   - User runtime/code review on 2026-05-25: approved custom car marker on the passenger tracking map.
 - Known risks:
   - This returns to a custom marker, so if a device renders it inconsistently we should switch to an image asset marker or keep the native pin fallback.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 3
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `478ae0e`
+- Scope: Added a passenger-facing status timeline to the waiting-driver tracking screen.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `components/booking/index.ts`
+  - `components/booking/trip-status-timeline.tsx`
+- Behavior implemented:
+  - Added reusable `TripStatusTimeline` component for passenger trip progress.
+  - Timeline displays `SEARCHING`, `ACCEPTED`, `ARRIVED`, `IN_PROGRESS`, and `COMPLETED` with done, active, and upcoming visual states.
+  - Added interruption banners for `CANCELLED` and `NO_DRIVER`.
+  - Timeline shows the latest known update time from driver GPS/realtime or trip detail hydration.
+  - Inserted the timeline above the tracking map so the passenger sees trip progress before map details.
+  - Preserved existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking map behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"trip-status-timeline\\.tsx" /C:"components\\\\booking\\\\index\\.ts"`.
+  - Result: no matching TypeScript errors for the changed timeline/waiting-driver scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Waiting for user runtime/code review before starting the next Phase 5 commit.
+- Known risks:
+  - Timeline status accuracy depends on backend/realtime status events using the TDD `TripStatus` names.
+  - Runtime review is needed to confirm the card height feels right on smaller mobile screens.
