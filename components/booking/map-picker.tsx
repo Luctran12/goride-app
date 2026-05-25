@@ -297,10 +297,18 @@ function DriverMarker({ coordinate }: { coordinate: Coordinates }) {
     <Marker
       key={`driver-${coordinate.lat.toFixed(6)}-${coordinate.lng.toFixed(6)}`}
       coordinate={toLatLng(coordinate)}
+      anchor={{ x: 0.5, y: 0.5 }}
       title="Tài xế"
       description="Vị trí tài xế gần nhất trên tuyến"
-      pinColor={palette.green}
-    />
+      zIndex={10}
+    >
+      <View style={styles.driverPin}>
+        <View style={styles.driverPinHalo} />
+        <View style={styles.driverCarBubble}>
+          <MaterialCommunityIcons name="car-sports" size={rs(28)} color={palette.card} />
+        </View>
+      </View>
+    </Marker>
   );
 }
 
@@ -516,14 +524,29 @@ const styles = StyleSheet.create({
     borderRadius: rs(8),
   },
   driverPin: {
-    width: rs(52),
-    height: rs(52),
-    borderRadius: rs(26),
+    width: rs(64),
+    height: rs(64),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverPinHalo: {
+    position: 'absolute',
+    width: rs(62),
+    height: rs(62),
+    borderRadius: rs(31),
+    backgroundColor: 'rgba(0, 182, 122, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 182, 122, 0.32)',
+  },
+  driverCarBubble: {
+    width: rs(50),
+    height: rs(50),
+    borderRadius: rs(20),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.green,
-    borderWidth: rs(4),
-    borderColor: palette.greenSoft,
+    borderWidth: rs(3),
+    borderColor: palette.card,
     shadowColor: '#005f44',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
