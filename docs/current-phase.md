@@ -7,8 +7,8 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger realtime tracking
 - Phase: Phase 5 - Passenger realtime tracking
 - Branch: codex/passenger-realtime-tracking
-- Current commit scope: Next commit - ETA polish or realtime adapter hardening
-- Status: Ready for next commit after user approval
+- Current commit scope: Commit 5 - passenger ETA summary polish on waiting-driver
+- Status: In progress
 
 ## Last Completed Checkpoint
 
@@ -18,7 +18,7 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Next Checkpoint
 
-- Continue Phase 5 with ETA polish or realtime adapter hardening depending on runtime feedback.
+- Add passenger-facing ETA summary polish to `waiting-driver` using existing estimate/status/location data.
 - Preserve existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking summary behavior.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 

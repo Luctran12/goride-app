@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DriverInfoCard, MapPicker, TripStatusTimeline } from '@/components/booking';
+import { DriverInfoCard, MapPicker, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
 import { getDriverLocation, getTrip } from '@/lib/ride-api';
 import { connectRealtime, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
@@ -263,6 +263,14 @@ export default function WaitingDriverScreen() {
           <Text style={styles.waitingTitle}>{statusCopy.title}</Text>
           <Text style={styles.waitingSubtitle}>{statusCopy.description}</Text>
         </View>
+
+        <TripEtaCard
+          status={liveStatus}
+          estimatedDistance={distance}
+          estimatedDuration={duration}
+          driverLocation={driverLocation}
+          lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt}
+        />
 
         <TripStatusTimeline status={liveStatus} lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt} />
 
