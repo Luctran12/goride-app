@@ -1,8 +1,11 @@
+import axios, { AxiosError, type AxiosRequestConfig, type RawAxiosRequestHeaders } from 'axios';
+
 import { API_BASE_URL } from '@/lib/config';
 
-export type ApiRequestOptions = Omit<RequestInit, 'body'> & {
+export type ApiRequestOptions = Omit<AxiosRequestConfig, 'data' | 'url'> & {
   body?: unknown;
   token?: string;
+  skipAuth?: boolean;
 };
 
 export class ApiError extends Error {
@@ -27,47 +30,81 @@ export function getAccessToken() {
   return accessToken;
 }
 
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 15000,
+  headers: {
+    Accept: 'application/json',
+  },
+});
+
 export async function apiRequest<TResponse>(path: string, options: ApiRequestOptions = {}): Promise<TResponse> {
-  if (!API_BASE_URL) {
+  const requestBaseURL = options.baseURL ?? API_BASE_URL;
+
+  if (!requestBaseURL) {
     throw new ApiError('API base URL is not configured. Mock API should handle this request.', 0, 'MOCK_API');
   }
 
-  const headers = new Headers(options.headers);
-  const token = options.token ?? accessToken;
+  const { body, token: optionToken, skipAuth = false, headers: optionHeaders, ...axiosOptions } = options;
+  const headers: RawAxiosRequestHeaders = {
+    ...(optionHeaders as RawAxiosRequestHeaders | undefined),
+  };
+  const token = skipAuth ? undefined : optionToken ?? accessToken;
 
-  if (options.body !== undefined && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+  if (body !== undefined && !hasHeader(headers, 'Content-Type')) {
+    headers['Content-Type'] = 'application/json';
   }
 
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
-
-  const text = await response.text();
-  const data = parseResponseBody(text);
-
-  if (!response.ok) {
-    const message = data?.message ?? `Request failed with status ${response.status}`;
-    throw new ApiError(message, response.status, data?.code);
-  }
-
-  return data as TResponse;
-}
-
-function parseResponseBody(text: string) {
-  if (!text) {
-    return undefined;
+  if (token && !hasHeader(headers, 'Authorization')) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text };
+    const response = await apiClient.request<TResponse>({
+      ...axiosOptions,
+      baseURL: requestBaseURL,
+      url: path,
+      headers,
+      data: body,
+    });
+
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
   }
 }
+
+function hasHeader(headers: RawAxiosRequestHeaders, name: string) {
+  const normalizedName = name.toLowerCase();
+
+  return Object.keys(headers).some((headerName) => headerName.toLowerCase() === normalizedName);
+}
+
+function normalizeApiError(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    return normalizeAxiosError(error);
+  }
+
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new ApiError('Request failed');
+}
+
+function normalizeAxiosError(error: AxiosError<ApiErrorBody>) {
+  const status = error.response?.status;
+  const data = error.response?.data;
+  const message =
+    data?.message ??
+    data?.error ??
+    (status ? `Request failed with status ${status}` : error.message || 'Network request failed');
+
+  return new ApiError(message, status ?? 0, data?.code);
+}
+
+type ApiErrorBody = {
+  message?: string;
+  error?: string;
+  code?: string;
+};

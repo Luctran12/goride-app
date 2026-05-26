@@ -1,5 +1,46 @@
 # Implementation Log
 
+## 2026-05-26 - Auth Integration - Uncommitted Work
+
+- Branch: `mock_api`
+- Base commit: `fe73adf`
+- Scope: Wired passenger login/register to the Spring Boot auth API with axios and persisted JWT session storage.
+- Files changed:
+  - `app.json`
+  - `app/_layout.tsx`
+  - `app/(customer)/profile.tsx`
+  - `components/auth/customer-auth-screen.tsx`
+  - `lib/api.ts`
+  - `lib/auth-api.ts`
+  - `lib/config.ts`
+  - `package.json`
+  - `package-lock.json`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `axios` and SDK-compatible `expo-secure-store`.
+  - Added default auth backend base URL `http://172.26.96.1:8080/api/v1`, with `EXPO_PUBLIC_AUTH_API_BASE_URL` override.
+  - Converted the shared API request helper to axios while preserving bearer-token injection.
+  - Added auth API helpers for `/auth/login`, `/auth/register`, and `/auth/logout`.
+  - Auth response handling now unwraps Spring Boot `ApiResponseAuthResponse` and persists `data.accessToken`, `data.refreshToken`, `data.userId`, and `data.roles`.
+  - Root layout restores persisted access token into the axios auth state on app startup.
+  - Customer login/register forms now submit to backend before navigating to the customer home screen.
+  - Profile logout clears local token state and persisted auth session.
+- Validation:
+  - Ran `npm run lint`: passed with 0 errors.
+  - Ran `npx expo config --json`: passed and resolved `expo-secure-store` plugin version `15.0.8`.
+  - Ran focused TypeScript output search for changed auth/API files: no matching errors.
+  - Ran full `npx tsc --noEmit --pretty false`: failed only on existing React UMD global errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`: passed; Git reported existing line-ending normalization warnings only.
+- Review:
+  - Manual review performed for auth/API changes.
+  - No blocking findings found in the changed scope.
+  - Confirmed auth endpoints and request/response shapes against `docs/api-docs.json`.
+- Known risks:
+  - Real login/register smoke test was not run because no backend credentials were provided.
+  - Backend reachability from a physical device still depends on the device being able to access `172.26.96.1:8080` and backend CORS/network config.
+  - Full TypeScript validation remains blocked by pre-existing React import errors outside this auth scope.
+
 ## 2026-05-23 - Phase 1 Foundation - Commit 1
 
 - Branch: `codex/frontend-foundation`

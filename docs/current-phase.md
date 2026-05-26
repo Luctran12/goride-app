@@ -4,33 +4,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Passenger realtime tracking
-- Phase: Phase 5 - Passenger realtime tracking
-- Branch: codex/passenger-realtime-tracking
-- Current commit scope: Commit 7 - passenger cancel API wiring on waiting-driver
-- Status: Ready for next commit after user approval
+- Feature: Passenger authentication API wiring
+- Phase: Auth integration
+- Branch: `mock_api`
+- Current commit scope: Wire customer login/register to Spring Boot auth endpoints with axios and persisted JWT session storage.
+- Status: Implemented; awaiting user runtime review with backend credentials.
 
 ## Last Completed Checkpoint
 
 - Commit: `9525c09` - Wire passenger trip cancellation
 - Implementation log entry: `2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 7`
-- Review status: User approved runtime/code review on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Review status: User approved runtime/code review on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
 
 ## Next Checkpoint
 
-- Continue passenger-side polish with completed-trip receipt/rating placeholder or realtime adapter hardening.
-- Preserve existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking summary behavior.
-- After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
-
-## Phase Assessment From Main
-
-- `app/(customer)/booking/pickup.tsx` is refactored on `codex/passenger-pickup-destination` to use `MapPicker`, `AddressSearch`, GPS permission handling, and Expo-compatible `react-native-maps`.
-- `app/(customer)/booking/destination.tsx` is refactored on `codex/passenger-destination-map` to use `MapPicker`, `AddressSearch`, pickup JSON decoding, destination reverse geocode, and route polyline.
-- `app/(customer)/booking/select-vehicle.tsx` is refactored on `codex/passenger-estimate-booking` to parse JSON route params, call `estimateBooking()`, and use stable estimate effect dependencies.
-- `app/(customer)/booking/waiting-driver.tsx` is now wired to shared realtime trip subscription, driver marker rendering, REST fallback polling, and trip detail hydration on `codex/passenger-realtime-tracking`.
-- `app/(driver)/index.tsx` is still a static waiting screen without online toggle, request subscription, or GPS loop.
-- `types/ride.ts` and `lib/config.ts` exist from commit `c599d6e`.
-- `lib/api.ts`, `lib/ride-api.ts`, and `lib/mock-ride-api.ts` exist from commit `efdaf73`.
-- `lib/location-service.ts` exists from commit `1d1e758`.
-- `lib/realtime.ts` exists from commit `2cf377d`.
-- `app.config.js` and cleaned Expo map/location config exist from commit `9b19b41`.
+- Runtime test login/register against `http://172.26.96.1:8080/api/v1`.
+- Confirm the backend returns `data.accessToken` and `data.refreshToken` matching `docs/api-docs.json`.
+- After user review, decide whether to gate customer routes by persisted session state or keep the current explicit login flow.

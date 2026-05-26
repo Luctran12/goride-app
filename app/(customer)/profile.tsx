@@ -1,4 +1,5 @@
 import { rf, rs, rvs } from '@/constants/responsive';
+import { logout as logoutAuth } from '@/lib/auth-api';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Href, useRouter } from 'expo-router';
 import React from 'react';
@@ -45,6 +46,18 @@ const menuItems: MenuItemProps[] = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [loggingOut, setLoggingOut] = React.useState(false);
+
+  async function handleLogout() {
+    if (loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
+    await logoutAuth();
+    router.replace('/(customer)/login');
+    setLoggingOut(false);
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -87,12 +100,13 @@ export default function ProfileScreen() {
           <TouchableOpacity
             activeOpacity={0.82}
             style={styles.logoutRow}
-            onPress={() => router.replace('/(customer)/login')}
+            disabled={loggingOut}
+            onPress={handleLogout}
           >
             <View style={[styles.menuIcon, styles.logoutIcon]}>
               <MaterialCommunityIcons name="logout" size={rs(34)} color={palette.danger} />
             </View>
-            <Text style={styles.logoutText}>Đăng xuất</Text>
+            <Text style={styles.logoutText}>{loggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}</Text>
           </TouchableOpacity>
         </View>
 
