@@ -1149,3 +1149,40 @@
   - User runtime/code review on 2026-05-26: approved driver screen background.
 - Known risks:
   - Accept/reject actions are still intentionally deferred to the next commit.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 4
+
+- Branch: `codex/driver-flow`
+- Commit: `6a4bc3c`
+- Scope: Connected driver incoming request accept/reject actions.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Replaced the accept/reject placeholder with two actionable buttons on incoming driver requests.
+  - Added `respondToTrip(tripId, 'ACCEPT' | 'REJECT')` calls using the existing ride API/mock adapter.
+  - Added per-action loading state so only one response can be submitted at a time.
+  - On accept, keeps the request card visible and shows an accepted confirmation with the returned trip status.
+  - On reject, clears the current request and returns the driver to the listening state with a status message.
+  - Clears stale response state when a new request arrives or when the driver goes offline.
+  - Preserved the online/offline flow, GPS permission handling, realtime subscription, heartbeat, notification card, full-screen layout, and background polish.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved driver accept/reject behavior.
+- Known risks:
+  - Accepted trips do not yet expose driver status controls (`ARRIVED`, `IN_PROGRESS`, `COMPLETED`); that is intentionally deferred to the next commit.
+  - Reject flow relies on the existing mock/backend to send another request later.

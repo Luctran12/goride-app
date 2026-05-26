@@ -16,10 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
 import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission } from '@/lib/location-service';
-import { respondToTrip, setDriverOnline } from '@/lib/ride-api';
+import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import {
   connectRealtime,
   sendDriverHeartbeat,
+  sendTripStatus,
   subscribeDriverRequests,
   subscribeNotifications,
   type RealtimeSubscription,
@@ -56,6 +57,13 @@ const shadow = {
 
 type DriverRealtimeMode = 'offline' | 'connecting' | 'mock' | 'remote' | 'fallback';
 
+const ACTIVE_TRIP_STEPS: { label: string; status: TripStatus }[] = [
+  { label: 'Đã nhận', status: 'ACCEPTED' },
+  { label: 'Đã đến', status: 'ARRIVED' },
+  { label: 'Đang đi', status: 'IN_PROGRESS' },
+  { label: 'Hoàn thành', status: 'COMPLETED' },
+];
+
 export default function DriverScreen() {
   const { height } = useWindowDimensions();
   const [isOnline, setIsOnline] = useState(false);
@@ -70,6 +78,7 @@ export default function DriverScreen() {
     tripId: number;
   } | null>(null);
   const [respondingAction, setRespondingAction] = useState<DriverAction | null>(null);
+  const [updatingTripStatus, setUpdatingTripStatus] = useState<TripStatus | null>(null);
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
@@ -172,6 +181,7 @@ export default function DriverScreen() {
       setIncomingRequest(null);
       setRequestResponse(null);
       setRespondingAction(null);
+      setUpdatingTripStatus(null);
       setRealtimeMode('offline');
       setStatusMessage(response.message);
     } catch (error: unknown) {
@@ -225,6 +235,31 @@ export default function DriverScreen() {
       }
     },
     [incomingRequest, respondingAction],
+  );
+
+  const handleUpdateActiveTripStatus = useCallback(
+    async (nextStatus: TripStatus) => {
+      if (!requestResponse || updatingTripStatus) {
+        return;
+      }
+
+      setUpdatingTripStatus(nextStatus);
+
+      try {
+        const response = await updateTripStatus(requestResponse.tripId, nextStatus);
+        setRequestResponse({
+          tripId: response.tripId,
+          status: response.status,
+        });
+        sendTripStatus(response.tripId, response.status);
+        setStatusMessage(getDriverStatusMessage(response.status));
+      } catch (error: unknown) {
+        Alert.alert('Không thể cập nhật chuyến', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+      } finally {
+        setUpdatingTripStatus(null);
+      }
+    },
+    [requestResponse, updatingTripStatus],
   );
 
   useEffect(() => {
@@ -329,12 +364,73 @@ export default function DriverScreen() {
               </View>
 
               {requestResponse?.tripId === incomingRequest.tripId ? (
-                <View style={styles.acceptedBox}>
-                  <MaterialCommunityIcons name="check-circle" size={rs(30)} color={palette.green} />
-                  <Text style={styles.acceptedText}>
-                    Đã nhận cuốc #{requestResponse.tripId}. Trạng thái: {formatTripStatus(requestResponse.status)}.
-                    Cập nhật trạng thái chuyến sẽ được nối ở commit sau.
-                  </Text>
+                <View style={styles.activeTripBox}>
+                  <View style={styles.acceptedBox}>
+                    <MaterialCommunityIcons name="check-circle" size={rs(30)} color={palette.green} />
+                    <Text style={styles.acceptedText}>
+                      Cuốc #{requestResponse.tripId}. Trạng thái: {formatTripStatus(requestResponse.status)}.
+                    </Text>
+                  </View>
+
+                  <View style={styles.tripProgressRail}>
+                    {ACTIVE_TRIP_STEPS.map((step) => (
+                      <View key={step.status} style={styles.tripProgressItem}>
+                        <View
+                          style={[
+                            styles.tripProgressDot,
+                            isTripStepCompleted(requestResponse.status, step.status) ? styles.tripProgressDotActive : null,
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.tripProgressLabel,
+                            isTripStepCompleted(requestResponse.status, step.status) ? styles.tripProgressLabelActive : null,
+                          ]}
+                        >
+                          {step.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {getNextDriverStatus(requestResponse.status) ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={Boolean(updatingTripStatus)}
+                      onPress={() => {
+                        const nextStatus = getNextDriverStatus(requestResponse.status);
+
+                        if (nextStatus) {
+                          void handleUpdateActiveTripStatus(nextStatus);
+                        }
+                      }}
+                      style={({ pressed }) => [
+                        styles.statusButton,
+                        pressed && !updatingTripStatus ? styles.pressedButton : null,
+                        updatingTripStatus ? styles.disabledButton : null,
+                      ]}
+                    >
+                      {updatingTripStatus ? (
+                        <ActivityIndicator color={palette.card} />
+                      ) : (
+                        <MaterialCommunityIcons
+                          name={getNextStatusIcon(getNextDriverStatus(requestResponse.status))}
+                          size={rs(30)}
+                          color={palette.card}
+                        />
+                      )}
+                      <Text style={styles.statusButtonText}>
+                        {updatingTripStatus
+                          ? 'Đang cập nhật'
+                          : getNextStatusButtonLabel(getNextDriverStatus(requestResponse.status))}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.completedTripBox}>
+                      <MaterialCommunityIcons name="flag-checkered" size={rs(30)} color={palette.green} />
+                      <Text style={styles.completedTripText}>Chuyến đã hoàn thành. GoRide sẽ sẵn sàng nhận cuốc mới ở bước sau.</Text>
+                    </View>
+                  )}
                 </View>
               ) : (
                 <View style={styles.actionRow}>
@@ -534,11 +630,94 @@ function formatTripStatus(status: TripStatus) {
     return 'Đã nhận';
   }
 
+  if (status === 'ARRIVED') {
+    return 'Tài xế đã đến';
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return 'Đang di chuyển';
+  }
+
+  if (status === 'COMPLETED') {
+    return 'Hoàn thành';
+  }
+
   if (status === 'SEARCHING') {
     return 'Đang tìm tài xế';
   }
 
   return status;
+}
+
+function getNextDriverStatus(status: TripStatus): TripStatus | null {
+  if (status === 'ACCEPTED') {
+    return 'ARRIVED';
+  }
+
+  if (status === 'ARRIVED') {
+    return 'IN_PROGRESS';
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return 'COMPLETED';
+  }
+
+  return null;
+}
+
+function getNextStatusButtonLabel(status: TripStatus | null) {
+  if (status === 'ARRIVED') {
+    return 'Đã đến điểm đón';
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return 'Bắt đầu chuyến';
+  }
+
+  if (status === 'COMPLETED') {
+    return 'Hoàn thành chuyến';
+  }
+
+  return 'Cập nhật chuyến';
+}
+
+function getNextStatusIcon(status: TripStatus | null): keyof typeof MaterialCommunityIcons.glyphMap {
+  if (status === 'ARRIVED') {
+    return 'map-marker-check';
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return 'navigation-variant';
+  }
+
+  if (status === 'COMPLETED') {
+    return 'flag-checkered';
+  }
+
+  return 'check-circle-outline';
+}
+
+function getDriverStatusMessage(status: TripStatus) {
+  if (status === 'ARRIVED') {
+    return 'Bạn đã đến điểm đón. Hãy đón khách và bắt đầu chuyến khi sẵn sàng.';
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return 'Chuyến đang diễn ra. Tiếp tục di chuyển đến điểm trả khách.';
+  }
+
+  if (status === 'COMPLETED') {
+    return 'Chuyến đã hoàn thành. Cảm ơn bạn đã chạy cùng GoRide.';
+  }
+
+  return `Trạng thái chuyến: ${formatTripStatus(status)}.`;
+}
+
+function isTripStepCompleted(currentStatus: TripStatus, stepStatus: TripStatus) {
+  const currentIndex = ACTIVE_TRIP_STEPS.findIndex((step) => step.status === currentStatus);
+  const stepIndex = ACTIVE_TRIP_STEPS.findIndex((step) => step.status === stepStatus);
+
+  return currentIndex >= 0 && stepIndex >= 0 && stepIndex <= currentIndex;
 }
 
 const styles = StyleSheet.create({
@@ -846,6 +1025,72 @@ const styles = StyleSheet.create({
     backgroundColor: palette.greenSoft,
   },
   acceptedText: {
+    flex: 1,
+    color: palette.greenDark,
+    fontSize: rf(22),
+    fontWeight: '800',
+    lineHeight: rf(30),
+  },
+  activeTripBox: {
+    gap: rvs(14),
+  },
+  tripProgressRail: {
+    padding: rs(16),
+    borderRadius: rs(24),
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: '#dce7ff',
+    gap: rvs(10),
+  },
+  tripProgressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+  },
+  tripProgressDot: {
+    width: rs(16),
+    height: rs(16),
+    borderRadius: rs(8),
+    backgroundColor: '#d6ddd9',
+  },
+  tripProgressDotActive: {
+    backgroundColor: palette.green,
+  },
+  tripProgressLabel: {
+    color: palette.muted,
+    fontSize: rf(22),
+    fontWeight: '800',
+  },
+  tripProgressLabelActive: {
+    color: palette.greenDark,
+  },
+  statusButton: {
+    minHeight: rvs(62),
+    borderRadius: rs(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: rs(10),
+    paddingHorizontal: rs(18),
+    paddingVertical: rvs(14),
+    backgroundColor: palette.blue,
+  },
+  statusButtonText: {
+    color: palette.card,
+    fontSize: rf(23),
+    fontWeight: '900',
+  },
+  completedTripBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    padding: rs(16),
+    borderRadius: rs(22),
+    backgroundColor: '#f0fff7',
+    borderWidth: 1,
+    borderColor: palette.backgroundDeep,
+  },
+  completedTripText: {
     flex: 1,
     color: palette.greenDark,
     fontSize: rf(22),
