@@ -988,3 +988,38 @@
   - Rating submit is intentionally demo-only and does not call `POST /ratings` yet.
   - Receipt values use current trip detail/estimate fallbacks until backend returns final payment data.
   - No dedicated receipt/rating route exists yet; the placeholder stays inside the completed waiting-driver state.
+
+## 2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 9
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `ec8ba82`
+- Scope: Hardened passenger realtime lifecycle around terminal trip states and notification filtering.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `lib/realtime.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added trip-aware notification filtering inside `subscribeTrip()` so `/user/queue/notifications` only reaches the passenger screen when the notification has no trip id or matches the subscribed trip id.
+  - Added parsing support for numeric and string `notification.data.tripId` values.
+  - Added `isTerminalTripStatus()` helper for `COMPLETED`, `CANCELLED`, and `NO_DRIVER`.
+  - Stopped waiting-driver REST fallback polling for driver location after terminal trip states.
+  - Preserved trip ID, route, estimate, payment, promo, driver detail, realtime state, map tracking, ETA, timeline, cancel flow, completion receipt/rating, and contextual footer behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"lib\\\\realtime\\.ts"`.
+  - Result: no matching TypeScript errors for the changed realtime/waiting-driver scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved passenger realtime lifecycle hardening.
+- Known risks:
+  - Real STOMP/SockJS connection logic remains pending until dependencies are installed and remote backend integration begins.
+  - Notifications without `data.tripId` still pass through by design because TDD personal notifications may be global/user-level.
