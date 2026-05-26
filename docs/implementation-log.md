@@ -910,3 +910,43 @@
 - Known risks:
   - Cancel still performs local navigation only because the passenger cancel API client is not implemented yet.
   - `COMPLETED` currently returns home without a rating/payment receipt flow; those are future passenger polish items.
+
+## 2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 7
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `9525c09`
+- Scope: Wired passenger trip cancellation from the waiting-driver screen to the booking cancel API contract.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `lib/ride-api.ts`
+  - `lib/mock-ride-api.ts`
+  - `lib/realtime.ts`
+  - `types/ride.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `CancelTripResponse` and `cancelTrip(tripId)` API wrapper for `PATCH /bookings/{tripId}/cancel`.
+  - Added `mockCancelTrip()` with TDD-aligned cancellable states: `SEARCHING`, `ACCEPTED`, and `ARRIVED`; repeated `CANCELLED` calls are idempotent.
+  - Waiting-driver cancel CTA now opens confirm dialog, calls the API/mock adapter, shows loading copy, updates local `CANCELLED` status, and surfaces a success alert.
+  - Successful passenger cancel creates a local `TRIP_CANCELLED` notification and emits the status through the realtime mock bus for the current screen.
+  - Mock realtime timers are cleared when terminal statuses `CANCELLED`, `NO_DRIVER`, or `COMPLETED` are sent, preventing demo progression from overwriting a canceled trip.
+  - Preserved trip ID, route, estimate, payment, promo, driver detail, ETA card, status timeline, tracking map, and contextual footer behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"ride-api\\.ts" /C:"mock-ride-api\\.ts" /C:"realtime\\.ts" /C:"types\\\\ride\\.ts"`.
+  - Result: no matching TypeScript errors for the changed cancellation/realtime scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved passenger cancel API/mock behavior.
+- Known risks:
+  - Real backend cancel behavior depends on `PATCH /bookings/{tripId}/cancel` matching the TDD response `{ tripId, status }`.
+  - Cancel success currently stays on the waiting screen unless the passenger taps `Về trang chủ`; no cancel reason input is implemented yet.
+  - Completed-trip receipt/rating remains future passenger polish.
