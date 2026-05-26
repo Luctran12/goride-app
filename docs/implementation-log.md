@@ -1046,3 +1046,106 @@
 - Known risks:
   - Phase 6 driver flow is not implemented yet.
   - Existing project-wide full TypeScript check still has pre-existing React UMD import errors in untouched template/driver files.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 1
+
+- Branch: `codex/driver-flow`
+- Commit: `f1cd218`
+- Scope: Replaced the static driver waiting screen with an online/offline shell and realtime request listener.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `app/(driver)/_layout.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added stateful online/offline toggle that calls `setDriverOnline(true/false)`.
+  - Requests foreground location permission when going online and stores either current GPS or the existing default demo location fallback.
+  - Connects realtime when online and subscribes to mock/remote driver requests via `subscribeDriverRequests(DRIVER_ID, ...)`.
+  - Subscribes to personal notifications and displays the latest notification card.
+  - Starts a 15-second heartbeat loop with `sendDriverHeartbeat(DRIVER_ID)` while online and cleans it up on offline/unmount.
+  - Displays incoming trip request details with passenger, pickup/dropoff, fare, distance, duration, and a placeholder that accept/reject will be connected in the next commit.
+  - Added React import to `app/(driver)/_layout.tsx`, removing the driver layout from the existing React UMD TypeScript errors.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after removing an unused import and UTF-8 BOM.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Waiting for user runtime/code review before starting the accept/reject commit.
+- Known risks:
+  - Accept/reject actions are intentionally a placeholder in this commit.
+  - Active trip status updates and driver GPS loop are not implemented yet.
+  - Remote STOMP/SockJS integration remains a skeleton until dependencies and backend connection are wired.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 2
+
+- Branch: `codex/driver-flow`
+- Commit: `45eff6a`
+- Scope: Applied runtime UI feedback for the driver screen viewport coverage and typography scale.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `useWindowDimensions()` and a full-height `ScrollView` background so the driver screen fills the visible device viewport more consistently.
+  - Increased hero, card, metric, request, empty-state, notification, and location typography scale for better readability on device.
+  - Increased card padding, spacing, icon sizes, and empty-state height so the screen feels less compressed and better suited to mobile driver usage.
+  - Preserved the existing online/offline, GPS permission, heartbeat, incoming request listener, and notification behavior from commit 1.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved viewport coverage and typography scale.
+- Known risks:
+  - Very small screens may need a later compact variant if the larger text feels too tall.
+  - Accept/reject actions are still intentionally deferred to the next commit.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 3
+
+- Branch: `codex/driver-flow`
+- Commit: `751b022`
+- Scope: Applied runtime UI feedback for the black-looking empty driver screen background.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `app/(driver)/_layout.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Changed the driver screen background from a near-black green to a visible light GoRide mint background.
+  - Updated the native status bar to dark content so icons remain readable on the lighter background.
+  - Added matching Expo Router stack `contentStyle` background for the driver route to prevent the navigation card/root area from showing black behind the screen.
+  - Added a subtle mint border around the hero card so it still reads cleanly against the lighter background.
+  - Preserved the existing full-viewport layout, larger typography, online/offline flow, GPS permission handling, heartbeat, request listener, and notification behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved driver screen background.
+- Known risks:
+  - Accept/reject actions are still intentionally deferred to the next commit.

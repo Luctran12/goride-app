@@ -7,19 +7,18 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Driver trip flow
 - Phase: Phase 6 - Driver realtime flow
 - Branch: codex/driver-flow
-- Current commit scope: Commit 3 - driver screen background color polish
+- Current commit scope: Commit 4 - driver accept/reject actions
 - Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `45eff6a` - Polish driver screen scale
-- Implementation log entry: `2026-05-26 - Phase 6 Driver Realtime Flow - Commit 2`
-- Review status: User approved viewport coverage and typography scale on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Commit: `751b022` - Polish driver screen background
+- Implementation log entry: `2026-05-26 - Phase 6 Driver Realtime Flow - Commit 3`
+- Review status: User approved driver screen background on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Apply runtime feedback: replace the black-looking empty driver background with a visible GoRide background color across route content and safe areas.
-- If approved, implement accept/reject actions for incoming requests in the next small commit.
+- Implement accept/reject actions for incoming driver requests in the next small commit.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main

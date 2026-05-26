@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -15,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
 import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission } from '@/lib/location-service';
-import { setDriverOnline } from '@/lib/ride-api';
+import { respondToTrip, setDriverOnline } from '@/lib/ride-api';
 import {
   connectRealtime,
   sendDriverHeartbeat,
@@ -23,7 +24,7 @@ import {
   subscribeNotifications,
   type RealtimeSubscription,
 } from '@/lib/realtime';
-import type { DriverTripRequest, LocationPoint, WsNotification } from '@/types/ride';
+import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_ID = 5;
 
@@ -64,6 +65,11 @@ export default function DriverScreen() {
   const [statusMessage, setStatusMessage] = useState('Bạn đang offline. Bật online để nhận cuốc mới.');
   const [realtimeMode, setRealtimeMode] = useState<DriverRealtimeMode>('offline');
   const [incomingRequest, setIncomingRequest] = useState<DriverTripRequest | null>(null);
+  const [requestResponse, setRequestResponse] = useState<{
+    status: TripStatus;
+    tripId: number;
+  } | null>(null);
+  const [respondingAction, setRespondingAction] = useState<DriverAction | null>(null);
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
@@ -106,6 +112,7 @@ export default function DriverScreen() {
       setRealtimeMode(connection.mode);
       requestSubscriptionRef.current = subscribeDriverRequests(DRIVER_ID, (request) => {
         setIncomingRequest(request);
+        setRequestResponse(null);
         setStatusMessage('Có cuốc mới đang chờ bạn phản hồi.');
       });
       notificationSubscriptionRef.current = subscribeNotifications((notification) => {
@@ -163,6 +170,8 @@ export default function DriverScreen() {
       stopOnlineServices();
       setIsOnline(false);
       setIncomingRequest(null);
+      setRequestResponse(null);
+      setRespondingAction(null);
       setRealtimeMode('offline');
       setStatusMessage(response.message);
     } catch (error: unknown) {
@@ -183,6 +192,40 @@ export default function DriverScreen() {
       void goOffline();
     }
   };
+
+  const handleRespondToRequest = useCallback(
+    async (action: DriverAction) => {
+      if (!incomingRequest || respondingAction) {
+        return;
+      }
+
+      setRespondingAction(action);
+
+      try {
+        const response = await respondToTrip(incomingRequest.tripId, action);
+        setRequestResponse({
+          status: response.status,
+          tripId: response.tripId,
+        });
+
+        if (action === 'ACCEPT') {
+          setStatusMessage('Bạn đã nhận cuốc. Chuẩn bị di chuyển đến điểm đón.');
+          return;
+        }
+
+        setIncomingRequest(null);
+        setStatusMessage('Bạn đã từ chối cuốc. GoRide tiếp tục nghe request mới.');
+      } catch (error: unknown) {
+        Alert.alert(
+          action === 'ACCEPT' ? 'Không thể nhận cuốc' : 'Không thể từ chối cuốc',
+          getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'),
+        );
+      } finally {
+        setRespondingAction(null);
+      }
+    },
+    [incomingRequest, respondingAction],
+  );
 
   useEffect(() => {
     return () => stopOnlineServices();
@@ -285,10 +328,59 @@ export default function DriverScreen() {
                 <Text style={styles.requestMetaText}>{formatDuration(incomingRequest.estimatedDuration)}</Text>
               </View>
 
-              <View style={styles.pendingActionBox}>
-                <MaterialCommunityIcons name="timer-sand" size={rs(30)} color={palette.amber} />
-                <Text style={styles.pendingActionText}>Accept/Reject sẽ được nối ở commit kế tiếp.</Text>
-              </View>
+              {requestResponse?.tripId === incomingRequest.tripId ? (
+                <View style={styles.acceptedBox}>
+                  <MaterialCommunityIcons name="check-circle" size={rs(30)} color={palette.green} />
+                  <Text style={styles.acceptedText}>
+                    Đã nhận cuốc #{requestResponse.tripId}. Trạng thái: {formatTripStatus(requestResponse.status)}.
+                    Cập nhật trạng thái chuyến sẽ được nối ở commit sau.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.actionRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={Boolean(respondingAction)}
+                    onPress={() => void handleRespondToRequest('REJECT')}
+                    style={({ pressed }) => [
+                      styles.actionButton,
+                      styles.rejectButton,
+                      pressed && !respondingAction ? styles.pressedButton : null,
+                      respondingAction ? styles.disabledButton : null,
+                    ]}
+                  >
+                    {respondingAction === 'REJECT' ? (
+                      <ActivityIndicator color={palette.danger} />
+                    ) : (
+                      <MaterialCommunityIcons name="close-circle-outline" size={rs(30)} color={palette.danger} />
+                    )}
+                    <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
+                      {respondingAction === 'REJECT' ? 'Đang từ chối' : 'Từ chối'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={Boolean(respondingAction)}
+                    onPress={() => void handleRespondToRequest('ACCEPT')}
+                    style={({ pressed }) => [
+                      styles.actionButton,
+                      styles.acceptButton,
+                      pressed && !respondingAction ? styles.pressedButton : null,
+                      respondingAction ? styles.disabledButton : null,
+                    ]}
+                  >
+                    {respondingAction === 'ACCEPT' ? (
+                      <ActivityIndicator color={palette.card} />
+                    ) : (
+                      <MaterialCommunityIcons name="check-circle-outline" size={rs(30)} color={palette.card} />
+                    )}
+                    <Text style={[styles.actionButtonText, styles.acceptButtonText]}>
+                      {respondingAction === 'ACCEPT' ? 'Đang nhận' : 'Nhận cuốc'}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           ) : (
             <View style={styles.emptyRequestBox}>
@@ -435,6 +527,18 @@ function formatDuration(duration?: number) {
   }
 
   return Math.round(duration) + ' phút';
+}
+
+function formatTripStatus(status: TripStatus) {
+  if (status === 'ACCEPTED') {
+    return 'Đã nhận';
+  }
+
+  if (status === 'SEARCHING') {
+    return 'Đang tìm tài xế';
+  }
+
+  return status;
 }
 
 const styles = StyleSheet.create({
@@ -693,17 +797,57 @@ const styles = StyleSheet.create({
     fontSize: rf(24),
     fontWeight: '900',
   },
-  pendingActionBox: {
+  actionRow: {
+    flexDirection: 'row',
+    gap: rs(12),
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: rvs(58),
+    borderRadius: rs(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: rs(8),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(12),
+  },
+  acceptButton: {
+    backgroundColor: palette.green,
+  },
+  rejectButton: {
+    backgroundColor: palette.dangerSoft,
+    borderWidth: 1,
+    borderColor: '#ffcaca',
+  },
+  pressedButton: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.9,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  actionButtonText: {
+    fontSize: rf(22),
+    fontWeight: '900',
+  },
+  acceptButtonText: {
+    color: palette.card,
+  },
+  rejectButtonText: {
+    color: palette.danger,
+  },
+  acceptedBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(10),
     padding: rs(16),
     borderRadius: rs(22),
-    backgroundColor: palette.amberSoft,
+    backgroundColor: palette.greenSoft,
   },
-  pendingActionText: {
+  acceptedText: {
     flex: 1,
-    color: '#895d00',
+    color: palette.greenDark,
     fontSize: rf(22),
     fontWeight: '800',
     lineHeight: rf(30),
