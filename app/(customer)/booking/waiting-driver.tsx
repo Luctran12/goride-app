@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DriverInfoCard, MapPicker, TripEtaCard, TripStatusTimeline } from '@/components/booking';
+import { DriverInfoCard, MapPicker, TripCompletionCard, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
 import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
 import { connectRealtime, sendTripStatus, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
@@ -405,6 +405,19 @@ export default function WaitingDriverScreen() {
           loading={tripDetailLoading}
           error={tripDetailError}
           lastUpdatedAt={tripDetailUpdatedAt}
+        />
+
+        <TripCompletionCard
+          visible={liveStatus === 'COMPLETED'}
+          tripId={tripId}
+          driverName={tripDetail?.driver?.fullName}
+          fare={tripDetail?.finalFare ?? fare}
+          estimatedFare={fare}
+          distance={tripDetail?.estimatedDistance ?? distance}
+          duration={tripDetail?.estimatedDuration ?? duration}
+          paymentLabel={paymentLabel}
+          promoCode={promoCode}
+          completedAt={lastTrackingAt ?? tripDetailUpdatedAt}
         />
 
         <View style={styles.tripCodeCard}>
