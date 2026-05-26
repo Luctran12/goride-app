@@ -1,5 +1,5 @@
 import { USE_MOCK_REALTIME, WS_URL } from '@/lib/config';
-import { mockGetDriverLocation } from '@/lib/mock-ride-api';
+import { mockGetDriverLocation, mockUpdateTripStatus } from '@/lib/mock-ride-api';
 import type { DriverLocationUpdate, DriverTripRequest, TripStatus, WsNotification } from '@/types/ride';
 
 export type TripStatusMessage = {
@@ -37,6 +37,7 @@ const eventHandlers = {
 
 let isConnected = false;
 let mockRequestTimer: ReturnType<typeof setTimeout> | undefined;
+const mockTripTimers = new Map<number, ReturnType<typeof setTimeout>[]>();
 
 export async function connectRealtime() {
   if (!USE_MOCK_REALTIME && WS_URL) {
@@ -56,6 +57,7 @@ export function disconnectRealtime() {
     mockRequestTimer = undefined;
   }
 
+  clearMockTripTimers();
   clearAllHandlers();
 }
 
@@ -140,6 +142,13 @@ export function sendTripStatus(tripId: number, status: TripStatus) {
   };
 
   if (USE_MOCK_REALTIME) {
+    if (status === 'CANCELLED' || status === 'NO_DRIVER' || status === 'COMPLETED') {
+      clearMockTripTimers(tripId);
+    }
+
+    mockUpdateTripStatus(tripId, status).catch(() => {
+      // Keep emitting realtime demo events even if the optional mock REST store is unavailable.
+    });
     emit('tripStatus', message);
   }
 
@@ -175,23 +184,67 @@ function clearAllHandlers() {
 }
 
 function queueMockTripProgress(tripId: number) {
-  setTimeout(() => {
-    emit('notification', {
-      type: 'TRIP_ACCEPTED',
-      title: 'Đã tìm thấy tài xế',
-      body: 'Tài xế đang đến điểm đón của bạn.',
-      data: { tripId },
-    });
-    emit('tripStatus', {
-      tripId,
-      status: 'ACCEPTED',
-      updatedAt: new Date().toISOString(),
-    });
-  }, 2500);
+  clearMockTripTimers(tripId);
 
-  setTimeout(() => {
-    void emitMockDriverLocation(tripId);
-  }, 3500);
+  const timers = [
+    setTimeout(() => {
+      emitMockNotification({
+        type: 'TRIP_ACCEPTED',
+        title: 'Đã tìm thấy tài xế',
+        body: 'Tài xế đang đến điểm đón của bạn.',
+        data: { tripId },
+      });
+      emitMockTripStatus(tripId, 'ACCEPTED');
+    }, 2500),
+    setTimeout(() => {
+      void emitMockDriverLocation(tripId);
+    }, 3500),
+    setTimeout(() => {
+      emitMockNotification({
+        type: 'DRIVER_ARRIVED',
+        title: 'Tài xế đã đến',
+        body: 'Tài xế đang chờ bạn tại điểm đón.',
+        data: { tripId },
+      });
+      emitMockTripStatus(tripId, 'ARRIVED');
+    }, 7500),
+    setTimeout(() => {
+      emitMockNotification({
+        type: 'TRIP_STARTED',
+        title: 'Chuyến đi bắt đầu',
+        body: 'GoRide đang theo dõi hành trình của bạn.',
+        data: { tripId },
+      });
+      emitMockTripStatus(tripId, 'IN_PROGRESS');
+      void emitMockDriverLocation(tripId);
+    }, 11500),
+    setTimeout(() => {
+      emitMockNotification({
+        type: 'TRIP_COMPLETED',
+        title: 'Chuyến đi hoàn thành',
+        body: 'Cảm ơn bạn đã sử dụng GoRide.',
+        data: { tripId },
+      });
+      emitMockTripStatus(tripId, 'COMPLETED');
+    }, 17000),
+  ];
+
+  mockTripTimers.set(tripId, timers);
+}
+
+function emitMockNotification(notification: WsNotification) {
+  emit('notification', notification);
+}
+
+function emitMockTripStatus(tripId: number, status: TripStatus) {
+  mockUpdateTripStatus(tripId, status).catch(() => {
+    // The realtime demo should continue even if a test opened this screen without a mock REST trip.
+  });
+  emit('tripStatus', {
+    tripId,
+    status,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 async function emitMockDriverLocation(tripId: number) {
@@ -208,6 +261,17 @@ async function emitMockDriverLocation(tripId: number) {
       updatedAt: new Date().toISOString(),
     });
   }
+}
+
+function clearMockTripTimers(tripId?: number) {
+  if (typeof tripId === 'number') {
+    mockTripTimers.get(tripId)?.forEach((timer) => clearTimeout(timer));
+    mockTripTimers.delete(tripId);
+    return;
+  }
+
+  mockTripTimers.forEach((timers) => timers.forEach((timer) => clearTimeout(timer)));
+  mockTripTimers.clear();
 }
 
 function queueMockDriverRequest(driverId: number) {

@@ -6,6 +6,8 @@ export { MapPicker } from './map-picker';
 export type { MapPickerMode, MapPickerProps } from './map-picker';
 export { RoutePreview } from './route-preview';
 export type { RoutePreviewProps } from './route-preview';
+export { TripEtaCard } from './trip-eta-card';
+export type { TripEtaCardProps } from './trip-eta-card';
 export { TripStatusTimeline } from './trip-status-timeline';
 export type { TripStatusTimelineProps } from './trip-status-timeline';
 export {

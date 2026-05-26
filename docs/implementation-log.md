@@ -801,3 +801,152 @@
 - Known risks:
   - Timeline status accuracy depends on backend/realtime status events using the TDD `TripStatus` names.
   - Runtime review is needed to confirm the card height feels right on smaller mobile screens.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 4
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `4844021`
+- Scope: Added mock realtime trip progression so the approved passenger timeline can be tested end-to-end.
+- Files changed:
+  - `lib/realtime.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Mock `subscribeTrip()` now progresses through `ACCEPTED`, `ARRIVED`, `IN_PROGRESS`, and `COMPLETED`.
+  - Added passenger notifications for `TRIP_ACCEPTED`, `DRIVER_ARRIVED`, `TRIP_STARTED`, and `TRIP_COMPLETED`.
+  - Mock trip progress now updates the mock REST trip store through `mockUpdateTripStatus()` before emitting realtime status events.
+  - `sendTripStatus()` also updates the mock REST trip store in mock mode, keeping future driver/demo status updates aligned with `GET /bookings/{tripId}`.
+  - Added per-trip mock timer cleanup so resubscribing to the same trip does not stack duplicate demo progression timers.
+  - `disconnectRealtime()` now clears queued mock trip timers along with handlers.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"lib\\\\realtime\\.ts" /C:"mock-ride-api\\.ts" /C:"waiting-driver\\.tsx" /C:"trip-status-timeline\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed realtime/timeline scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-25: approved mock trip progression through `ARRIVED`, `IN_PROGRESS`, and `COMPLETED`.
+- Known risks:
+  - The progression timing is demo-only and should be replaced by driver/backend status updates for production.
+  - Hot reload can restart the waiting screen and replay mock progression from the beginning for the same trip.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 5
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `a74fc80`
+- Scope: Added passenger ETA summary polish to the waiting-driver tracking screen.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `components/booking/index.ts`
+  - `components/booking/trip-eta-card.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added reusable `TripEtaCard` component for a high-level passenger ETA/status summary.
+  - ETA card adapts copy and tone for `SEARCHING`, `ACCEPTED`, `ARRIVED`, `IN_PROGRESS`, `COMPLETED`, `NO_DRIVER`, and `CANCELLED`.
+  - Uses existing estimate duration/distance, driver location presence, and latest realtime/trip-detail update timestamp.
+  - For `ACCEPTED`, the pickup ETA is derived from the estimated trip duration and driver location presence for demo clarity.
+  - For `IN_PROGRESS`, the destination ETA uses the existing estimated trip duration.
+  - Inserted ETA summary above the status timeline so passenger sees the most actionable timing information first.
+  - Preserved trip ID, route, estimate, payment, promo, driver detail, realtime state, status timeline, and tracking map behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"trip-eta-card\\.tsx" /C:"components\\\\booking\\\\index\\.ts"`.
+  - Result: no matching TypeScript errors for the changed ETA/waiting-driver scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-25: approved passenger ETA summary card.
+- Known risks:
+  - ETA values are front-end demo estimates, not live traffic-aware backend ETA.
+  - Pickup ETA currently derives from the existing trip duration instead of a route from driver to pickup.
+
+## 2026-05-25 - Phase 5 Passenger Realtime Tracking - Commit 6
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `47225da`
+- Scope: Finished passenger waiting-driver footer behavior with contextual trip actions.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Replaced the always-visible `Hủy chuyến` footer button with state-aware footer actions.
+  - `SEARCHING`, `ACCEPTED`, and `ARRIVED` keep the cancel action, matching TDD cancellable states before the trip starts.
+  - `IN_PROGRESS` locks cancellation and shows a disabled "Chuyến đang diễn ra" action with helper copy.
+  - `COMPLETED` switches footer CTA to "Về trang chủ".
+  - `NO_DRIVER` and `CANCELLED` switch footer CTA to "Đặt chuyến mới".
+  - Footer now includes helper text so the passenger understands why an action is available or locked.
+  - Preserved trip ID, route, estimate, payment, promo, driver detail, ETA card, status timeline, realtime state, and tracking map behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"TripStatus"`.
+  - Result: no matching TypeScript errors for the changed waiting-driver scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-25: approved contextual passenger footer actions.
+- Known risks:
+  - Cancel still performs local navigation only because the passenger cancel API client is not implemented yet.
+  - `COMPLETED` currently returns home without a rating/payment receipt flow; those are future passenger polish items.
+
+## 2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 7
+
+- Branch: `codex/passenger-realtime-tracking`
+- Commit: `9525c09`
+- Scope: Wired passenger trip cancellation from the waiting-driver screen to the booking cancel API contract.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `lib/ride-api.ts`
+  - `lib/mock-ride-api.ts`
+  - `lib/realtime.ts`
+  - `types/ride.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `CancelTripResponse` and `cancelTrip(tripId)` API wrapper for `PATCH /bookings/{tripId}/cancel`.
+  - Added `mockCancelTrip()` with TDD-aligned cancellable states: `SEARCHING`, `ACCEPTED`, and `ARRIVED`; repeated `CANCELLED` calls are idempotent.
+  - Waiting-driver cancel CTA now opens confirm dialog, calls the API/mock adapter, shows loading copy, updates local `CANCELLED` status, and surfaces a success alert.
+  - Successful passenger cancel creates a local `TRIP_CANCELLED` notification and emits the status through the realtime mock bus for the current screen.
+  - Mock realtime timers are cleared when terminal statuses `CANCELLED`, `NO_DRIVER`, or `COMPLETED` are sent, preventing demo progression from overwriting a canceled trip.
+  - Preserved trip ID, route, estimate, payment, promo, driver detail, ETA card, status timeline, tracking map, and contextual footer behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"waiting-driver\\.tsx" /C:"ride-api\\.ts" /C:"mock-ride-api\\.ts" /C:"realtime\\.ts" /C:"types\\\\ride\\.ts"`.
+  - Result: no matching TypeScript errors for the changed cancellation/realtime scope.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified files only.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved passenger cancel API/mock behavior.
+- Known risks:
+  - Real backend cancel behavior depends on `PATCH /bookings/{tripId}/cancel` matching the TDD response `{ tripId, status }`.
+  - Cancel success currently stays on the waiting screen unless the passenger taps `Về trang chủ`; no cancel reason input is implemented yet.
+  - Completed-trip receipt/rating remains future passenger polish.

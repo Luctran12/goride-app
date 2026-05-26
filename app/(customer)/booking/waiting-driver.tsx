@@ -13,10 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DriverInfoCard, MapPicker, TripStatusTimeline } from '@/components/booking';
+import { DriverInfoCard, MapPicker, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
-import { getDriverLocation, getTrip } from '@/lib/ride-api';
-import { connectRealtime, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
+import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
+import { connectRealtime, sendTripStatus, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
 import type { DriverLocationUpdate, LocationPoint, TripDetail, TripStatus, WsNotification } from '@/types/ride';
 
 const palette = {
@@ -50,6 +50,13 @@ type VehicleDisplay = {
 };
 
 type RealtimeMode = 'connecting' | 'mock' | 'remote' | 'fallback' | 'unavailable';
+type FooterAction = {
+  label: string;
+  helper: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  variant: 'danger' | 'primary' | 'success' | 'disabled';
+  onPress?: () => void;
+};
 
 export default function WaitingDriverScreen() {
   const router = useRouter();
@@ -81,6 +88,7 @@ export default function WaitingDriverScreen() {
   const [tripDetailLoading, setTripDetailLoading] = useState(false);
   const [tripDetailError, setTripDetailError] = useState<string | null>(null);
   const [tripDetailUpdatedAt, setTripDetailUpdatedAt] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const statusCopy = getStatusCopy(liveStatus);
   const realtimeCopy = getRealtimeCopy(realtimeMode);
   const fallbackPollingEnabled = Boolean(
@@ -225,12 +233,64 @@ export default function WaitingDriverScreen() {
     };
   }, [applyDriverLocation, fallbackPollingEnabled, numericTripId]);
 
+  const handleBackHome = () => router.replace('/(customer)');
+
+  const confirmCancelTrip = async () => {
+    if (cancelLoading) {
+      return;
+    }
+
+    if (!numericTripId) {
+      setLiveStatus('CANCELLED');
+      router.replace('/(customer)');
+      return;
+    }
+
+    setCancelLoading(true);
+
+    try {
+      const result = await cancelTrip(numericTripId);
+
+      setLiveStatus(result.status);
+      setLastTrackingAt(new Date().toISOString());
+      setLatestNotification({
+        type: 'TRIP_CANCELLED',
+        title: 'Chuyến đã hủy',
+        body: 'Yêu cầu đặt xe của bạn đã được hủy thành công.',
+        data: { tripId: numericTripId },
+      });
+      sendTripStatus(numericTripId, result.status);
+      void hydrateTripDetail();
+
+      Alert.alert('Đã hủy chuyến', 'Bạn có thể đặt lại chuyến mới khi sẵn sàng.', [
+        { text: 'Ở lại xem trạng thái', style: 'cancel' },
+        { text: 'Về trang chủ', onPress: handleBackHome },
+      ]);
+    } catch (error: unknown) {
+      Alert.alert('Không thể hủy chuyến', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     Alert.alert('Hủy chuyến', 'Bạn có chắc chắn muốn hủy yêu cầu đặt xe này không?', [
       { text: 'Không', style: 'cancel' },
-      { text: 'Hủy chuyến', style: 'destructive', onPress: () => router.replace('/(customer)') },
+      { text: 'Hủy chuyến', style: 'destructive', onPress: () => void confirmCancelTrip() },
     ]);
   };
+
+  const footerAction: FooterAction = cancelLoading
+    ? {
+        label: 'Đang hủy chuyến',
+        helper: 'GoRide đang gửi yêu cầu hủy chuyến và cập nhật trạng thái cho bạn.',
+        icon: 'loading',
+        variant: 'disabled',
+      }
+    : getFooterAction(liveStatus, {
+        onCancel: handleCancel,
+        onBackHome: handleBackHome,
+      });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -263,6 +323,14 @@ export default function WaitingDriverScreen() {
           <Text style={styles.waitingTitle}>{statusCopy.title}</Text>
           <Text style={styles.waitingSubtitle}>{statusCopy.description}</Text>
         </View>
+
+        <TripEtaCard
+          status={liveStatus}
+          estimatedDistance={distance}
+          estimatedDuration={duration}
+          driverLocation={driverLocation}
+          lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt}
+        />
 
         <TripStatusTimeline status={liveStatus} lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt} />
 
@@ -405,8 +473,32 @@ export default function WaitingDriverScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity activeOpacity={0.8} style={styles.cancelButton} onPress={handleCancel}>
-          <Text style={styles.cancelButtonText}>Hủy chuyến</Text>
+        <Text style={styles.footerHelper}>{footerAction.helper}</Text>
+        <TouchableOpacity
+          activeOpacity={footerAction.variant === 'disabled' ? 1 : 0.84}
+          disabled={footerAction.variant === 'disabled'}
+          style={[
+            styles.footerButton,
+            footerAction.variant === 'danger' && styles.footerButtonDanger,
+            footerAction.variant === 'primary' && styles.footerButtonPrimary,
+            footerAction.variant === 'success' && styles.footerButtonSuccess,
+            footerAction.variant === 'disabled' && styles.footerButtonDisabled,
+          ]}
+          onPress={footerAction.onPress}
+        >
+          <MaterialCommunityIcons
+            name={footerAction.icon}
+            size={rs(26)}
+            color={footerAction.variant === 'disabled' ? palette.muted : palette.card}
+          />
+          <Text
+            style={[
+              styles.footerButtonText,
+              footerAction.variant === 'disabled' && styles.footerButtonTextDisabled,
+            ]}
+          >
+            {footerAction.label}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -619,6 +711,61 @@ function getRealtimeCopy(mode: RealtimeMode): {
   };
 }
 
+function getFooterAction(
+  status: TripStatus,
+  handlers: {
+    onCancel: () => void;
+    onBackHome: () => void;
+  },
+): FooterAction {
+  if (status === 'COMPLETED') {
+    return {
+      label: 'Về trang chủ',
+      helper: 'Chuyến đi đã hoàn thành. Bạn có thể quay lại để đặt chuyến mới.',
+      icon: 'home-variant-outline',
+      variant: 'success',
+      onPress: handlers.onBackHome,
+    };
+  }
+
+  if (status === 'NO_DRIVER') {
+    return {
+      label: 'Đặt chuyến mới',
+      helper: 'Chưa tìm được tài xế phù hợp. Quay lại để thử tuyến hoặc loại xe khác.',
+      icon: 'refresh',
+      variant: 'primary',
+      onPress: handlers.onBackHome,
+    };
+  }
+
+  if (status === 'CANCELLED') {
+    return {
+      label: 'Đặt chuyến mới',
+      helper: 'Chuyến đã hủy. Bạn có thể quay lại màn passenger để đặt lại.',
+      icon: 'plus-circle-outline',
+      variant: 'primary',
+      onPress: handlers.onBackHome,
+    };
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return {
+      label: 'Chuyến đang diễn ra',
+      helper: 'Bạn không thể hủy khi chuyến đã bắt đầu. Hãy tiếp tục theo dõi hành trình.',
+      icon: 'lock-check-outline',
+      variant: 'disabled',
+    };
+  }
+
+  return {
+    label: 'Hủy chuyến',
+    helper: 'Bạn có thể hủy trước khi chuyến bắt đầu. Sau khi lên xe, nút hủy sẽ bị khóa.',
+    icon: 'close-circle-outline',
+    variant: 'danger',
+    onPress: handlers.onCancel,
+  };
+}
+
 const tripStatuses: TripStatus[] = [
   'SEARCHING',
   'ACCEPTED',
@@ -647,8 +794,8 @@ function mergeTripStatus(currentStatus: TripStatus, incomingStatus: TripStatus) 
   return incomingStatus;
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Không thể cập nhật vị trí tài xế lúc này.';
+function getErrorMessage(error: unknown, fallback = 'Không thể cập nhật vị trí tài xế lúc này.') {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function formatDistance(distance: number | null) {
@@ -1066,17 +1213,43 @@ const styles = StyleSheet.create({
     paddingBottom: rvs(34),
     paddingTop: rvs(18),
     backgroundColor: palette.background,
+    gap: rvs(10),
   },
-  cancelButton: {
+  footerHelper: {
+    color: palette.muted,
+    fontSize: rf(15),
+    fontWeight: '800',
+    lineHeight: rf(21),
+    textAlign: 'center',
+  },
+  footerButton: {
     height: rvs(88),
     borderRadius: rs(28),
-    backgroundColor: palette.dangerSoft,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: rs(10),
   },
-  cancelButtonText: {
+  footerButtonDanger: {
+    backgroundColor: palette.danger,
+  },
+  footerButtonPrimary: {
+    backgroundColor: palette.primary,
+  },
+  footerButtonSuccess: {
+    backgroundColor: palette.green,
+  },
+  footerButtonDisabled: {
+    backgroundColor: '#efecf1',
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  footerButtonText: {
     fontSize: rf(25),
     fontWeight: '900',
-    color: palette.danger,
+    color: palette.card,
+  },
+  footerButtonTextDisabled: {
+    color: palette.muted,
   },
 });

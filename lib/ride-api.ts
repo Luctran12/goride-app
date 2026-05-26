@@ -1,6 +1,7 @@
 import { apiRequest } from '@/lib/api';
 import { USE_MOCK_API } from '@/lib/config';
 import {
+  mockCancelTrip,
   mockCreateBooking,
   mockEstimateBooking,
   mockGetDriverLocation,
@@ -14,6 +15,7 @@ import type {
   BookingCreateResponse,
   BookingDraft,
   BookingEstimate,
+  CancelTripResponse,
   DriverAction,
   DriverLocationUpdate,
   PricingConfig,
@@ -60,6 +62,14 @@ export function createBooking(draft: BookingDraft, estimate: BookingEstimate) {
 
 export function getTrip(tripId: number) {
   return USE_MOCK_API ? mockGetTrip(tripId) : apiRequest<TripDetail>(`/bookings/${tripId}`);
+}
+
+export function cancelTrip(tripId: number) {
+  return USE_MOCK_API
+    ? mockCancelTrip(tripId)
+    : apiRequest<CancelTripResponse>(`/bookings/${tripId}/cancel`, {
+        method: 'PATCH',
+      });
 }
 
 export function getDriverLocation(tripId: number) {

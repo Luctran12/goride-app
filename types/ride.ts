@@ -45,6 +45,11 @@ export type BookingCreateResponse = {
   estimatedDistance: number;
 };
 
+export type CancelTripResponse = {
+  tripId: number;
+  status: TripStatus;
+};
+
 export type PricingConfig = {
   vehicleType: VehicleType;
   baseFare: number;
