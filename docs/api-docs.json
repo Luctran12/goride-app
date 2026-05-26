@@ -1,0 +1,1477 @@
+{
+    "components": {
+        "schemas": {
+            "ApiResponseAuthResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/AuthResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseDriverLocationResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/DriverLocationResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseDriverProfileResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/DriverProfileResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseDriverTripResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/DriverTripResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseFareEstimateResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/FareEstimateResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseListTripResponse": {
+                "properties": {
+                    "data": {
+                        "items": {
+                            "$ref": "#/components/schemas/TripResponse"
+                        },
+                        "type": "array"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponsePageResponseRatingResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/PageResponseRatingResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponsePaymentConfirmationResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/PaymentConfirmationResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseRatingResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/RatingResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseTripResponse": {
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/TripResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "ApiResponseVoid": {
+                "properties": {
+                    "data": {},
+                    "message": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "timestamp": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "AuthResponse": {
+                "properties": {
+                    "accessToken": {
+                        "type": "string"
+                    },
+                    "refreshToken": {
+                        "type": "string"
+                    },
+                    "roles": {
+                        "items": {
+                            "enum": [
+                                "PASSENGER",
+                                "DRIVER",
+                                "ADMIN"
+                            ],
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": true
+                    },
+                    "userId": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "BookingCancelRequest": {
+                "properties": {
+                    "reason": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "BookingCreateRequest": {
+                "properties": {
+                    "dropoff": {
+                        "$ref": "#/components/schemas/BookingLocationRequest"
+                    },
+                    "paymentMethod": {
+                        "enum": [
+                            "CASH"
+                        ],
+                        "type": "string"
+                    },
+                    "pickup": {
+                        "$ref": "#/components/schemas/BookingLocationRequest"
+                    },
+                    "vehicleType": {
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "dropoff",
+                    "paymentMethod",
+                    "pickup",
+                    "vehicleType"
+                ],
+                "type": "object"
+            },
+            "BookingEstimateRequest": {
+                "properties": {
+                    "dropoff": {
+                        "$ref": "#/components/schemas/BookingLocationRequest"
+                    },
+                    "pickup": {
+                        "$ref": "#/components/schemas/BookingLocationRequest"
+                    },
+                    "vehicleType": {
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "dropoff",
+                    "pickup",
+                    "vehicleType"
+                ],
+                "type": "object"
+            },
+            "BookingLocationRequest": {
+                "properties": {
+                    "address": {
+                        "maxLength": 300,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "lat": {
+                        "maximum": 90.0,
+                        "minimum": -90.0,
+                        "type": "number"
+                    },
+                    "lng": {
+                        "maximum": 180.0,
+                        "minimum": -180.0,
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "address",
+                    "lat",
+                    "lng"
+                ],
+                "type": "object"
+            },
+            "BookingLocationResponse": {
+                "properties": {
+                    "address": {
+                        "type": "string"
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    }
+                },
+                "type": "object"
+            },
+            "DriverLocationResponse": {
+                "properties": {
+                    "bearing": {
+                        "type": "number"
+                    },
+                    "driverId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "speed": {
+                        "type": "number"
+                    },
+                    "tripId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "DriverProfileResponse": {
+                "properties": {
+                    "approvalStatus": {
+                        "enum": [
+                            "PENDING",
+                            "APPROVED",
+                            "REJECTED"
+                        ],
+                        "type": "string"
+                    },
+                    "averageRating": {
+                        "type": "number"
+                    },
+                    "id": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "idCardNumber": {
+                        "type": "string"
+                    },
+                    "licenseExpiry": {
+                        "format": "date",
+                        "type": "string"
+                    },
+                    "licenseNumber": {
+                        "type": "string"
+                    },
+                    "online": {
+                        "type": "boolean"
+                    },
+                    "portraitUrl": {
+                        "type": "string"
+                    },
+                    "totalRatings": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "totalTrips": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "userId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "vehicleBrand": {
+                        "type": "string"
+                    },
+                    "vehicleColor": {
+                        "type": "string"
+                    },
+                    "vehicleModel": {
+                        "type": "string"
+                    },
+                    "vehiclePlate": {
+                        "type": "string"
+                    },
+                    "vehicleType": {
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ],
+                        "type": "string"
+                    },
+                    "vehicleYear": {
+                        "format": "int32",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "DriverProfileUpsertRequest": {
+                "properties": {
+                    "idCardNumber": {
+                        "maxLength": 20,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "licenseExpiry": {
+                        "format": "date",
+                        "type": "string"
+                    },
+                    "licenseNumber": {
+                        "maxLength": 30,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "portraitUrl": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "vehicleBrand": {
+                        "maxLength": 50,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "vehicleColor": {
+                        "maxLength": 30,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "vehicleModel": {
+                        "maxLength": 50,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "vehiclePlate": {
+                        "maxLength": 30,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "vehicleType": {
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ],
+                        "type": "string"
+                    },
+                    "vehicleYear": {
+                        "format": "int32",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "idCardNumber",
+                    "licenseExpiry",
+                    "licenseNumber",
+                    "portraitUrl",
+                    "vehiclePlate",
+                    "vehicleType"
+                ],
+                "type": "object"
+            },
+            "DriverStatusUpdateRequest": {
+                "properties": {
+                    "lat": {
+                        "maximum": 90.0,
+                        "minimum": -90.0,
+                        "type": "number"
+                    },
+                    "lng": {
+                        "maximum": 180.0,
+                        "minimum": -180.0,
+                        "type": "number"
+                    },
+                    "online": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "online"
+                ],
+                "type": "object"
+            },
+            "DriverTripRespondRequest": {
+                "properties": {
+                    "action": {
+                        "enum": [
+                            "ACCEPT",
+                            "REJECT"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "action"
+                ],
+                "type": "object"
+            },
+            "DriverTripResponse": {
+                "properties": {
+                    "status": {
+                        "enum": [
+                            "SEARCHING",
+                            "ACCEPTED",
+                            "ARRIVED",
+                            "IN_PROGRESS",
+                            "COMPLETED",
+                            "CANCELLED",
+                            "NO_DRIVER"
+                        ],
+                        "type": "string"
+                    },
+                    "tripId": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "DriverTripStatusUpdateRequest": {
+                "properties": {
+                    "status": {
+                        "enum": [
+                            "SEARCHING",
+                            "ACCEPTED",
+                            "ARRIVED",
+                            "IN_PROGRESS",
+                            "COMPLETED",
+                            "CANCELLED",
+                            "NO_DRIVER"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "status"
+                ],
+                "type": "object"
+            },
+            "FareEstimateResponse": {
+                "properties": {
+                    "currency": {
+                        "type": "string"
+                    },
+                    "distanceKm": {
+                        "type": "number"
+                    },
+                    "durationMinutes": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "estimatedFare": {
+                        "type": "number"
+                    },
+                    "vehicleType": {
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "LoginRequest": {
+                "properties": {
+                    "password": {
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "phone": {
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "password",
+                    "phone"
+                ],
+                "type": "object"
+            },
+            "LogoutRequest": {
+                "properties": {
+                    "refreshToken": {
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "refreshToken"
+                ],
+                "type": "object"
+            },
+            "PageResponseRatingResponse": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/RatingResponse"
+                        },
+                        "type": "array"
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                },
+                "type": "object"
+            },
+            "Pagination": {
+                "properties": {
+                    "page": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "size": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "totalItems": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "totalPages": {
+                        "format": "int32",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "PaymentConfirmationResponse": {
+                "properties": {
+                    "amount": {
+                        "type": "number"
+                    },
+                    "paidAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "PENDING",
+                            "COMPLETED",
+                            "FAILED",
+                            "REFUNDED"
+                        ],
+                        "type": "string"
+                    },
+                    "tripId": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "RatingCreateRequest": {
+                "properties": {
+                    "comment": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "score": {
+                        "format": "int32",
+                        "maximum": 5,
+                        "minimum": 1,
+                        "type": "integer"
+                    },
+                    "tripId": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "score",
+                    "tripId"
+                ],
+                "type": "object"
+            },
+            "RatingResponse": {
+                "properties": {
+                    "comment": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "driverId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "ratingId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "score": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "tripId": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "RefreshTokenRequest": {
+                "properties": {
+                    "refreshToken": {
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "refreshToken"
+                ],
+                "type": "object"
+            },
+            "RegisterRequest": {
+                "properties": {
+                    "email": {
+                        "format": "email",
+                        "maxLength": 120,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "fullName": {
+                        "maxLength": 100,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "password": {
+                        "maxLength": 72,
+                        "minLength": 8,
+                        "type": "string"
+                    },
+                    "phone": {
+                        "maxLength": 20,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "roles": {
+                        "items": {
+                            "enum": [
+                                "PASSENGER",
+                                "DRIVER",
+                                "ADMIN"
+                            ],
+                            "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array",
+                        "uniqueItems": true
+                    }
+                },
+                "required": [
+                    "fullName",
+                    "password",
+                    "phone",
+                    "roles"
+                ],
+                "type": "object"
+            },
+            "TripResponse": {
+                "properties": {
+                    "acceptedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "arrivedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "cancelledAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "cancelReason": {
+                        "type": "string"
+                    },
+                    "completedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "driverId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "dropoff": {
+                        "$ref": "#/components/schemas/BookingLocationResponse"
+                    },
+                    "estimatedDistanceKm": {
+                        "type": "number"
+                    },
+                    "estimatedDurationMin": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "estimatedFare": {
+                        "type": "number"
+                    },
+                    "finalFare": {
+                        "type": "number"
+                    },
+                    "id": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "passengerId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "paymentMethod": {
+                        "enum": [
+                            "CASH"
+                        ],
+                        "type": "string"
+                    },
+                    "pickup": {
+                        "$ref": "#/components/schemas/BookingLocationResponse"
+                    },
+                    "requestedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "SEARCHING",
+                            "ACCEPTED",
+                            "ARRIVED",
+                            "IN_PROGRESS",
+                            "COMPLETED",
+                            "CANCELLED",
+                            "NO_DRIVER"
+                        ],
+                        "type": "string"
+                    },
+                    "vehicleType": {
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "info": {
+        "title": "OpenAPI definition",
+        "version": "v0"
+    },
+    "openapi": "3.1.0",
+    "paths": {
+        "/api/v1/auth/login": {
+            "post": {
+                "operationId": "login",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "auth-controller"
+                ]
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "operationId": "logout",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LogoutRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseVoid"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "auth-controller"
+                ]
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "operationId": "refresh",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RefreshTokenRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "auth-controller"
+                ]
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "operationId": "register",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "auth-controller"
+                ]
+            }
+        },
+        "/api/v1/bookings": {
+            "get": {
+                "operationId": "listMyBookings",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListTripResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "booking-controller"
+                ]
+            },
+            "post": {
+                "operationId": "createBooking",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookingCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseTripResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "booking-controller"
+                ]
+            }
+        },
+        "/api/v1/bookings/{tripId}": {
+            "get": {
+                "operationId": "getMyBooking",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tripId",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseTripResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "booking-controller"
+                ]
+            }
+        },
+        "/api/v1/bookings/{tripId}/cancel": {
+            "patch": {
+                "operationId": "cancelBooking",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tripId",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookingCancelRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseTripResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "booking-controller"
+                ]
+            }
+        },
+        "/api/v1/bookings/estimate": {
+            "post": {
+                "operationId": "estimateFare",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookingEstimateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseFareEstimateResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "booking-controller"
+                ]
+            }
+        },
+        "/api/v1/drivers/{driverId}/ratings": {
+            "get": {
+                "operationId": "listDriverRatings",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "driverId",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "required": false,
+                        "schema": {
+                            "default": 1,
+                            "format": "int32",
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "size",
+                        "required": false,
+                        "schema": {
+                            "default": 20,
+                            "format": "int32",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePageResponseRatingResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "driver-rating-controller"
+                ]
+            }
+        },
+        "/api/v1/drivers/me/profile": {
+            "get": {
+                "operationId": "getMyProfile",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverProfileResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "driver-profile-controller"
+                ]
+            },
+            "post": {
+                "operationId": "createMyProfile",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DriverProfileUpsertRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverProfileResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "driver-profile-controller"
+                ]
+            }
+        },
+        "/api/v1/drivers/me/status": {
+            "patch": {
+                "operationId": "updateMyStatus",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DriverStatusUpdateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverProfileResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "driver-status-controller"
+                ]
+            }
+        },
+        "/api/v1/drivers/trips/{tripId}/payment-confirm": {
+            "patch": {
+                "operationId": "confirmPayment",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tripId",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePaymentConfirmationResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "driver-trip-controller"
+                ]
+            }
+        },
+        "/api/v1/drivers/trips/{tripId}/respond": {
+            "patch": {
+                "operationId": "respondToOffer",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tripId",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DriverTripRespondRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverTripResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "driver-trip-controller"
+                ]
+            }
+        },
+        "/api/v1/drivers/trips/{tripId}/status": {
+            "patch": {
+                "operationId": "updateTripStatus",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tripId",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DriverTripStatusUpdateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverTripResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "driver-trip-controller"
+                ]
+            }
+        },
+        "/api/v1/ratings": {
+            "post": {
+                "operationId": "createRating",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RatingCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseRatingResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "rating-controller"
+                ]
+            }
+        },
+        "/api/v1/tracking/trips/{tripId}/driver-location": {
+            "get": {
+                "operationId": "getDriverLocation",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "tripId",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverLocationResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "tracking-controller"
+                ]
+            }
+        }
+    },
+    "servers": [
+        {
+            "description": "Generated server url",
+            "url": "http://localhost:8080"
+        }
+    ]
+}
