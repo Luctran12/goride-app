@@ -92,7 +92,9 @@ export default function WaitingDriverScreen() {
   const statusCopy = getStatusCopy(liveStatus);
   const realtimeCopy = getRealtimeCopy(realtimeMode);
   const fallbackPollingEnabled = Boolean(
-    numericTripId && (realtimeMode === 'fallback' || realtimeMode === 'remote' || realtimeMode === 'mock'),
+    numericTripId &&
+      !isTerminalTripStatus(liveStatus) &&
+      (realtimeMode === 'fallback' || realtimeMode === 'remote' || realtimeMode === 'mock'),
   );
 
   const hydrateTripDetail = useCallback(async () => {
@@ -794,7 +796,7 @@ function normalizeTripStatus(status?: string): TripStatus {
 }
 
 function mergeTripStatus(currentStatus: TripStatus, incomingStatus: TripStatus) {
-  const incomingIsTerminal = incomingStatus === 'COMPLETED' || incomingStatus === 'CANCELLED' || incomingStatus === 'NO_DRIVER';
+  const incomingIsTerminal = isTerminalTripStatus(incomingStatus);
 
   if (incomingStatus === 'SEARCHING' && currentStatus !== 'SEARCHING') {
     return currentStatus;
@@ -805,6 +807,10 @@ function mergeTripStatus(currentStatus: TripStatus, incomingStatus: TripStatus) 
   }
 
   return incomingStatus;
+}
+
+function isTerminalTripStatus(status: TripStatus) {
+  return status === 'COMPLETED' || status === 'CANCELLED' || status === 'NO_DRIVER';
 }
 
 function getErrorMessage(error: unknown, fallback = 'Không thể cập nhật vị trí tài xế lúc này.') {
