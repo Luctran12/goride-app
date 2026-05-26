@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { ApiError, apiRequest, setAccessToken } from '@/lib/api';
+import { ApiError, apiRequest, setAccessToken, setAccessTokenRefreshHandler } from '@/lib/api';
 import { AUTH_API_BASE_URL, USE_MOCK_AUTH_API } from '@/lib/config';
 
 const ACCESS_TOKEN_KEY = 'goride.auth.accessToken';
@@ -33,12 +33,30 @@ export type AuthResponse = {
 
 export type AuthSession = AuthResponse;
 
+type AuthSessionListener = (session: AuthSession | undefined) => void;
+
 type ApiResponse<TData> = {
   data?: TData;
   message?: string;
   success?: boolean;
   timestamp?: string;
 };
+
+const authSessionListeners = new Set<AuthSessionListener>();
+let refreshSessionPromise: Promise<AuthSession> | undefined;
+
+setAccessTokenRefreshHandler(async () => {
+  const session = await refreshAuthSession();
+  return session.accessToken;
+});
+
+export function subscribeAuthSession(listener: AuthSessionListener) {
+  authSessionListeners.add(listener);
+
+  return () => {
+    authSessionListeners.delete(listener);
+  };
+}
 
 export async function login(payload: LoginRequest) {
   const session = USE_MOCK_AUTH_API ? await mockLogin(payload) : await requestAuth('/auth/login', payload);
@@ -82,7 +100,16 @@ export async function initializeAuthSession() {
 
   if (!accessToken) {
     setAccessToken(undefined);
+    notifyAuthSession(undefined);
     return undefined;
+  }
+
+  if (isAccessTokenExpired(accessToken)) {
+    try {
+      return await refreshAuthSession();
+    } catch {
+      return undefined;
+    }
   }
 
   setAccessToken(accessToken);
@@ -91,12 +118,16 @@ export async function initializeAuthSession() {
   const userIdValue = await getStoredValue(USER_ID_KEY);
   const rolesValue = await getStoredValue(ROLES_KEY);
 
-  return {
+  const session = {
     accessToken,
     refreshToken,
     userId: Number(userIdValue ?? 0),
     roles: parseStoredRoles(rolesValue),
   };
+
+  notifyAuthSession(session);
+
+  return session;
 }
 
 export async function clearAuthSession() {
@@ -107,6 +138,17 @@ export async function clearAuthSession() {
     deleteStoredValue(USER_ID_KEY),
     deleteStoredValue(ROLES_KEY),
   ]);
+  notifyAuthSession(undefined);
+}
+
+export async function refreshAuthSession() {
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = refreshAuthSessionNow().finally(() => {
+      refreshSessionPromise = undefined;
+    });
+  }
+
+  return refreshSessionPromise;
 }
 
 async function requestAuth(path: string, payload: LoginRequest | RegisterRequest) {
@@ -114,6 +156,36 @@ async function requestAuth(path: string, payload: LoginRequest | RegisterRequest
     baseURL: AUTH_API_BASE_URL,
     method: 'POST',
     body: payload,
+    skipAuth: true,
+  });
+
+  return unwrapAuthResponse(response);
+}
+
+async function refreshAuthSessionNow() {
+  const refreshToken = await getStoredValue(REFRESH_TOKEN_KEY);
+
+  if (!refreshToken) {
+    await clearAuthSession();
+    throw new ApiError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 401, 'AUTH_EXPIRED');
+  }
+
+  try {
+    const session = USE_MOCK_AUTH_API ? createMockAuthSession() : await requestRefresh(refreshToken);
+    await saveAuthSession(session);
+
+    return session;
+  } catch (error) {
+    await clearAuthSession();
+    throw error;
+  }
+}
+
+async function requestRefresh(refreshToken: string) {
+  const response = await apiRequest<ApiResponse<AuthResponse>>('/auth/refresh', {
+    baseURL: AUTH_API_BASE_URL,
+    method: 'POST',
+    body: { refreshToken },
     skipAuth: true,
   });
 
@@ -141,6 +213,11 @@ async function saveAuthSession(session: AuthSession) {
     setStoredValue(USER_ID_KEY, String(session.userId)),
     setStoredValue(ROLES_KEY, JSON.stringify(session.roles)),
   ]);
+  notifyAuthSession(session);
+}
+
+function notifyAuthSession(session: AuthSession | undefined) {
+  authSessionListeners.forEach((listener) => listener(session));
 }
 
 function parseStoredRoles(value: string | null) {
@@ -154,6 +231,62 @@ function parseStoredRoles(value: string | null) {
   } catch {
     return [];
   }
+}
+
+function isAccessTokenExpired(token: string) {
+  const payload = decodeJwtPayload(token);
+
+  if (!payload?.exp || typeof payload.exp !== 'number') {
+    return false;
+  }
+
+  return Date.now() >= payload.exp * 1000 - 30000;
+}
+
+function decodeJwtPayload(token: string) {
+  const payload = token.split('.')[1];
+
+  if (!payload) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(decodeBase64Url(payload)) as { exp?: number };
+  } catch {
+    return undefined;
+  }
+}
+
+function decodeBase64Url(value: string) {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+
+  if (typeof globalThis.atob === 'function') {
+    return globalThis.atob(padded);
+  }
+
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let output = '';
+  let buffer = 0;
+  let bits = 0;
+
+  for (const char of padded.replace(/=+$/, '')) {
+    const index = chars.indexOf(char);
+
+    if (index < 0) {
+      throw new Error('Invalid base64url value');
+    }
+
+    buffer = (buffer << 6) | index;
+    bits += 6;
+
+    if (bits >= 8) {
+      bits -= 8;
+      output += String.fromCharCode((buffer >> bits) & 0xff);
+    }
+  }
+
+  return output;
 }
 
 async function getStoredValue(key: string) {

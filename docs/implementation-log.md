@@ -1,5 +1,38 @@
 # Implementation Log
 
+## 2026-05-26 - Auth Integration - Route Guard And Refresh Follow-up
+
+- Branch: `mock_api`
+- Base commit: `45ffe92`
+- Scope: Block unauthenticated customer screens and refresh expired access tokens.
+- Files changed:
+  - `app/(customer)/_layout.tsx`
+  - `lib/api.ts`
+  - `lib/auth-api.ts`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Customer route layout now uses Expo Router `Stack.Protected` to treat `login` and `register` as public routes and the customer home, booking, profile, and billing screens as protected routes.
+  - Replaced manual `Redirect`/`router.replace` route-guard navigation to avoid the development warning `The action 'REPLACE' with payload {"name":"index","params":{}} was not handled by any navigator`.
+  - Authenticated users are prevented from staying on login/register because those public screens are removed from the stack once a session exists.
+  - Route guard restores persisted session before rendering protected customer screens.
+  - Auth session changes are now observable, so logout or refresh failure clears the session and redirects protected screens back to login.
+  - `apiRequest()` retries one protected axios request after a `401` by invoking the registered access-token refresh handler.
+  - Added `/auth/refresh` integration using the stored `refreshToken` request body and the existing Spring Boot `ApiResponseAuthResponse` wrapper.
+  - Startup/session restore now decodes JWT `exp` and refreshes the access token before opening protected screens when the saved token is expired or within 30 seconds of expiry.
+- Validation:
+  - Ran `npm run lint`: passed with 0 errors.
+  - Ran focused TypeScript output search for `app/(customer)/_layout.tsx`, `lib/api.ts`, and `lib/auth-api.ts`: no matching errors.
+  - Ran `git diff --check`: passed; Git reported line-ending normalization warnings only.
+  - Full `npx tsc --noEmit --pretty false` remains blocked by existing React UMD global errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+- Review:
+  - Manual review performed for route guard and refresh-token flow.
+  - No blocking findings found in this changed scope.
+  - Refresh calls use `skipAuth: true`, preventing recursion if `/auth/refresh` itself returns `401`.
+- Known risks:
+  - Runtime verification still needs real backend credentials and an expired-token scenario.
+  - The driver route remains demo-only and is not gated by this customer auth guard.
+
 ## 2026-05-26 - Auth Integration - Uncommitted Work
 
 - Branch: `mock_api`

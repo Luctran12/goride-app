@@ -7,7 +7,7 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger authentication API wiring
 - Phase: Auth integration
 - Branch: `mock_api`
-- Current commit scope: Wire customer login/register to Spring Boot auth endpoints with axios and persisted JWT session storage.
+- Current commit scope: Protect customer screens behind a persisted auth session and refresh expired access tokens through `/auth/refresh`.
 - Status: Implemented; awaiting user runtime review with backend credentials.
 
 ## Last Completed Checkpoint
@@ -18,6 +18,6 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Next Checkpoint
 
-- Runtime test login/register against `http://172.26.96.1:8080/api/v1`.
-- Confirm the backend returns `data.accessToken` and `data.refreshToken` matching `docs/api-docs.json`.
-- After user review, decide whether to gate customer routes by persisted session state or keep the current explicit login flow.
+- Runtime test unauthenticated direct navigation to `/(customer)`, `/(customer)/profile`, `/(customer)/billing`, and booking routes.
+- Runtime test login/register against the configured auth base URL and confirm customer routes become reachable only after token storage succeeds.
+- Runtime test an expired access token path to confirm `/auth/refresh` returns and persists a new `data.accessToken`.

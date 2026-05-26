@@ -30,6 +30,14 @@ export function getAccessToken() {
   return accessToken;
 }
 
+type AccessTokenRefreshHandler = () => Promise<string | undefined>;
+
+let accessTokenRefreshHandler: AccessTokenRefreshHandler | undefined;
+
+export function setAccessTokenRefreshHandler(handler?: AccessTokenRefreshHandler) {
+  accessTokenRefreshHandler = handler;
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
@@ -59,17 +67,40 @@ export async function apiRequest<TResponse>(path: string, options: ApiRequestOpt
     headers.Authorization = `Bearer ${token}`;
   }
 
-  try {
-    const response = await apiClient.request<TResponse>({
-      ...axiosOptions,
-      baseURL: requestBaseURL,
-      url: path,
-      headers,
-      data: body,
-    });
+  const requestConfig: AxiosRequestConfig = {
+    ...axiosOptions,
+    baseURL: requestBaseURL,
+    url: path,
+    headers,
+    data: body,
+  };
 
+  try {
+    const response = await apiClient.request<TResponse>(requestConfig);
     return response.data;
   } catch (error) {
+    if (shouldRefreshAccessToken(error, skipAuth)) {
+      const refreshedToken = await refreshAccessToken();
+
+      if (refreshedToken) {
+        const retryHeaders: RawAxiosRequestHeaders = {
+          ...(requestConfig.headers as RawAxiosRequestHeaders | undefined),
+          Authorization: `Bearer ${refreshedToken}`,
+        };
+
+        try {
+          const retryResponse = await apiClient.request<TResponse>({
+            ...requestConfig,
+            headers: retryHeaders,
+          });
+
+          return retryResponse.data;
+        } catch (retryError) {
+          throw normalizeApiError(retryError);
+        }
+      }
+    }
+
     throw normalizeApiError(error);
   }
 }
@@ -90,6 +121,23 @@ function normalizeApiError(error: unknown) {
   }
 
   return new ApiError('Request failed');
+}
+
+function shouldRefreshAccessToken(error: unknown, skipAuth: boolean) {
+  return Boolean(
+    !skipAuth &&
+      accessTokenRefreshHandler &&
+      axios.isAxiosError(error) &&
+      error.response?.status === 401,
+  );
+}
+
+async function refreshAccessToken() {
+  try {
+    return accessTokenRefreshHandler?.();
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
 function normalizeAxiosError(error: AxiosError<ApiErrorBody>) {
