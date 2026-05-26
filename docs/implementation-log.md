@@ -1023,3 +1023,26 @@
 - Known risks:
   - Real STOMP/SockJS connection logic remains pending until dependencies are installed and remote backend integration begins.
   - Notifications without `data.tripId` still pass through by design because TDD personal notifications may be global/user-level.
+
+## 2026-05-26 - Phase 5 Passenger Realtime Tracking - Merge
+
+- Source branch: `codex/passenger-realtime-tracking`
+- Target branch: `main`
+- Merge commit: `f52bac1`
+- Scope: Closed Phase 5 passenger realtime tracking and prepared the workspace for Phase 6 driver flow.
+- Files changed:
+  - Phase 5 passenger realtime tracking commits were merged into `main`.
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior preserved on `main`:
+  - Passenger waiting-driver realtime tracking, driver marker, fallback polling, timeline, ETA card, contextual footer, cancel API/mock wiring, completed receipt/rating placeholder, and terminal-state lifecycle hardening.
+- Git actions:
+  - Merged `codex/passenger-realtime-tracking` into `main` with merge commit `f52bac1`.
+  - Pushed `main` to `origin/main` successfully.
+  - Created new Phase 6 branch `codex/driver-flow` from updated `main`.
+- Next phase setup:
+  - `docs/current-phase.md` now points to Phase 6 - Driver realtime flow on `codex/driver-flow`.
+  - First driver commit should inspect and replace the static `app/(driver)/index.tsx` screen in small reviewable slices.
+- Known risks:
+  - Phase 6 driver flow is not implemented yet.
+  - Existing project-wide full TypeScript check still has pre-existing React UMD import errors in untouched template/driver files.

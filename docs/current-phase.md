@@ -4,22 +4,23 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Passenger realtime tracking
-- Phase: Phase 5 - Passenger realtime tracking
-- Branch: codex/passenger-realtime-tracking
-- Current commit scope: Commit 9 - passenger realtime lifecycle hardening
-- Status: Ready to close Phase 5 after user approval
+- Feature: Driver trip flow
+- Phase: Phase 6 - Driver realtime flow
+- Branch: codex/driver-flow
+- Current commit scope: Phase 6 setup - prepare driver online/request/status/GPS implementation
+- Status: Ready for first driver-flow commit
 
 ## Last Completed Checkpoint
 
-- Commit: `ec8ba82` - Harden passenger realtime lifecycle
-- Implementation log entry: `2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 9`
-- Review status: User approved runtime/code review on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Commit: `f52bac1` - Merge passenger realtime tracking phase into `main`
+- Implementation log entry: `2026-05-26 - Phase 5 Passenger Realtime Tracking - Merge`
+- Review status: Phase 5 passenger commits approved by user and pushed to GitHub `main` on 2026-05-26
 
 ## Next Checkpoint
 
-- Close Phase 5 passenger realtime tracking and prepare the next feature/branch for driver flow.
-- Preserve existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking summary behavior.
+- Start Phase 6 driver flow on `codex/driver-flow`.
+- First implementation scope should inspect `app/(driver)/index.tsx`, shared realtime/API adapters, and existing driver mock contracts before replacing the static waiting screen.
+- Preserve Phase 5 passenger behavior from `main` while adding driver online/offline, incoming request, accept/reject, active trip status, heartbeat, and GPS loop in small commits.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
