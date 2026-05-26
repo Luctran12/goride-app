@@ -1,6 +1,16 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
@@ -45,6 +55,7 @@ const shadow = {
 type DriverRealtimeMode = 'offline' | 'connecting' | 'mock' | 'remote' | 'fallback';
 
 export default function DriverScreen() {
+  const { height } = useWindowDimensions();
   const [isOnline, setIsOnline] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);
   const [driverLocation, setDriverLocation] = useState<LocationPoint | null>(null);
@@ -180,7 +191,8 @@ export default function DriverScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={palette.background} />
       <ScrollView
-        contentContainerStyle={styles.container}
+        style={styles.scroll}
+        contentContainerStyle={[styles.container, { minHeight: height }]}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
@@ -220,7 +232,7 @@ export default function DriverScreen() {
         <View style={styles.locationCard}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionIcon}>
-              <MaterialCommunityIcons name="crosshairs-gps" size={rs(26)} color={palette.green} />
+              <MaterialCommunityIcons name="crosshairs-gps" size={rs(34)} color={palette.green} />
             </View>
             <View style={styles.sectionCopy}>
               <Text style={styles.sectionTitle}>Vị trí tài xế</Text>
@@ -242,7 +254,7 @@ export default function DriverScreen() {
         <View style={styles.requestCard}>
           <View style={styles.sectionHeader}>
             <View style={[styles.sectionIcon, styles.requestIcon]}>
-              <MaterialCommunityIcons name="bell-ring-outline" size={rs(26)} color={palette.blue} />
+              <MaterialCommunityIcons name="bell-ring-outline" size={rs(34)} color={palette.blue} />
             </View>
             <View style={styles.sectionCopy}>
               <Text style={styles.sectionTitle}>Yêu cầu cuốc xe</Text>
@@ -273,13 +285,13 @@ export default function DriverScreen() {
               </View>
 
               <View style={styles.pendingActionBox}>
-                <MaterialCommunityIcons name="timer-sand" size={rs(22)} color={palette.amber} />
+                <MaterialCommunityIcons name="timer-sand" size={rs(30)} color={palette.amber} />
                 <Text style={styles.pendingActionText}>Accept/Reject sẽ được nối ở commit kế tiếp.</Text>
               </View>
             </View>
           ) : (
             <View style={styles.emptyRequestBox}>
-              <MaterialCommunityIcons name={isOnline ? 'radar' : 'power-plug-off-outline'} size={rs(48)} color={palette.muted} />
+              <MaterialCommunityIcons name={isOnline ? 'radar' : 'power-plug-off-outline'} size={rs(66)} color={palette.muted} />
               <Text style={styles.emptyTitle}>{isOnline ? 'Đang nghe cuốc mới' : 'Chưa online'}</Text>
               <Text style={styles.emptyText}>
                 {isOnline
@@ -292,7 +304,7 @@ export default function DriverScreen() {
 
         {latestNotification ? (
           <View style={styles.notificationCard}>
-            <MaterialCommunityIcons name="message-badge-outline" size={rs(28)} color={palette.blue} />
+            <MaterialCommunityIcons name="message-badge-outline" size={rs(36)} color={palette.blue} />
             <View style={styles.notificationCopy}>
               <Text style={styles.notificationTitle}>{latestNotification.title}</Text>
               <Text style={styles.notificationBody}>{latestNotification.body}</Text>
@@ -320,7 +332,7 @@ function MetricTile({
   return (
     <View style={styles.metricTile}>
       <View style={[styles.metricIcon, { backgroundColor: toneStyle.background }]}>
-        <MaterialCommunityIcons name={icon} size={rs(22)} color={toneStyle.color} />
+        <MaterialCommunityIcons name={icon} size={rs(30)} color={toneStyle.color} />
       </View>
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={styles.metricValue}>{value}</Text>
@@ -429,19 +441,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
+  scroll: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
   container: {
     flexGrow: 1,
-    paddingHorizontal: rs(26),
-    paddingTop: rvs(20),
-    paddingBottom: rvs(30),
-    gap: rvs(18),
+    paddingHorizontal: rs(34),
+    paddingTop: rvs(30),
+    paddingBottom: rvs(46),
+    gap: rvs(24),
     backgroundColor: palette.background,
   },
   heroCard: {
-    padding: rs(24),
-    borderRadius: rs(36),
+    padding: rs(34),
+    borderRadius: rs(40),
     backgroundColor: '#f7fff9',
-    gap: rvs(16),
+    gap: rvs(22),
     ...shadow,
   },
   heroTopRow: {
@@ -453,9 +469,9 @@ const styles = StyleSheet.create({
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(8),
-    paddingHorizontal: rs(14),
-    height: rvs(40),
+    gap: rs(10),
+    paddingHorizontal: rs(18),
+    height: rvs(48),
     borderRadius: rs(999),
   },
   statusPillOnline: {
@@ -465,12 +481,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#edf2ef',
   },
   statusDot: {
-    width: rs(10),
-    height: rs(10),
-    borderRadius: rs(5),
+    width: rs(12),
+    height: rs(12),
+    borderRadius: rs(6),
   },
   statusPillText: {
-    fontSize: rf(15),
+    fontSize: rf(22),
     fontWeight: '900',
   },
   statusTextOnline: {
@@ -481,76 +497,76 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.ink,
-    fontSize: rf(36),
+    fontSize: rf(54),
     fontWeight: '900',
-    lineHeight: rf(42),
+    lineHeight: rf(62),
   },
   subtitle: {
     color: palette.muted,
-    fontSize: rf(18),
+    fontSize: rf(28),
     fontWeight: '700',
-    lineHeight: rf(26),
+    lineHeight: rf(38),
   },
   heroMetricRow: {
     flexDirection: 'row',
-    gap: rs(12),
+    gap: rs(16),
   },
   metricTile: {
     flex: 1,
-    padding: rs(14),
-    borderRadius: rs(24),
+    padding: rs(18),
+    borderRadius: rs(28),
     backgroundColor: palette.card,
     borderWidth: 1,
     borderColor: palette.line,
-    gap: rvs(6),
+    gap: rvs(8),
   },
   metricIcon: {
-    width: rs(38),
-    height: rs(38),
-    borderRadius: rs(14),
+    width: rs(48),
+    height: rs(48),
+    borderRadius: rs(18),
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricLabel: {
     color: palette.muted,
-    fontSize: rf(14),
+    fontSize: rf(20),
     fontWeight: '800',
   },
   metricValue: {
     color: palette.ink,
-    fontSize: rf(18),
+    fontSize: rf(26),
     fontWeight: '900',
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(10),
-    padding: rs(12),
-    borderRadius: rs(18),
+    gap: rs(12),
+    padding: rs(16),
+    borderRadius: rs(22),
     backgroundColor: palette.greenSoft,
   },
   loadingText: {
     flex: 1,
     color: palette.greenDark,
-    fontSize: rf(15),
+    fontSize: rf(22),
     fontWeight: '800',
   },
   locationCard: {
-    padding: rs(20),
-    borderRadius: rs(32),
+    padding: rs(28),
+    borderRadius: rs(36),
     backgroundColor: palette.card,
-    gap: rvs(16),
+    gap: rvs(20),
     ...shadow,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: rs(12),
+    gap: rs(16),
   },
   sectionIcon: {
-    width: rs(52),
-    height: rs(52),
-    borderRadius: rs(18),
+    width: rs(64),
+    height: rs(64),
+    borderRadius: rs(22),
     backgroundColor: palette.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -564,52 +580,52 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: palette.ink,
-    fontSize: rf(23),
+    fontSize: rf(34),
     fontWeight: '900',
   },
   sectionSubtitle: {
     color: palette.muted,
-    fontSize: rf(16),
+    fontSize: rf(24),
     fontWeight: '700',
-    lineHeight: rf(23),
+    lineHeight: rf(34),
   },
   locationBox: {
-    padding: rs(16),
-    borderRadius: rs(24),
+    padding: rs(22),
+    borderRadius: rs(28),
     backgroundColor: '#f6faf8',
-    gap: rvs(5),
+    gap: rvs(8),
   },
   locationLabel: {
     color: palette.muted,
-    fontSize: rf(14),
+    fontSize: rf(20),
     fontWeight: '800',
   },
   locationValue: {
     color: palette.ink,
-    fontSize: rf(19),
+    fontSize: rf(28),
     fontWeight: '900',
-    lineHeight: rf(26),
+    lineHeight: rf(38),
   },
   locationCoords: {
     color: palette.green,
-    fontSize: rf(15),
+    fontSize: rf(22),
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   requestCard: {
-    padding: rs(20),
-    borderRadius: rs(32),
+    padding: rs(28),
+    borderRadius: rs(36),
     backgroundColor: palette.card,
-    gap: rvs(16),
+    gap: rvs(20),
     ...shadow,
   },
   incomingBox: {
-    padding: rs(16),
-    borderRadius: rs(26),
+    padding: rs(22),
+    borderRadius: rs(30),
     backgroundColor: '#f8fbff',
     borderWidth: 1,
     borderColor: '#dce7ff',
-    gap: rvs(14),
+    gap: rvs(18),
   },
   incomingTopRow: {
     flexDirection: 'row',
@@ -619,36 +635,36 @@ const styles = StyleSheet.create({
   },
   incomingLabel: {
     color: palette.blue,
-    fontSize: rf(14),
+    fontSize: rf(20),
     fontWeight: '900',
   },
   passengerName: {
     color: palette.ink,
-    fontSize: rf(24),
+    fontSize: rf(36),
     fontWeight: '900',
   },
   fareBadge: {
-    paddingHorizontal: rs(14),
-    paddingVertical: rvs(8),
-    borderRadius: rs(16),
+    paddingHorizontal: rs(18),
+    paddingVertical: rvs(10),
+    borderRadius: rs(18),
     backgroundColor: palette.greenSoft,
   },
   fareText: {
     color: palette.greenDark,
-    fontSize: rf(18),
+    fontSize: rf(26),
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   routeLine: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: rs(12),
+    gap: rs(14),
   },
   routeDot: {
-    width: rs(14),
-    height: rs(14),
-    borderRadius: rs(7),
-    marginTop: rvs(7),
+    width: rs(18),
+    height: rs(18),
+    borderRadius: rs(9),
+    marginTop: rvs(9),
   },
   routeCopy: {
     flex: 1,
@@ -656,66 +672,66 @@ const styles = StyleSheet.create({
   },
   routeLabel: {
     color: palette.muted,
-    fontSize: rf(14),
+    fontSize: rf(20),
     fontWeight: '800',
   },
   routeAddress: {
     color: palette.ink,
-    fontSize: rf(18),
+    fontSize: rf(27),
     fontWeight: '800',
-    lineHeight: rf(25),
+    lineHeight: rf(36),
   },
   requestMetaRow: {
     flexDirection: 'row',
-    gap: rs(10),
+    gap: rs(14),
   },
   requestMetaText: {
     color: palette.blue,
-    fontSize: rf(16),
+    fontSize: rf(24),
     fontWeight: '900',
   },
   pendingActionBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(8),
-    padding: rs(12),
-    borderRadius: rs(18),
+    gap: rs(10),
+    padding: rs(16),
+    borderRadius: rs(22),
     backgroundColor: palette.amberSoft,
   },
   pendingActionText: {
     flex: 1,
     color: '#895d00',
-    fontSize: rf(15),
+    fontSize: rf(22),
     fontWeight: '800',
-    lineHeight: rf(21),
+    lineHeight: rf(30),
   },
   emptyRequestBox: {
-    minHeight: rvs(180),
+    minHeight: rvs(240),
     alignItems: 'center',
     justifyContent: 'center',
-    padding: rs(18),
-    borderRadius: rs(26),
+    padding: rs(24),
+    borderRadius: rs(30),
     backgroundColor: '#f6faf8',
-    gap: rvs(8),
+    gap: rvs(12),
   },
   emptyTitle: {
     color: palette.ink,
-    fontSize: rf(22),
+    fontSize: rf(34),
     fontWeight: '900',
   },
   emptyText: {
     color: palette.muted,
-    fontSize: rf(16),
+    fontSize: rf(24),
     fontWeight: '700',
-    lineHeight: rf(23),
+    lineHeight: rf(34),
     textAlign: 'center',
   },
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: rs(12),
-    padding: rs(18),
-    borderRadius: rs(28),
+    gap: rs(16),
+    padding: rs(24),
+    borderRadius: rs(32),
     backgroundColor: palette.blueSoft,
   },
   notificationCopy: {
@@ -724,13 +740,13 @@ const styles = StyleSheet.create({
   },
   notificationTitle: {
     color: palette.blue,
-    fontSize: rf(18),
+    fontSize: rf(28),
     fontWeight: '900',
   },
   notificationBody: {
     color: '#27446f',
-    fontSize: rf(15),
+    fontSize: rf(22),
     fontWeight: '700',
-    lineHeight: rf(21),
+    lineHeight: rf(30),
   },
 });

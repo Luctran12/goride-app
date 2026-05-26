@@ -7,19 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Driver trip flow
 - Phase: Phase 6 - Driver realtime flow
 - Branch: codex/driver-flow
-- Current commit scope: Commit 1 - driver online shell with realtime request listener
+- Current commit scope: Commit 2 - driver screen viewport and typography polish
 - Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `f52bac1` - Merge passenger realtime tracking phase into `main`
-- Implementation log entry: `2026-05-26 - Phase 5 Passenger Realtime Tracking - Merge`
-- Review status: Phase 5 passenger commits approved by user and pushed to GitHub `main` on 2026-05-26
+- Commit: `f1cd218` - Add driver online request shell
+- Implementation log entry: `2026-05-26 - Phase 6 Driver Realtime Flow - Commit 1`
+- Review status: Waiting for user runtime/code review; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Replace the static driver waiting screen with online/offline state, location permission handling, heartbeat, and incoming request subscription.
-- Keep accept/reject and active trip status updates for follow-up commits.
+- Apply runtime feedback: make the driver screen cover the full device viewport better and increase typography/card scale.
+- If approved, implement accept/reject actions for incoming requests in the next small commit.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main
