@@ -7,8 +7,8 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger realtime tracking
 - Phase: Phase 5 - Passenger realtime tracking
 - Branch: codex/passenger-realtime-tracking
-- Current commit scope: Next passenger-side polish - cancel API wiring or completed-trip receipt/rating placeholder
-- Status: Ready for next commit after user approval
+- Current commit scope: Commit 7 - passenger cancel API wiring on waiting-driver
+- Status: In progress
 
 ## Last Completed Checkpoint
 
@@ -18,7 +18,7 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Next Checkpoint
 
-- Continue passenger-side polish with cancel API wiring, completed-trip receipt/rating placeholder, or realtime adapter hardening depending on runtime feedback.
+- Wire passenger cancel action to `PATCH /bookings/{tripId}/cancel` through the API client with mock fallback.
 - Preserve existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking summary behavior.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 

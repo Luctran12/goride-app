@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DriverInfoCard, MapPicker, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
-import { getDriverLocation, getTrip } from '@/lib/ride-api';
-import { connectRealtime, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
+import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
+import { connectRealtime, sendTripStatus, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
 import type { DriverLocationUpdate, LocationPoint, TripDetail, TripStatus, WsNotification } from '@/types/ride';
 
 const palette = {
@@ -88,6 +88,7 @@ export default function WaitingDriverScreen() {
   const [tripDetailLoading, setTripDetailLoading] = useState(false);
   const [tripDetailError, setTripDetailError] = useState<string | null>(null);
   const [tripDetailUpdatedAt, setTripDetailUpdatedAt] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const statusCopy = getStatusCopy(liveStatus);
   const realtimeCopy = getRealtimeCopy(realtimeMode);
   const fallbackPollingEnabled = Boolean(
@@ -232,17 +233,64 @@ export default function WaitingDriverScreen() {
     };
   }, [applyDriverLocation, fallbackPollingEnabled, numericTripId]);
 
+  const handleBackHome = () => router.replace('/(customer)');
+
+  const confirmCancelTrip = async () => {
+    if (cancelLoading) {
+      return;
+    }
+
+    if (!numericTripId) {
+      setLiveStatus('CANCELLED');
+      router.replace('/(customer)');
+      return;
+    }
+
+    setCancelLoading(true);
+
+    try {
+      const result = await cancelTrip(numericTripId);
+
+      setLiveStatus(result.status);
+      setLastTrackingAt(new Date().toISOString());
+      setLatestNotification({
+        type: 'TRIP_CANCELLED',
+        title: 'Chuyến đã hủy',
+        body: 'Yêu cầu đặt xe của bạn đã được hủy thành công.',
+        data: { tripId: numericTripId },
+      });
+      sendTripStatus(numericTripId, result.status);
+      void hydrateTripDetail();
+
+      Alert.alert('Đã hủy chuyến', 'Bạn có thể đặt lại chuyến mới khi sẵn sàng.', [
+        { text: 'Ở lại xem trạng thái', style: 'cancel' },
+        { text: 'Về trang chủ', onPress: handleBackHome },
+      ]);
+    } catch (error: unknown) {
+      Alert.alert('Không thể hủy chuyến', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     Alert.alert('Hủy chuyến', 'Bạn có chắc chắn muốn hủy yêu cầu đặt xe này không?', [
       { text: 'Không', style: 'cancel' },
-      { text: 'Hủy chuyến', style: 'destructive', onPress: () => router.replace('/(customer)') },
+      { text: 'Hủy chuyến', style: 'destructive', onPress: () => void confirmCancelTrip() },
     ]);
   };
-  const handleBackHome = () => router.replace('/(customer)');
-  const footerAction = getFooterAction(liveStatus, {
-    onCancel: handleCancel,
-    onBackHome: handleBackHome,
-  });
+
+  const footerAction: FooterAction = cancelLoading
+    ? {
+        label: 'Đang hủy chuyến',
+        helper: 'GoRide đang gửi yêu cầu hủy chuyến và cập nhật trạng thái cho bạn.',
+        icon: 'loading',
+        variant: 'disabled',
+      }
+    : getFooterAction(liveStatus, {
+        onCancel: handleCancel,
+        onBackHome: handleBackHome,
+      });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -746,8 +794,8 @@ function mergeTripStatus(currentStatus: TripStatus, incomingStatus: TripStatus) 
   return incomingStatus;
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Không thể cập nhật vị trí tài xế lúc này.';
+function getErrorMessage(error: unknown, fallback = 'Không thể cập nhật vị trí tài xế lúc này.') {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function formatDistance(distance: number | null) {

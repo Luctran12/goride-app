@@ -142,6 +142,10 @@ export function sendTripStatus(tripId: number, status: TripStatus) {
   };
 
   if (USE_MOCK_REALTIME) {
+    if (status === 'CANCELLED' || status === 'NO_DRIVER' || status === 'COMPLETED') {
+      clearMockTripTimers(tripId);
+    }
+
     mockUpdateTripStatus(tripId, status).catch(() => {
       // Keep emitting realtime demo events even if the optional mock REST store is unavailable.
     });

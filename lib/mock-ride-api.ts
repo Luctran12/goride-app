@@ -2,6 +2,7 @@ import type {
   BookingCreateResponse,
   BookingDraft,
   BookingEstimate,
+  CancelTripResponse,
   Coordinates,
   DriverAction,
   DriverLocationUpdate,
@@ -129,6 +130,31 @@ export async function mockGetTrip(tripId: number): Promise<TripDetail> {
   }
 
   return trip;
+}
+
+export async function mockCancelTrip(tripId: number): Promise<CancelTripResponse> {
+  const trip = trips.get(tripId);
+
+  if (!trip) {
+    throw new Error(`Mock trip ${tripId} was not found`);
+  }
+
+  const cancellableStatuses: TripStatus[] = ['SEARCHING', 'ACCEPTED', 'ARRIVED'];
+
+  if (trip.status === 'CANCELLED') {
+    return { tripId, status: 'CANCELLED' };
+  }
+
+  if (!cancellableStatuses.includes(trip.status)) {
+    throw new Error('Chuyến đã bắt đầu nên không thể hủy lúc này');
+  }
+
+  trips.set(tripId, {
+    ...trip,
+    status: 'CANCELLED',
+  });
+
+  return { tripId, status: 'CANCELLED' };
 }
 
 export async function mockGetDriverLocation(tripId: number): Promise<DriverLocationUpdate> {
