@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DriverInfoCard, MapPicker, TripEtaCard, TripStatusTimeline } from '@/components/booking';
+import { DriverInfoCard, MapPicker, TripCompletionCard, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
 import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
 import { connectRealtime, sendTripStatus, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
@@ -92,7 +92,9 @@ export default function WaitingDriverScreen() {
   const statusCopy = getStatusCopy(liveStatus);
   const realtimeCopy = getRealtimeCopy(realtimeMode);
   const fallbackPollingEnabled = Boolean(
-    numericTripId && (realtimeMode === 'fallback' || realtimeMode === 'remote' || realtimeMode === 'mock'),
+    numericTripId &&
+      !isTerminalTripStatus(liveStatus) &&
+      (realtimeMode === 'fallback' || realtimeMode === 'remote' || realtimeMode === 'mock'),
   );
 
   const hydrateTripDetail = useCallback(async () => {
@@ -405,6 +407,19 @@ export default function WaitingDriverScreen() {
           loading={tripDetailLoading}
           error={tripDetailError}
           lastUpdatedAt={tripDetailUpdatedAt}
+        />
+
+        <TripCompletionCard
+          visible={liveStatus === 'COMPLETED'}
+          tripId={tripId}
+          driverName={tripDetail?.driver?.fullName}
+          fare={tripDetail?.finalFare ?? fare}
+          estimatedFare={fare}
+          distance={tripDetail?.estimatedDistance ?? distance}
+          duration={tripDetail?.estimatedDuration ?? duration}
+          paymentLabel={paymentLabel}
+          promoCode={promoCode}
+          completedAt={lastTrackingAt ?? tripDetailUpdatedAt}
         />
 
         <View style={styles.tripCodeCard}>
@@ -781,7 +796,7 @@ function normalizeTripStatus(status?: string): TripStatus {
 }
 
 function mergeTripStatus(currentStatus: TripStatus, incomingStatus: TripStatus) {
-  const incomingIsTerminal = incomingStatus === 'COMPLETED' || incomingStatus === 'CANCELLED' || incomingStatus === 'NO_DRIVER';
+  const incomingIsTerminal = isTerminalTripStatus(incomingStatus);
 
   if (incomingStatus === 'SEARCHING' && currentStatus !== 'SEARCHING') {
     return currentStatus;
@@ -792,6 +807,10 @@ function mergeTripStatus(currentStatus: TripStatus, incomingStatus: TripStatus) 
   }
 
   return incomingStatus;
+}
+
+function isTerminalTripStatus(status: TripStatus) {
+  return status === 'COMPLETED' || status === 'CANCELLED' || status === 'NO_DRIVER';
 }
 
 function getErrorMessage(error: unknown, fallback = 'Không thể cập nhật vị trí tài xế lúc này.') {

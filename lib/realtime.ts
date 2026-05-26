@@ -92,7 +92,15 @@ export function subscribeTrip(tripId: number, handlers: TripSubscriptionHandlers
   }
 
   if (handlers.onNotification) {
-    subscriptions.push(subscribeNotifications(handlers.onNotification));
+    subscriptions.push(
+      subscribeNotifications((notification) => {
+        const notificationTripId = getNotificationTripId(notification);
+
+        if (notificationTripId === null || notificationTripId === tripId) {
+          handlers.onNotification?.(notification);
+        }
+      }),
+    );
   }
 
   if (USE_MOCK_REALTIME) {
@@ -174,6 +182,21 @@ function combineSubscriptions(subscriptions: RealtimeSubscription[]): RealtimeSu
   return {
     unsubscribe: () => subscriptions.forEach((subscription) => subscription.unsubscribe()),
   };
+}
+
+function getNotificationTripId(notification: WsNotification) {
+  const tripId = notification.data?.tripId;
+
+  if (typeof tripId === 'number' && Number.isFinite(tripId)) {
+    return tripId;
+  }
+
+  if (typeof tripId === 'string') {
+    const parsedTripId = Number(tripId);
+    return Number.isFinite(parsedTripId) ? parsedTripId : null;
+  }
+
+  return null;
 }
 
 function clearAllHandlers() {

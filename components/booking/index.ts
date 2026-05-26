@@ -8,6 +8,8 @@ export { RoutePreview } from './route-preview';
 export type { RoutePreviewProps } from './route-preview';
 export { TripEtaCard } from './trip-eta-card';
 export type { TripEtaCardProps } from './trip-eta-card';
+export { TripCompletionCard } from './trip-completion-card';
+export type { TripCompletionCardProps } from './trip-completion-card';
 export { TripStatusTimeline } from './trip-status-timeline';
 export type { TripStatusTimelineProps } from './trip-status-timeline';
 export {
