@@ -28,7 +28,8 @@ import type { DriverTripRequest, LocationPoint, WsNotification } from '@/types/r
 const DRIVER_ID = 5;
 
 const palette = {
-  background: '#07130f',
+  background: '#eaf7ef',
+  backgroundDeep: '#cfeedd',
   card: '#ffffff',
   ink: '#08110d',
   muted: '#637069',
@@ -189,7 +190,7 @@ export default function DriverScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.container, { minHeight: height }]}
@@ -457,6 +458,8 @@ const styles = StyleSheet.create({
     padding: rs(34),
     borderRadius: rs(40),
     backgroundColor: '#f7fff9',
+    borderWidth: 1,
+    borderColor: palette.backgroundDeep,
     gap: rvs(22),
     ...shadow,
   },
