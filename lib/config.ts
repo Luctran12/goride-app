@@ -25,7 +25,7 @@ const normalizeApiBaseUrl = (value: string) => {
   return `${trimmed}/api/v1`;
 };
 
-export const DEFAULT_BACKEND_ORIGIN = 'http://172.26.96.1:8080';
+export const DEFAULT_BACKEND_ORIGIN = 'http://192.168.1.8:8080';
 export const DEFAULT_AUTH_API_BASE_URL = normalizeApiBaseUrl(DEFAULT_BACKEND_ORIGIN);
 
 export const appConfig = {
