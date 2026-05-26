@@ -8,17 +8,17 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Phase: Phase 5 - Passenger realtime tracking
 - Branch: codex/passenger-realtime-tracking
 - Current commit scope: Commit 8 - passenger completed trip receipt and rating placeholder
-- Status: In progress
+- Status: Ready for next commit after user approval
 
 ## Last Completed Checkpoint
 
-- Commit: `9525c09` - Wire passenger trip cancellation
-- Implementation log entry: `2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 7`
+- Commit: `39c89c8` - Add passenger completion receipt card
+- Implementation log entry: `2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 8`
 - Review status: User approved runtime/code review on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Add completed-trip receipt summary and rating placeholder on passenger waiting-driver screen.
+- Continue passenger-side polish with realtime adapter hardening or close Phase 5 before moving to driver flow.
 - Preserve existing trip ID, route, estimate, payment, promo, driver detail, realtime state, and tracking summary behavior.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
