@@ -175,6 +175,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: palette.background,
+    marginTop: StatusBar.currentHeight,
   },
   content: {
     paddingTop: rvs(33),
