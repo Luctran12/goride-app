@@ -7,8 +7,8 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Driver trip flow
 - Phase: Phase 6 - Driver realtime flow
 - Branch: codex/driver-flow
-- Current commit scope: Phase 6 setup - prepare driver online/request/status/GPS implementation
-- Status: Ready for first driver-flow commit
+- Current commit scope: Commit 1 - driver online shell with realtime request listener
+- Status: In progress
 
 ## Last Completed Checkpoint
 
@@ -18,9 +18,8 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Next Checkpoint
 
-- Start Phase 6 driver flow on `codex/driver-flow`.
-- First implementation scope should inspect `app/(driver)/index.tsx`, shared realtime/API adapters, and existing driver mock contracts before replacing the static waiting screen.
-- Preserve Phase 5 passenger behavior from `main` while adding driver online/offline, incoming request, accept/reject, active trip status, heartbeat, and GPS loop in small commits.
+- Replace the static driver waiting screen with online/offline state, location permission handling, heartbeat, and incoming request subscription.
+- Keep accept/reject and active trip status updates for follow-up commits.
 - After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
 
 ## Phase Assessment From Main

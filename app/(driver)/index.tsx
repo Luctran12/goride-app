@@ -1,268 +1,736 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Switch, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const requests = [
-  {
-    id: 'trip-1',
-    name: 'Minh Anh',
-    route: 'Q.1 -> Q.3',
-    distance: '2.4 km',
-    fare: '48.000 đ',
-  },
-  {
-    id: 'trip-2',
-    name: 'Quoc Bao',
-    route: 'Tan Binh -> Phu Nhuan',
-    distance: '4.1 km',
-    fare: '62.000 đ',
-  },
-];
+import { rf, rs, rvs } from '@/constants/responsive';
+import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission } from '@/lib/location-service';
+import { setDriverOnline } from '@/lib/ride-api';
+import {
+  connectRealtime,
+  sendDriverHeartbeat,
+  subscribeDriverRequests,
+  subscribeNotifications,
+  type RealtimeSubscription,
+} from '@/lib/realtime';
+import type { DriverTripRequest, LocationPoint, WsNotification } from '@/types/ride';
+
+const DRIVER_ID = 5;
+
+const palette = {
+  background: '#07130f',
+  card: '#ffffff',
+  ink: '#08110d',
+  muted: '#637069',
+  line: '#dfe7e2',
+  green: '#00b875',
+  greenDark: '#053f2a',
+  greenSoft: '#dcf8ed',
+  amber: '#f59e0b',
+  amberSoft: '#fff3d8',
+  danger: '#d72828',
+  dangerSoft: '#ffe7e7',
+  blue: '#1664ff',
+  blueSoft: '#e9f0ff',
+};
+
+const shadow = {
+  shadowColor: '#03130c',
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.14,
+  shadowRadius: 28,
+  elevation: 8,
+};
+
+type DriverRealtimeMode = 'offline' | 'connecting' | 'mock' | 'remote' | 'fallback';
 
 export default function DriverScreen() {
+  const [isOnline, setIsOnline] = useState(false);
+  const [toggleLoading, setToggleLoading] = useState(false);
+  const [driverLocation, setDriverLocation] = useState<LocationPoint | null>(null);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState('Bạn đang offline. Bật online để nhận cuốc mới.');
+  const [realtimeMode, setRealtimeMode] = useState<DriverRealtimeMode>('offline');
+  const [incomingRequest, setIncomingRequest] = useState<DriverTripRequest | null>(null);
+  const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
+  const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
+  const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
+  const notificationSubscriptionRef = useRef<RealtimeSubscription | null>(null);
+  const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
+
+  const stopOnlineServices = useCallback(() => {
+    requestSubscriptionRef.current?.unsubscribe();
+    requestSubscriptionRef.current = null;
+    notificationSubscriptionRef.current?.unsubscribe();
+    notificationSubscriptionRef.current = null;
+
+    if (heartbeatTimerRef.current) {
+      clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
+    }
+  }, []);
+
+  const startHeartbeat = useCallback(() => {
+    if (heartbeatTimerRef.current) {
+      clearInterval(heartbeatTimerRef.current);
+    }
+
+    const sendHeartbeat = () => {
+      const heartbeat = sendDriverHeartbeat(DRIVER_ID);
+      setLastHeartbeatAt(heartbeat.sentAt);
+    };
+
+    sendHeartbeat();
+    heartbeatTimerRef.current = setInterval(sendHeartbeat, 15000);
+  }, []);
+
+  const startRealtime = useCallback(async () => {
+    setRealtimeMode('connecting');
+
+    try {
+      const connection = await connectRealtime();
+      setRealtimeMode(connection.mode);
+      requestSubscriptionRef.current = subscribeDriverRequests(DRIVER_ID, (request) => {
+        setIncomingRequest(request);
+        setStatusMessage('Có cuốc mới đang chờ bạn phản hồi.');
+      });
+      notificationSubscriptionRef.current = subscribeNotifications((notification) => {
+        setLatestNotification(notification);
+      });
+      startHeartbeat();
+    } catch (error: unknown) {
+      setRealtimeMode('fallback');
+      setStatusMessage(getErrorMessage(error, 'Realtime chưa sẵn sàng, GoRide sẽ thử lại ở bước sau.'));
+    }
+  }, [startHeartbeat]);
+
+  const goOnline = useCallback(async () => {
+    setToggleLoading(true);
+
+    try {
+      const permission = await requestLocationPermission();
+      let nextLocation = getDefaultLocationPoint();
+
+      if (permission.granted) {
+        try {
+          nextLocation = await getCurrentLocationPoint({ timeoutMs: 10000 });
+          setLocationMessage('Đã lấy GPS hiện tại để sẵn sàng nhận cuốc.');
+        } catch (error: unknown) {
+          setLocationMessage(getErrorMessage(error, 'GPS quá lâu, tạm dùng vị trí demo để nhận cuốc.'));
+        }
+      } else {
+        setLocationMessage(
+          permission.status === 'gps-disabled'
+            ? 'GPS đang tắt. Tạm dùng vị trí demo, hãy bật GPS trước khi nhận cuốc thật.'
+            : 'Chưa cấp quyền vị trí. Tạm dùng vị trí demo cho luồng mock.',
+        );
+      }
+
+      const response = await setDriverOnline(true);
+      setDriverLocation(nextLocation);
+      setIsOnline(true);
+      setStatusMessage(response.message);
+      await startRealtime();
+    } catch (error: unknown) {
+      Alert.alert('Không thể bật online', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+      stopOnlineServices();
+      setIsOnline(false);
+      setRealtimeMode('offline');
+    } finally {
+      setToggleLoading(false);
+    }
+  }, [startRealtime, stopOnlineServices]);
+
+  const goOffline = useCallback(async () => {
+    setToggleLoading(true);
+
+    try {
+      const response = await setDriverOnline(false);
+      stopOnlineServices();
+      setIsOnline(false);
+      setIncomingRequest(null);
+      setRealtimeMode('offline');
+      setStatusMessage(response.message);
+    } catch (error: unknown) {
+      Alert.alert('Không thể tắt online', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+    } finally {
+      setToggleLoading(false);
+    }
+  }, [stopOnlineServices]);
+
+  const handleToggleOnline = (value: boolean) => {
+    if (toggleLoading) {
+      return;
+    }
+
+    if (value) {
+      void goOnline();
+    } else {
+      void goOffline();
+    }
+  };
+
+  useEffect(() => {
+    return () => stopOnlineServices();
+  }, [stopOnlineServices]);
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.topBand}>
-        <View style={styles.statusRow}>
-          <View style={styles.onlineDot} />
-          <Text style={styles.statusText}>Dang online - san sang nhan cuoc</Text>
-        </View>
-        <Text style={styles.title}>Cho cuoc xe moi</Text>
-        <Text style={styles.subtitle}>
-          Day la man hinh cho cuoc. Ban co the thay bang incoming request, timer hoac danh sach cuoc sau nay.
-        </Text>
-      </View>
-
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Hien tai</Text>
-          <Text style={styles.summaryValue}>San sang</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Doanh thu hom nay</Text>
-          <Text style={styles.summaryValue}>1.280.000 đ</Text>
-        </View>
-      </View>
-
-      <View style={styles.queueCard}>
-        <Text style={styles.sectionTitle}>Cuoc gan day</Text>
-        {requests.map((request, index) => (
-          <View key={request.id} style={[styles.requestCard, index === 0 && styles.primaryRequest]}>
-            <View>
-              <Text style={styles.requestName}>{request.name}</Text>
-              <Text style={styles.requestRoute}>{request.route}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={palette.background} />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <View style={[styles.statusPill, isOnline ? styles.statusPillOnline : styles.statusPillOffline]}>
+              <View style={[styles.statusDot, { backgroundColor: isOnline ? palette.green : palette.muted }]} />
+              <Text style={[styles.statusPillText, isOnline ? styles.statusTextOnline : styles.statusTextOffline]}>
+                {isOnline ? 'Đang online' : 'Đang offline'}
+              </Text>
             </View>
-            <View style={styles.requestMeta}>
-              <Text style={styles.requestDistance}>{request.distance}</Text>
-              <Text style={styles.requestFare}>{request.fare}</Text>
+            <Switch
+              value={isOnline}
+              onValueChange={handleToggleOnline}
+              disabled={toggleLoading}
+              trackColor={{ false: '#314038', true: palette.greenSoft }}
+              thumbColor={isOnline ? palette.green : '#f4f7f5'}
+            />
+          </View>
+
+          <Text style={styles.title}>{isOnline ? 'Sẵn sàng nhận cuốc' : 'Bật online để bắt đầu'}</Text>
+          <Text style={styles.subtitle}>{statusMessage}</Text>
+
+          <View style={styles.heroMetricRow}>
+            <MetricTile icon="access-point" label="Kênh" value={realtimeCopy.label} tone={realtimeCopy.tone} />
+            <MetricTile icon="heart-pulse" label="Heartbeat" value={formatTrackingTime(lastHeartbeatAt)} tone="green" />
+          </View>
+
+          {toggleLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={palette.green} />
+              <Text style={styles.loadingText}>Đang cập nhật trạng thái tài xế...</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.locationCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIcon}>
+              <MaterialCommunityIcons name="crosshairs-gps" size={rs(26)} color={palette.green} />
+            </View>
+            <View style={styles.sectionCopy}>
+              <Text style={styles.sectionTitle}>Vị trí tài xế</Text>
+              <Text style={styles.sectionSubtitle}>{locationMessage ?? 'GoRide sẽ lấy GPS khi bạn bật online.'}</Text>
             </View>
           </View>
-        ))}
-      </View>
 
-      <View style={styles.waitCard}>
-        <View style={styles.waitBadge}>
-          <Text style={styles.waitBadgeText}>Waiting</Text>
+          <View style={styles.locationBox}>
+            <Text style={styles.locationLabel}>Điểm đứng hiện tại</Text>
+            <Text style={styles.locationValue} selectable>
+              {driverLocation?.address ?? 'Chưa có vị trí'}
+            </Text>
+            <Text style={styles.locationCoords} selectable>
+              {driverLocation ? formatCoordinates(driverLocation) : 'GPS chưa được gửi'}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.waitTitle}>He thong dang lang nghe cuoc moi</Text>
-        <Text style={styles.waitText}>
-          Sau nay co the gan map, dinh vi tai xe, va popup chap nhan/tu choi cuoc vao khu vuc nay.
-        </Text>
 
-        <View style={styles.actionRow}>
-          <Pressable style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-            <Text style={styles.secondaryButtonText}>Tam dung</Text>
-          </Pressable>
-          <Pressable style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-            <Text style={styles.primaryButtonText}>Cap nhat trang thai</Text>
-          </Pressable>
+        <View style={styles.requestCard}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionIcon, styles.requestIcon]}>
+              <MaterialCommunityIcons name="bell-ring-outline" size={rs(26)} color={palette.blue} />
+            </View>
+            <View style={styles.sectionCopy}>
+              <Text style={styles.sectionTitle}>Yêu cầu cuốc xe</Text>
+              <Text style={styles.sectionSubtitle}>
+                {isOnline ? 'Mock realtime sẽ đẩy cuốc demo sau vài giây.' : 'Bạn cần online để nhận request.'}
+              </Text>
+            </View>
+          </View>
+
+          {incomingRequest ? (
+            <View style={styles.incomingBox}>
+              <View style={styles.incomingTopRow}>
+                <View>
+                  <Text style={styles.incomingLabel}>Cuốc #{incomingRequest.tripId}</Text>
+                  <Text style={styles.passengerName}>{incomingRequest.passenger.fullName}</Text>
+                </View>
+                <View style={styles.fareBadge}>
+                  <Text style={styles.fareText}>{formatFare(incomingRequest.estimatedFare)}</Text>
+                </View>
+              </View>
+
+              <RouteLine label="Đón" address={incomingRequest.pickup.address} color={palette.green} />
+              <RouteLine label="Đến" address={incomingRequest.dropoff.address} color={palette.danger} />
+
+              <View style={styles.requestMetaRow}>
+                <Text style={styles.requestMetaText}>{formatDistance(incomingRequest.estimatedDistance)}</Text>
+                <Text style={styles.requestMetaText}>{formatDuration(incomingRequest.estimatedDuration)}</Text>
+              </View>
+
+              <View style={styles.pendingActionBox}>
+                <MaterialCommunityIcons name="timer-sand" size={rs(22)} color={palette.amber} />
+                <Text style={styles.pendingActionText}>Accept/Reject sẽ được nối ở commit kế tiếp.</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.emptyRequestBox}>
+              <MaterialCommunityIcons name={isOnline ? 'radar' : 'power-plug-off-outline'} size={rs(48)} color={palette.muted} />
+              <Text style={styles.emptyTitle}>{isOnline ? 'Đang nghe cuốc mới' : 'Chưa online'}</Text>
+              <Text style={styles.emptyText}>
+                {isOnline
+                  ? 'Khi backend hoặc mock realtime gửi request, thông tin cuốc sẽ xuất hiện tại đây.'
+                  : 'Bật công tắc online để mở heartbeat và kênh request của tài xế.'}
+              </Text>
+            </View>
+          )}
         </View>
-      </View>
-    </ScrollView>
+
+        {latestNotification ? (
+          <View style={styles.notificationCard}>
+            <MaterialCommunityIcons name="message-badge-outline" size={rs(28)} color={palette.blue} />
+            <View style={styles.notificationCopy}>
+              <Text style={styles.notificationTitle}>{latestNotification.title}</Text>
+              <Text style={styles.notificationBody}>{latestNotification.body}</Text>
+            </View>
+          </View>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
+function MetricTile({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  value: string;
+  tone: 'green' | 'blue' | 'amber' | 'muted';
+}) {
+  const toneStyle = getToneStyle(tone);
+
+  return (
+    <View style={styles.metricTile}>
+      <View style={[styles.metricIcon, { backgroundColor: toneStyle.background }]}>
+        <MaterialCommunityIcons name={icon} size={rs(22)} color={toneStyle.color} />
+      </View>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+    </View>
+  );
+}
+
+function RouteLine({ label, address, color }: { label: string; address: string; color: string }) {
+  return (
+    <View style={styles.routeLine}>
+      <View style={[styles.routeDot, { backgroundColor: color }]} />
+      <View style={styles.routeCopy}>
+        <Text style={styles.routeLabel}>{label}</Text>
+        <Text style={styles.routeAddress} numberOfLines={2} selectable>
+          {address}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function getToneStyle(tone: 'green' | 'blue' | 'amber' | 'muted') {
+  if (tone === 'green') {
+    return { color: palette.green, background: palette.greenSoft };
+  }
+
+  if (tone === 'blue') {
+    return { color: palette.blue, background: palette.blueSoft };
+  }
+
+  if (tone === 'amber') {
+    return { color: palette.amber, background: palette.amberSoft };
+  }
+
+  return { color: palette.muted, background: '#edf2ef' };
+}
+
+function getRealtimeCopy(mode: DriverRealtimeMode): { label: string; tone: 'green' | 'blue' | 'amber' | 'muted' } {
+  if (mode === 'mock') {
+    return { label: 'Mock realtime', tone: 'green' };
+  }
+
+  if (mode === 'remote') {
+    return { label: 'Remote WS', tone: 'blue' };
+  }
+
+  if (mode === 'connecting') {
+    return { label: 'Đang nối', tone: 'amber' };
+  }
+
+  if (mode === 'fallback') {
+    return { label: 'Fallback', tone: 'amber' };
+  }
+
+  return { label: 'Đóng', tone: 'muted' };
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function formatCoordinates(location: LocationPoint) {
+  return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
+}
+
+function formatTrackingTime(value: string | null) {
+  if (!value) {
+    return 'Chưa gửi';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function formatFare(value: number) {
+  return Math.round(value).toLocaleString('vi-VN') + 'đ';
+}
+
+function formatDistance(distance?: number) {
+  if (!distance || distance <= 0) {
+    return '-- km';
+  }
+
+  return distance.toFixed(distance < 10 ? 1 : 0) + ' km';
+}
+
+function formatDuration(duration?: number) {
+  if (!duration || duration <= 0) {
+    return '-- phút';
+  }
+
+  return Math.round(duration) + ' phút';
+}
+
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
   container: {
     flexGrow: 1,
-    padding: 20,
-    backgroundColor: '#0a1324',
+    paddingHorizontal: rs(26),
+    paddingTop: rvs(20),
+    paddingBottom: rvs(30),
+    gap: rvs(18),
+    backgroundColor: palette.background,
   },
-  topBand: {
-    marginTop: 12,
-    marginBottom: 18,
+  heroCard: {
+    padding: rs(24),
+    borderRadius: rs(36),
+    backgroundColor: '#f7fff9',
+    gap: rvs(16),
+    ...shadow,
   },
-  statusRow: {
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(60, 207, 116, 0.12)',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    gap: rs(12),
   },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: '#3ccf74',
-    marginRight: 8,
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    paddingHorizontal: rs(14),
+    height: rvs(40),
+    borderRadius: rs(999),
   },
-  statusText: {
-    color: '#93f0b7',
-    fontSize: 12,
-    fontWeight: '700',
+  statusPillOnline: {
+    backgroundColor: palette.greenSoft,
+  },
+  statusPillOffline: {
+    backgroundColor: '#edf2ef',
+  },
+  statusDot: {
+    width: rs(10),
+    height: rs(10),
+    borderRadius: rs(5),
+  },
+  statusPillText: {
+    fontSize: rf(15),
+    fontWeight: '900',
+  },
+  statusTextOnline: {
+    color: palette.greenDark,
+  },
+  statusTextOffline: {
+    color: palette.muted,
   },
   title: {
-    color: '#f5f8ff',
-    fontSize: 32,
-    fontWeight: '800',
-    lineHeight: 38,
-    marginBottom: 10,
+    color: palette.ink,
+    fontSize: rf(36),
+    fontWeight: '900',
+    lineHeight: rf(42),
   },
   subtitle: {
-    color: '#b7c4de',
-    fontSize: 15,
-    lineHeight: 22,
+    color: palette.muted,
+    fontSize: rf(18),
+    fontWeight: '700',
+    lineHeight: rf(26),
   },
-  summaryRow: {
+  heroMetricRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: rs(12),
   },
-  summaryCard: {
+  metricTile: {
     flex: 1,
-    padding: 16,
-    borderRadius: 22,
-    backgroundColor: '#121d35',
+    padding: rs(14),
+    borderRadius: rs(24),
+    backgroundColor: palette.card,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: palette.line,
+    gap: rvs(6),
   },
-  summaryLabel: {
-    color: '#8fa2c6',
-    fontSize: 12,
-    marginBottom: 8,
+  metricIcon: {
+    width: rs(38),
+    height: rs(38),
+    borderRadius: rs(14),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  summaryValue: {
-    color: '#ffffff',
-    fontSize: 18,
+  metricLabel: {
+    color: palette.muted,
+    fontSize: rf(14),
     fontWeight: '800',
   },
-  queueCard: {
-    padding: 18,
-    borderRadius: 26,
-    backgroundColor: '#111b31',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    marginBottom: 16,
+  metricValue: {
+    color: palette.ink,
+    fontSize: rf(18),
+    fontWeight: '900',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    padding: rs(12),
+    borderRadius: rs(18),
+    backgroundColor: palette.greenSoft,
+  },
+  loadingText: {
+    flex: 1,
+    color: palette.greenDark,
+    fontSize: rf(15),
+    fontWeight: '800',
+  },
+  locationCard: {
+    padding: rs(20),
+    borderRadius: rs(32),
+    backgroundColor: palette.card,
+    gap: rvs(16),
+    ...shadow,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: rs(12),
+  },
+  sectionIcon: {
+    width: rs(52),
+    height: rs(52),
+    borderRadius: rs(18),
+    backgroundColor: palette.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestIcon: {
+    backgroundColor: palette.blueSoft,
+  },
+  sectionCopy: {
+    flex: 1,
+    gap: rvs(4),
   },
   sectionTitle: {
-    color: '#ffffff',
-    fontSize: 18,
+    color: palette.ink,
+    fontSize: rf(23),
+    fontWeight: '900',
+  },
+  sectionSubtitle: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '700',
+    lineHeight: rf(23),
+  },
+  locationBox: {
+    padding: rs(16),
+    borderRadius: rs(24),
+    backgroundColor: '#f6faf8',
+    gap: rvs(5),
+  },
+  locationLabel: {
+    color: palette.muted,
+    fontSize: rf(14),
     fontWeight: '800',
-    marginBottom: 12,
+  },
+  locationValue: {
+    color: palette.ink,
+    fontSize: rf(19),
+    fontWeight: '900',
+    lineHeight: rf(26),
+  },
+  locationCoords: {
+    color: palette.green,
+    fontSize: rf(15),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   requestCard: {
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    marginBottom: 10,
+    padding: rs(20),
+    borderRadius: rs(32),
+    backgroundColor: palette.card,
+    gap: rvs(16),
+    ...shadow,
+  },
+  incomingBox: {
+    padding: rs(16),
+    borderRadius: rs(26),
+    backgroundColor: '#f8fbff',
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#dce7ff',
+    gap: rvs(14),
   },
-  primaryRequest: {
-    borderColor: 'rgba(63, 180, 92, 0.45)',
-    backgroundColor: 'rgba(63, 180, 92, 0.08)',
-  },
-  requestName: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  requestRoute: {
-    color: '#b7c4de',
-    fontSize: 13,
-  },
-  requestMeta: {
-    marginTop: 10,
+  incomingTopRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: rs(12),
   },
-  requestDistance: {
-    color: '#8fe7ff',
-    fontSize: 13,
-    fontWeight: '700',
+  incomingLabel: {
+    color: palette.blue,
+    fontSize: rf(14),
+    fontWeight: '900',
   },
-  requestFare: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
+  passengerName: {
+    color: palette.ink,
+    fontSize: rf(24),
+    fontWeight: '900',
   },
-  waitCard: {
-    padding: 18,
-    borderRadius: 26,
-    backgroundColor: '#0f1a30',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  fareBadge: {
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(8),
+    borderRadius: rs(16),
+    backgroundColor: palette.greenSoft,
   },
-  waitBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 193, 7, 0.12)',
-    marginBottom: 14,
+  fareText: {
+    color: palette.greenDark,
+    fontSize: rf(18),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
-  waitBadgeText: {
-    color: '#ffd76a',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  waitTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  waitText: {
-    color: '#b7c4de',
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 16,
-  },
-  actionRow: {
+  routeLine: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'flex-start',
+    gap: rs(12),
   },
-  secondaryButton: {
+  routeDot: {
+    width: rs(14),
+    height: rs(14),
+    borderRadius: rs(7),
+    marginTop: rvs(7),
+  },
+  routeCopy: {
     flex: 1,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: rvs(3),
   },
-  secondaryButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  primaryButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: '#3ccf74',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: {
-    color: '#06110b',
-    fontSize: 14,
+  routeLabel: {
+    color: palette.muted,
+    fontSize: rf(14),
     fontWeight: '800',
   },
-  pressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.99 }],
+  routeAddress: {
+    color: palette.ink,
+    fontSize: rf(18),
+    fontWeight: '800',
+    lineHeight: rf(25),
+  },
+  requestMetaRow: {
+    flexDirection: 'row',
+    gap: rs(10),
+  },
+  requestMetaText: {
+    color: palette.blue,
+    fontSize: rf(16),
+    fontWeight: '900',
+  },
+  pendingActionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    padding: rs(12),
+    borderRadius: rs(18),
+    backgroundColor: palette.amberSoft,
+  },
+  pendingActionText: {
+    flex: 1,
+    color: '#895d00',
+    fontSize: rf(15),
+    fontWeight: '800',
+    lineHeight: rf(21),
+  },
+  emptyRequestBox: {
+    minHeight: rvs(180),
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: rs(18),
+    borderRadius: rs(26),
+    backgroundColor: '#f6faf8',
+    gap: rvs(8),
+  },
+  emptyTitle: {
+    color: palette.ink,
+    fontSize: rf(22),
+    fontWeight: '900',
+  },
+  emptyText: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '700',
+    lineHeight: rf(23),
+    textAlign: 'center',
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: rs(12),
+    padding: rs(18),
+    borderRadius: rs(28),
+    backgroundColor: palette.blueSoft,
+  },
+  notificationCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  notificationTitle: {
+    color: palette.blue,
+    fontSize: rf(18),
+    fontWeight: '900',
+  },
+  notificationBody: {
+    color: '#27446f',
+    fontSize: rf(15),
+    fontWeight: '700',
+    lineHeight: rf(21),
   },
 });
