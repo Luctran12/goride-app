@@ -20,6 +20,7 @@ import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api
 import {
   connectRealtime,
   sendDriverHeartbeat,
+  sendDriverLocation,
   sendTripStatus,
   subscribeDriverRequests,
   subscribeNotifications,
@@ -79,13 +80,22 @@ export default function DriverScreen() {
   } | null>(null);
   const [respondingAction, setRespondingAction] = useState<DriverAction | null>(null);
   const [updatingTripStatus, setUpdatingTripStatus] = useState<TripStatus | null>(null);
+  const [lastDriverLocationSentAt, setLastDriverLocationSentAt] = useState<string | null>(null);
+  const [driverTrackingMessage, setDriverTrackingMessage] = useState('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const notificationSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const driverLocationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const driverLocationRef = useRef<LocationPoint | null>(null);
 
   const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
+  const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
+
+  useEffect(() => {
+    driverLocationRef.current = driverLocation;
+  }, [driverLocation]);
 
   const stopOnlineServices = useCallback(() => {
     requestSubscriptionRef.current?.unsubscribe();
@@ -96,6 +106,11 @@ export default function DriverScreen() {
     if (heartbeatTimerRef.current) {
       clearInterval(heartbeatTimerRef.current);
       heartbeatTimerRef.current = null;
+    }
+
+    if (driverLocationTimerRef.current) {
+      clearInterval(driverLocationTimerRef.current);
+      driverLocationTimerRef.current = null;
     }
   }, []);
 
@@ -182,6 +197,8 @@ export default function DriverScreen() {
       setRequestResponse(null);
       setRespondingAction(null);
       setUpdatingTripStatus(null);
+      setLastDriverLocationSentAt(null);
+      setDriverTrackingMessage('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
       setRealtimeMode('offline');
       setStatusMessage(response.message);
     } catch (error: unknown) {
@@ -220,6 +237,7 @@ export default function DriverScreen() {
 
         if (action === 'ACCEPT') {
           setStatusMessage('Bạn đã nhận cuốc. Chuẩn bị di chuyển đến điểm đón.');
+          setDriverTrackingMessage('Đang khởi động GPS cuốc để gửi vị trí cho khách.');
           return;
         }
 
@@ -253,6 +271,7 @@ export default function DriverScreen() {
         });
         sendTripStatus(response.tripId, response.status);
         setStatusMessage(getDriverStatusMessage(response.status));
+        setDriverTrackingMessage(getDriverTrackingMessage(response.status));
       } catch (error: unknown) {
         Alert.alert('Không thể cập nhật chuyến', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
       } finally {
@@ -262,9 +281,64 @@ export default function DriverScreen() {
     [requestResponse, updatingTripStatus],
   );
 
+  const sendDriverGpsPing = useCallback(async (tripId: number) => {
+    let nextLocation = driverLocationRef.current ?? getDefaultLocationPoint();
+
+    try {
+      nextLocation = await getCurrentLocationPoint({ timeoutMs: 8000 });
+      setDriverTrackingMessage('GPS cuốc đang gửi vị trí thật theo chu kỳ.');
+    } catch (error: unknown) {
+      setDriverTrackingMessage(getErrorMessage(error, 'Không lấy được GPS mới, tạm gửi vị trí gần nhất.'));
+    }
+
+    const sentAt = new Date().toISOString();
+
+    driverLocationRef.current = nextLocation;
+    setDriverLocation(nextLocation);
+    setLastDriverLocationSentAt(sentAt);
+    sendDriverLocation({
+      tripId,
+      driverId: DRIVER_ID,
+      lat: nextLocation.lat,
+      lng: nextLocation.lng,
+      updatedAt: sentAt,
+    });
+  }, []);
+
   useEffect(() => {
     return () => stopOnlineServices();
   }, [stopOnlineServices]);
+
+  useEffect(() => {
+    if (!activeTripId) {
+      if (driverLocationTimerRef.current) {
+        clearInterval(driverLocationTimerRef.current);
+        driverLocationTimerRef.current = null;
+      }
+
+      if (requestResponse?.status === 'COMPLETED') {
+        setDriverTrackingMessage('GPS cuốc đã dừng sau khi hoàn thành chuyến.');
+      }
+
+      return;
+    }
+
+    if (driverLocationTimerRef.current) {
+      clearInterval(driverLocationTimerRef.current);
+    }
+
+    void sendDriverGpsPing(activeTripId);
+    driverLocationTimerRef.current = setInterval(() => {
+      void sendDriverGpsPing(activeTripId);
+    }, 10000);
+
+    return () => {
+      if (driverLocationTimerRef.current) {
+        clearInterval(driverLocationTimerRef.current);
+        driverLocationTimerRef.current = null;
+      }
+    };
+  }, [activeTripId, requestResponse?.status, sendDriverGpsPing]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -327,6 +401,17 @@ export default function DriverScreen() {
             <Text style={styles.locationCoords} selectable>
               {driverLocation ? formatCoordinates(driverLocation) : 'GPS chưa được gửi'}
             </Text>
+          </View>
+
+          <View style={styles.trackingBox}>
+            <View style={styles.trackingIcon}>
+              <MaterialCommunityIcons name="map-marker-path" size={rs(30)} color={palette.blue} />
+            </View>
+            <View style={styles.trackingCopy}>
+              <Text style={styles.trackingLabel}>GPS cuốc xe</Text>
+              <Text style={styles.trackingText}>{driverTrackingMessage}</Text>
+              <Text style={styles.trackingTime}>Lần gửi cuối: {formatTrackingTime(lastDriverLocationSentAt)}</Text>
+            </View>
           </View>
         </View>
 
@@ -665,6 +750,10 @@ function getNextDriverStatus(status: TripStatus): TripStatus | null {
   return null;
 }
 
+function isDriverTrackingStatus(status: TripStatus) {
+  return status === 'ACCEPTED' || status === 'ARRIVED' || status === 'IN_PROGRESS';
+}
+
 function getNextStatusButtonLabel(status: TripStatus | null) {
   if (status === 'ARRIVED') {
     return 'Đã đến điểm đón';
@@ -711,6 +800,18 @@ function getDriverStatusMessage(status: TripStatus) {
   }
 
   return `Trạng thái chuyến: ${formatTripStatus(status)}.`;
+}
+
+function getDriverTrackingMessage(status: TripStatus) {
+  if (isDriverTrackingStatus(status)) {
+    return 'GPS cuốc đang gửi vị trí cho hành khách.';
+  }
+
+  if (status === 'COMPLETED') {
+    return 'GPS cuốc đã dừng sau khi hoàn thành chuyến.';
+  }
+
+  return 'GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.';
 }
 
 function isTripStepCompleted(currentStatus: TripStatus, stepStatus: TripStatus) {
@@ -897,6 +998,42 @@ const styles = StyleSheet.create({
     fontSize: rf(22),
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
+  },
+  trackingBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: rs(14),
+    padding: rs(18),
+    borderRadius: rs(26),
+    backgroundColor: palette.blueSoft,
+  },
+  trackingIcon: {
+    width: rs(48),
+    height: rs(48),
+    borderRadius: rs(18),
+    backgroundColor: palette.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackingCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  trackingLabel: {
+    color: palette.blue,
+    fontSize: rf(22),
+    fontWeight: '900',
+  },
+  trackingText: {
+    color: '#27446f',
+    fontSize: rf(21),
+    fontWeight: '800',
+    lineHeight: rf(30),
+  },
+  trackingTime: {
+    color: palette.muted,
+    fontSize: rf(20),
+    fontWeight: '800',
   },
   requestCard: {
     padding: rs(28),

@@ -1186,3 +1186,41 @@
 - Known risks:
   - Accepted trips do not yet expose driver status controls (`ARRIVED`, `IN_PROGRESS`, `COMPLETED`); that is intentionally deferred to the next commit.
   - Reject flow relies on the existing mock/backend to send another request later.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 5
+
+- Branch: `codex/driver-flow`
+- Commit: `b22a061`
+- Scope: Added active trip status controls for accepted driver trips.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - After a driver accepts a request, the request card now becomes an active trip card.
+  - Added a status progress rail for `ACCEPTED`, `ARRIVED`, `IN_PROGRESS`, and `COMPLETED`.
+  - Added one primary action button that advances the trip through `Đã đến điểm đón`, `Bắt đầu chuyến`, and `Hoàn thành chuyến`.
+  - Calls `updateTripStatus(tripId, status)` through the existing ride API/mock adapter.
+  - Emits `sendTripStatus(tripId, status)` after each successful update so mock realtime subscribers can receive status changes.
+  - Shows per-status loading state and disables repeat taps while an update is in flight.
+  - Updates the driver hero status message for each phase of the active trip.
+  - Preserved request accept/reject, online/offline, GPS permission handling, realtime subscription, heartbeat, notification card, full-screen layout, and background polish.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after changing `Array<T>` to `T[]`.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved active trip status controls.
+- Known risks:
+  - Active trip status updates currently rely on REST/mock API plus mock realtime emission; real backend STOMP send remains pending until remote WebSocket wiring is implemented.
+  - Driver GPS sending during the active trip is not implemented yet.
