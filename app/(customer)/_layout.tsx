@@ -1,12 +1,13 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { initializeAuthSession, subscribeAuthSession } from '@/lib/auth-api';
 
 export default function CustomerLayout() {
   const [authStatus, setAuthStatus] = React.useState<'checking' | 'authenticated' | 'anonymous'>('checking');
-  const canAccessPublicAuth = authStatus !== 'authenticated';
-  const canAccessProtectedCustomer = authStatus !== 'anonymous';
+  const canAccessPublicAuth = authStatus === 'anonymous';
+  const canAccessProtectedCustomer = authStatus === 'authenticated';
 
   React.useEffect(() => {
     return subscribeAuthSession((session) => {
@@ -34,6 +35,10 @@ export default function CustomerLayout() {
     };
   }, []);
 
+  if (authStatus === 'checking') {
+    return <View style={styles.authGate} />;
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={canAccessPublicAuth}>
@@ -49,3 +54,10 @@ export default function CustomerLayout() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  authGate: {
+    flex: 1,
+    backgroundColor: '#fcf8ff',
+  },
+});

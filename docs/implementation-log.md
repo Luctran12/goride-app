@@ -1,5 +1,23 @@
 # Implementation Log
 
+## 2026-05-26 - Auth Integration - Login Flash Bugfix
+
+- Branch: `mock_api`
+- Scope: Removed the login-screen flash while restoring a persisted auth session.
+- Files changed:
+  - `app/(customer)/_layout.tsx`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - During `checking`, customer layout now renders a neutral background gate instead of allowing login/register screens to mount.
+  - Public auth screens are available only when auth status is confirmed `anonymous`.
+  - Protected customer screens are available only when auth status is confirmed `authenticated`.
+  - This prevents the login screen from flashing for about 0.5s when reopening the app with a saved session.
+- Validation:
+  - Ran `npm run lint`: passed with 0 errors.
+  - Ran focused TypeScript output search for `app/(customer)/_layout.tsx`: no matching errors.
+- Known risks:
+  - The app will show a blank brand-colored gate while SecureStore/session refresh resolves; runtime review should confirm that delay is acceptable.
+
 ## 2026-05-26 - Auth Integration - Route Guard And Refresh Follow-up
 
 - Branch: `mock_api`
