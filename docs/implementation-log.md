@@ -26,7 +26,10 @@
   - Ran `cmd /c npx tsc --noEmit --pretty false`.
   - Result: passed with no TypeScript errors.
 - Review:
-  - CodeRabbit review still needs to be attempted after commit. Previous attempts were blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
+  - Attempted CodeRabbit review skill after commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
 - Known risks:
   - Runtime verification against the real backend WebSocket endpoint is still pending because no live `EXPO_PUBLIC_WS_URL`/backend session was exercised in this checkpoint.
   - Backend-specific payload names beyond the normalized fields may require small adapters once tested with real STOMP frames.
