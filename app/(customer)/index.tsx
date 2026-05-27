@@ -1,5 +1,7 @@
-import React from 'react';
+import { rf, rs, rvs } from '@/constants/responsive';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import React from 'react';
 import {
   Image,
   SafeAreaView,
@@ -10,8 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { rf, rs, rvs } from '@/constants/responsive';
 
 const palette = {
   background: '#fcf8ff',
@@ -71,17 +71,17 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <View style={styles.actionRow}>
-            <ActionButton 
-                icon="motorbike" 
-                label={'Đặt xe\nmáy'} 
-                active 
-                onPress={() => router.push('/(customer)/booking/pickup')}
+            <ActionButton
+              icon="motorbike"
+              label={'Đặt xe\nmáy'}
+              active
+              onPress={() => router.push('/(customer)/booking/pickup')}
             />
-            <ActionButton 
-                icon="car" 
-                label="Đặt xe ô tô" 
-                active 
-                onPress={() => router.push('/(customer)/booking/pickup')}
+            <ActionButton
+              icon="car"
+              label="Đặt xe ô tô"
+              active
+              onPress={() => router.push('/(customer)/booking/pickup')}
             />
             <ActionButton icon="history" label="Lịch sử" />
             <ActionButton
@@ -468,8 +468,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    height: rvs(128),
+    bottom: 3,
+    height: rvs(118),
     borderTopLeftRadius: rs(16),
     borderTopRightRadius: rs(16),
     backgroundColor: palette.card,
