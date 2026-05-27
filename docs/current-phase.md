@@ -7,7 +7,7 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger personal profile screen
 - Phase: Profile API integration
 - Branch: `personal_screen`
-- Current commit scope: Add a dedicated passenger personal information screen opened from the profile menu and bind data from `GET /api/users/me`.
+- Current commit scope: Add a dedicated passenger personal information screen opened from the profile menu, and bind the profile summary card plus personal screen to `GET /api/users/me`.
 - Status: Implemented locally; lint passed, full TypeScript check is still blocked by existing React import errors in untouched template/booking files.
 
 ## Last Completed Checkpoint
