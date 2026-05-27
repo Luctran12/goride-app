@@ -31,3 +31,13 @@ Each entry should include:
 - Implemented behavior: `select-vehicle` now offers selectable payment methods `CASH`, `MOMO`, and `VNPAY`, plus a promotion selector. The selected payment method and promo code are passed forward as route params, while fare estimate remains unchanged until backend/payment integration supports discounts and online payment processing.
 - Reason for change: User requested payment method selection and a promotion box during runtime review of the select vehicle screen.
 - Impact: UI can demo payment/promo choice earlier than planned. Backend/API contract may need to accept `MOMO`/`VNPAY` and promo code later; current estimate amount is not discounted locally to avoid conflicting with backend pricing.
+
+## 2026-05-27 - Realtime Remote Adapter
+
+- Date: 2026-05-27
+- Branch: `codex/realtime-stomp`
+- Feature: Phase 8 - STOMP/SockJS realtime wiring
+- TDD expectation: WebSocket realtime uses STOMP over SockJS with subscriptions for trip status, trip location, personal notifications, and driver requests.
+- Implemented behavior: `lib/realtime.ts` now uses `@stomp/stompjs` plus `sockjs-client` for remote mode when `EXPO_PUBLIC_WS_URL` exists, while keeping the mock event bus fallback when the env var is missing.
+- Reason for change: This resolves the earlier Phase 1 realtime skeleton limitation while preserving backend-free demo mode for local UI review.
+- Impact: Passenger and driver screens can now connect to the planned backend STOMP destinations. Real backend smoke testing is still required to confirm payload naming and auth expectations.

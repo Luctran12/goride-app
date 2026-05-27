@@ -1,5 +1,36 @@
 # Implementation Log
 
+## 2026-05-27 - Phase 8 Realtime Backend Integration - Commit 1
+
+- Branch: `codex/realtime-stomp`
+- Scope: Added STOMP/SockJS dependencies and wired the remote realtime adapter.
+- Files changed:
+  - `lib/realtime.ts`
+  - `package.json`
+  - `package-lock.json`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added `@stomp/stompjs`, `sockjs-client`, and `@types/sockjs-client`.
+  - `connectRealtime()` now opens a real STOMP-over-SockJS connection when `EXPO_PUBLIC_WS_URL` is configured.
+  - STOMP connect headers include the current bearer token from the shared API auth state when available.
+  - Remote passenger subscriptions now listen to `/topic/trip/{tripId}/status`, `/topic/trip/{tripId}/location`, and `/user/queue/notifications`.
+  - Remote driver subscriptions now listen to `/topic/driver/{driverId}/request`.
+  - Remote send helpers publish driver location, driver heartbeat, and trip status messages to `/app/driver.location`, `/app/driver.heartbeat`, and `/app/trip.status`.
+  - Mock realtime remains the default fallback when `EXPO_PUBLIC_WS_URL` is missing, preserving current passenger and driver demo behavior.
+  - Remote messages are normalized defensively for numeric string IDs and `latitude`/`longitude` payload variants.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - CodeRabbit review still needs to be attempted after commit. Previous attempts were blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
+- Known risks:
+  - Runtime verification against the real backend WebSocket endpoint is still pending because no live `EXPO_PUBLIC_WS_URL`/backend session was exercised in this checkpoint.
+  - Backend-specific payload names beyond the normalized fields may require small adapters once tested with real STOMP frames.
+
 ## 2026-05-26 - Auth Integration - Login Flash Bugfix
 
 - Branch: `mock_api`
