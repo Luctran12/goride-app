@@ -281,6 +281,16 @@ export default function DriverScreen() {
     [requestResponse, updatingTripStatus],
   );
 
+  const resetCompletedTrip = useCallback(() => {
+    setIncomingRequest(null);
+    setRequestResponse(null);
+    setRespondingAction(null);
+    setUpdatingTripStatus(null);
+    setLastDriverLocationSentAt(null);
+    setDriverTrackingMessage('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
+    setStatusMessage('Bạn đang online. GoRide tiếp tục nghe cuốc mới.');
+  }, []);
+
   const sendDriverGpsPing = useCallback(async (tripId: number) => {
     let nextLocation = driverLocationRef.current ?? getDefaultLocationPoint();
 
@@ -511,9 +521,19 @@ export default function DriverScreen() {
                       </Text>
                     </Pressable>
                   ) : (
-                    <View style={styles.completedTripBox}>
-                      <MaterialCommunityIcons name="flag-checkered" size={rs(30)} color={palette.green} />
-                      <Text style={styles.completedTripText}>Chuyến đã hoàn thành. GoRide sẽ sẵn sàng nhận cuốc mới ở bước sau.</Text>
+                    <View style={styles.completedTripStack}>
+                      <View style={styles.completedTripBox}>
+                        <MaterialCommunityIcons name="flag-checkered" size={rs(30)} color={palette.green} />
+                        <Text style={styles.completedTripText}>Chuyến đã hoàn thành. Bạn có thể quay lại trạng thái nhận cuốc mới.</Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={resetCompletedTrip}
+                        style={({ pressed }) => [styles.readyButton, pressed ? styles.pressedButton : null]}
+                      >
+                        <MaterialCommunityIcons name="radar" size={rs(28)} color={palette.card} />
+                        <Text style={styles.readyButtonText}>Sẵn sàng nhận cuốc mới</Text>
+                      </Pressable>
                     </View>
                   )}
                 </View>
@@ -1217,6 +1237,9 @@ const styles = StyleSheet.create({
     fontSize: rf(23),
     fontWeight: '900',
   },
+  completedTripStack: {
+    gap: rvs(12),
+  },
   completedTripBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1233,6 +1256,22 @@ const styles = StyleSheet.create({
     fontSize: rf(22),
     fontWeight: '800',
     lineHeight: rf(30),
+  },
+  readyButton: {
+    minHeight: rvs(58),
+    borderRadius: rs(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: rs(10),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(12),
+    backgroundColor: palette.green,
+  },
+  readyButtonText: {
+    color: palette.card,
+    fontSize: rf(22),
+    fontWeight: '900',
   },
   emptyRequestBox: {
     minHeight: rvs(240),

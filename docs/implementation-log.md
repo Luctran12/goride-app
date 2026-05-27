@@ -1390,3 +1390,99 @@
   - Remaining risks are already tracked: real STOMP/SockJS remote WebSocket implementation is pending, and active GPS interval may need production tuning later.
 - Next action:
   - Merge `codex/driver-flow` into `main` and push `main`.
+
+## 2026-05-27 - Phase 7 Validation and Polish - Commit 1
+
+- Branch: `codex/validation-polish`
+- Commit: `fd8ca77`
+- Scope: Fixed project-wide JSX React import errors blocking full TypeScript validation.
+- Files changed:
+  - `app/(customer)/booking/_layout.tsx`
+  - `app/modal.tsx`
+  - `components/external-link.tsx`
+  - `components/haptic-tab.tsx`
+  - `components/hello-wave.tsx`
+  - `components/parallax-scroll-view.tsx`
+  - `components/themed-text.tsx`
+  - `components/themed-view.tsx`
+  - `components/ui/collapsible.tsx`
+  - `components/ui/icon-symbol.ios.tsx`
+  - `components/ui/icon-symbol.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added explicit React imports to JSX files that TypeScript reported as using React as a UMD global.
+  - Merged duplicate React imports in `components/ui/collapsible.tsx` and `components/ui/icon-symbol.tsx` to keep lint clean.
+  - Updated `docs/current-phase.md` to start Phase 7 on `codex/validation-polish`.
+  - No runtime UI behavior was intentionally changed.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after merging duplicate React imports.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User code/runtime review on 2026-05-27: approved TypeScript validation fix.
+- Known risks:
+  - This commit only fixes static validation; it does not cover manual passenger/driver runtime checks yet.
+
+## 2026-05-27 - Phase 7 Validation and Polish - Commit 2
+
+- Branch: `codex/validation-polish`
+- Commit: `166cdec`
+- Scope: Polished driver completed-trip behavior so drivers can return to online waiting after finishing a trip.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added a completed-trip CTA: `Sẵn sàng nhận cuốc mới`.
+  - The CTA clears the active request, response/status state, action loading state, last GPS sent timestamp, and tracking message.
+  - The driver remains online and returns to the listening state with status text `Bạn đang online. GoRide tiếp tục nghe cuốc mới.`
+  - Replaced the placeholder copy that said GoRide would be ready in a later step.
+  - Preserved existing accept/reject behavior, active status controls, GPS loop cleanup, heartbeat, and online/offline flow.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User code/runtime review on 2026-05-27: approved completed-trip reset polish.
+- Known risks:
+  - This reset CTA does not force a backend driver availability refresh because the driver is already online; if backend later requires an explicit post-trip availability update, it should be added to `respond/update status` integration.
+
+## 2026-05-27 - Phase 7 Validation and Polish - Closeout Check
+
+- Branch: `codex/validation-polish`
+- Scope: Final validation and merge readiness assessment after user approved Phase 7 commit 2.
+- Commits reviewed:
+  - `fd8ca77` - Fix JSX React imports for validation
+  - `166cdec` - Polish driver completed trip reset
+- Phase 7 coverage:
+  - Full TypeScript validation now passes.
+  - Lint passes with 0 errors and 0 warnings.
+  - Driver completed-trip flow can return to online waiting after `COMPLETED`.
+  - Remaining backend/STOMP limitations are already documented in previous implementation log entries and changes-in-implementation.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for docs only.
+- Merge assessment:
+  - No additional Phase 7 cleanup commit is required before merging.
+  - Branch is ready to merge back to `main`.
+- Next action:
+  - Merge `codex/validation-polish` into `main` and push `main`.
