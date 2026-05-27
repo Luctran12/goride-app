@@ -1224,3 +1224,77 @@
 - Known risks:
   - Active trip status updates currently rely on REST/mock API plus mock realtime emission; real backend STOMP send remains pending until remote WebSocket wiring is implemented.
   - Driver GPS sending during the active trip is not implemented yet.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 6
+
+- Branch: `codex/driver-flow`
+- Commit: `7272090`
+- Scope: Added GPS sending loop for active driver trips.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Starts a driver location loop when the active trip status is `ACCEPTED`, `ARRIVED`, or `IN_PROGRESS`.
+  - Sends an immediate location ping, then sends another ping every 10 seconds while the trip remains active.
+  - Uses `getCurrentLocationPoint({ timeoutMs: 8000 })` for fresh GPS coordinates when available.
+  - Falls back to the last known driver location or default demo location if GPS lookup fails, while still emitting a mock/remote-compatible location payload.
+  - Calls `sendDriverLocation({ tripId, driverId, lat, lng, updatedAt })` so passenger tracking can receive driver movement in mock realtime.
+  - Stops the location timer when the trip is no longer active, when the trip completes, when the driver goes offline, or when the screen unmounts.
+  - Added a driver GPS status panel showing tracking state and last sent timestamp.
+  - Preserved request accept/reject, active status controls, online/offline flow, GPS permission handling, realtime subscription, heartbeat, notification card, full-screen layout, and background polish.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-27: approved driver GPS sending loop.
+- Known risks:
+  - Real backend STOMP send remains pending until remote WebSocket wiring is implemented; current send path supports mock realtime and preserves the contract shape for remote implementation.
+  - Fresh GPS lookup every 10 seconds can be battery-heavy on real devices; later production tuning may switch to native location watch APIs or a backend-configurable interval.
+
+## 2026-05-27 - Phase 6 Driver Realtime Flow - Closeout Check
+
+- Branch: `codex/driver-flow`
+- Scope: Reviewed Phase 6 for merge readiness after user approved the driver GPS sending loop.
+- Commits reviewed:
+  - `bcaa00e` - Start driver flow phase
+  - `f1cd218` - Add driver online request shell
+  - `45eff6a` - Polish driver screen scale
+  - `751b022` - Polish driver screen background
+  - `6a4bc3c` - Add driver request response actions
+  - `b22a061` - Add driver trip status controls
+  - `7272090` - Add driver GPS tracking loop
+- Phase 6 coverage:
+  - Driver online/offline flow with `PATCH /drivers/me/status` through `setDriverOnline()`.
+  - Foreground GPS permission request and current/default location fallback.
+  - Driver realtime request subscription through `subscribeDriverRequests(DRIVER_ID, ...)`.
+  - Heartbeat loop through `sendDriverHeartbeat(DRIVER_ID)`.
+  - Incoming request UI with fare, passenger, pickup/dropoff, distance, and duration.
+  - Accept/reject actions through `respondToTrip(tripId, action)`.
+  - Active trip controls for `ARRIVED`, `IN_PROGRESS`, and `COMPLETED` through `updateTripStatus(tripId, status)`.
+  - Mock realtime trip status emission through `sendTripStatus(tripId, status)`.
+  - Active trip GPS sending loop through `sendDriverLocation({ tripId, driverId, lat, lng, updatedAt })`.
+  - Runtime UI feedback fixes for full-screen coverage, larger typography, and non-black background.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for docs only.
+- Merge assessment:
+  - No additional Phase 6 cleanup commit is required before merging.
+  - Remaining risks are already tracked: real STOMP/SockJS remote WebSocket implementation is pending, and active GPS interval may need production tuning later.
+- Next action:
+  - Merge `codex/driver-flow` into `main` and push `main`.

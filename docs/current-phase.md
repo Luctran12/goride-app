@@ -7,19 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Driver trip flow
 - Phase: Phase 6 - Driver realtime flow
 - Branch: codex/driver-flow
-- Current commit scope: Commit 6 - driver GPS sending loop
-- Status: In progress
+- Current commit scope: Phase 6 closeout - review cleanup or merge readiness
+- Status: Ready to merge
 
 ## Last Completed Checkpoint
 
-- Commit: `b22a061` - Add driver trip status controls
-- Implementation log entry: `2026-05-26 - Phase 6 Driver Realtime Flow - Commit 5`
-- Review status: User approved active trip status controls on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Commit: `7272090` - Add driver GPS tracking loop
+- Implementation log entry: `2026-05-26 - Phase 6 Driver Realtime Flow - Commit 6`
+- Review status: User approved driver GPS sending loop on 2026-05-27; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Implement driver GPS sending loop for active trips in the next small commit.
-- After each commit, run validation/review, update `docs/implementation-log.md`, then wait for user review before continuing.
+- Merge `codex/driver-flow` back to `main` and push `main` to GitHub.
+- After merge, prepare the next phase branch from updated `main` when requested.
 
 ## Phase Assessment From Main
 
