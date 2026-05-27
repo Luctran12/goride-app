@@ -25,7 +25,23 @@ export type RealtimeSubscription = {
 
 type Handler<TPayload> = (payload: TPayload) => void;
 
-type RealtimeConnection = { mode: 'mock' } | { mode: 'remote'; url: string };
+export type RealtimeConnection = { mode: 'mock' } | { mode: 'remote'; url: string };
+
+export type RealtimeConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+
+export type RealtimeConnectionState = {
+  isConnected: boolean;
+  mode: 'mock' | 'remote';
+  status: RealtimeConnectionStatus;
+  lastError?: string;
+  updatedAt: string;
+};
+
+type RemoteSubscriptionEntry = {
+  destination: string;
+  handler: Handler<IMessage>;
+  subscription?: StompSubscription;
+};
 
 type RealtimeEventMap = {
   notification: WsNotification;
@@ -44,16 +60,21 @@ const eventHandlers = {
   driverLocation: new Set<Handler<DriverLocationUpdate>>(),
 };
 
+const connectionListeners = new Set<Handler<RealtimeConnectionState>>();
+
 let isConnected = false;
 let mockRequestTimer: ReturnType<typeof setTimeout> | undefined;
 const mockTripTimers = new Map<number, ReturnType<typeof setTimeout>[]>();
 let remoteClient: Client | undefined;
 let remoteConnectPromise: Promise<RealtimeConnection> | undefined;
-const remoteSubscriptions = new Set<StompSubscription>();
+let connectionStatus: RealtimeConnectionStatus = 'disconnected';
+let lastConnectionError: string | undefined;
+let connectionUpdatedAt = new Date().toISOString();
+const remoteSubscriptions = new Set<RemoteSubscriptionEntry>();
 
 export async function connectRealtime(): Promise<RealtimeConnection> {
   if (USE_MOCK_REALTIME) {
-    isConnected = true;
+    setConnectionStatus('connected');
     return { mode: 'mock' };
   }
 
@@ -62,13 +83,15 @@ export async function connectRealtime(): Promise<RealtimeConnection> {
   }
 
   if (remoteClient?.connected) {
-    isConnected = true;
+    setConnectionStatus('connected');
     return { mode: 'remote', url: WS_URL };
   }
 
   if (remoteConnectPromise) {
     return remoteConnectPromise;
   }
+
+  setConnectionStatus(remoteClient ? 'reconnecting' : 'connecting');
 
   remoteConnectPromise = createRemoteConnection(WS_URL).finally(() => {
     remoteConnectPromise = undefined;
@@ -78,7 +101,7 @@ export async function connectRealtime(): Promise<RealtimeConnection> {
 }
 
 export function disconnectRealtime() {
-  isConnected = false;
+  setConnectionStatus('disconnected');
 
   if (mockRequestTimer) {
     clearTimeout(mockRequestTimer);
@@ -93,10 +116,22 @@ export function disconnectRealtime() {
   clearAllHandlers();
 }
 
-export function getRealtimeConnectionState() {
+export function getRealtimeConnectionState(): RealtimeConnectionState {
   return {
     isConnected,
     mode: USE_MOCK_REALTIME ? ('mock' as const) : ('remote' as const),
+    status: connectionStatus,
+    lastError: lastConnectionError,
+    updatedAt: connectionUpdatedAt,
+  };
+}
+
+export function subscribeRealtimeConnection(handler: Handler<RealtimeConnectionState>): RealtimeSubscription {
+  connectionListeners.add(handler);
+  handler(getRealtimeConnectionState());
+
+  return {
+    unsubscribe: () => connectionListeners.delete(handler),
   };
 }
 
@@ -255,28 +290,32 @@ function createRemoteConnection(url: string): Promise<RealtimeConnection> {
       },
       webSocketFactory: () => new SockJS(url),
       onConnect: () => {
-        isConnected = true;
+        setConnectionStatus('connected');
+        restoreRemoteSubscriptions();
         settle(() => resolve({ mode: 'remote', url }));
       },
       onDisconnect: () => {
-        isConnected = false;
+        setConnectionStatus('disconnected');
       },
       onStompError: (frame) => {
-        isConnected = false;
         const message = frame.headers.message ?? 'Realtime STOMP connection failed';
+        setConnectionStatus('error', message);
         settle(() => reject(new Error(message)));
       },
       onWebSocketClose: () => {
-        isConnected = false;
+        setConnectionStatus(client.active ? 'reconnecting' : 'disconnected');
       },
       onWebSocketError: () => {
-        isConnected = false;
-        settle(() => reject(new Error('Realtime WebSocket connection failed')));
+        const message = 'Realtime WebSocket connection failed';
+        setConnectionStatus(client.active ? 'reconnecting' : 'error', message);
+        settle(() => reject(new Error(message)));
       },
     });
 
     timeout = setTimeout(() => {
-      settle(() => reject(new Error('Realtime connection timed out')));
+      const message = 'Realtime connection timed out';
+      setConnectionStatus('error', message);
+      settle(() => reject(new Error(message)));
       void client.deactivate();
     }, REMOTE_CONNECT_TIMEOUT_MS);
 
@@ -333,21 +372,31 @@ function subscribeRemoteTrip(tripId: number, handlers: TripSubscriptionHandlers)
 }
 
 function subscribeRemote(destination: string, handler: Handler<IMessage>): RealtimeSubscription {
-  const client = remoteClient;
-
-  if (!client?.connected) {
-    return emptySubscription();
-  }
-
-  const subscription = client.subscribe(destination, handler);
-  remoteSubscriptions.add(subscription);
+  const entry: RemoteSubscriptionEntry = { destination, handler };
+  remoteSubscriptions.add(entry);
+  attachRemoteSubscription(entry);
 
   return {
     unsubscribe: () => {
-      subscription.unsubscribe();
-      remoteSubscriptions.delete(subscription);
+      entry.subscription?.unsubscribe();
+      remoteSubscriptions.delete(entry);
     },
   };
+}
+
+function restoreRemoteSubscriptions() {
+  remoteSubscriptions.forEach(attachRemoteSubscription);
+}
+
+function attachRemoteSubscription(entry: RemoteSubscriptionEntry) {
+  const client = remoteClient;
+
+  if (!client?.connected) {
+    return;
+  }
+
+  entry.subscription?.unsubscribe();
+  entry.subscription = client.subscribe(entry.destination, entry.handler);
 }
 
 function publishRemote(destination: string, body: unknown) {
@@ -478,6 +527,16 @@ function emptySubscription(): RealtimeSubscription {
   return { unsubscribe: () => undefined };
 }
 
+function setConnectionStatus(status: RealtimeConnectionStatus, error?: string) {
+  connectionStatus = status;
+  isConnected = status === 'connected';
+  lastConnectionError = error ?? (status === 'error' ? lastConnectionError : undefined);
+  connectionUpdatedAt = new Date().toISOString();
+
+  const state = getRealtimeConnectionState();
+  connectionListeners.forEach((listener) => listener(state));
+}
+
 function getNotificationTripId(notification: WsNotification) {
   const tripId = notification.data?.tripId;
 
@@ -494,7 +553,7 @@ function getNotificationTripId(notification: WsNotification) {
 }
 
 function clearRemoteSubscriptions() {
-  remoteSubscriptions.forEach((subscription) => subscription.unsubscribe());
+  remoteSubscriptions.forEach((entry) => entry.subscription?.unsubscribe());
   remoteSubscriptions.clear();
 }
 

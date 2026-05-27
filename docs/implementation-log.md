@@ -1,5 +1,34 @@
 # Implementation Log
 
+## 2026-05-27 - Phase 8 Realtime Backend Integration - Commit 2
+
+- Branch: `codex/realtime-stomp`
+- Scope: Added realtime connection-state notifications and resilient remote resubscription.
+- Files changed:
+  - `lib/realtime.ts`
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added exported realtime connection state types and `subscribeRealtimeConnection()` so screens can react to `connecting`, `connected`, `reconnecting`, `error`, and `disconnected` states.
+  - Reworked remote STOMP subscriptions into a registry that re-attaches active topic subscriptions after a STOMP reconnect.
+  - Passenger waiting screen now switches to fallback UI/copy when the remote realtime channel is reconnecting or errors, while REST fallback polling keeps tracking alive.
+  - Driver screen now listens to realtime connection state and shows reconnect/fallback status while keeping the driver online flow intact.
+  - Mock realtime behavior remains unchanged for local UI demo mode.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - CodeRabbit review still needs to be attempted after commit. Previous attempts were blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
+- User review:
+  - User approved Phase 8 commit 1 on 2026-05-27 before this commit started.
+- Known risks:
+  - Real backend smoke testing is still needed to confirm STOMP reconnect behavior and backend topic permissions on device.
+  - Driver-side fallback cannot receive new trip requests without WebSocket; it only keeps the UI explicit while the STOMP client reconnects.
+
 ## 2026-05-27 - Phase 8 Realtime Backend Integration - Commit 1
 
 - Branch: `codex/realtime-stomp`

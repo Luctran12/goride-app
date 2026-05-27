@@ -24,6 +24,7 @@ import {
   sendTripStatus,
   subscribeDriverRequests,
   subscribeNotifications,
+  subscribeRealtimeConnection,
   type RealtimeSubscription,
 } from '@/lib/realtime';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
@@ -86,6 +87,7 @@ export default function DriverScreen() {
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const notificationSubscriptionRef = useRef<RealtimeSubscription | null>(null);
+  const connectionSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationRef = useRef<LocationPoint | null>(null);
@@ -102,6 +104,8 @@ export default function DriverScreen() {
     requestSubscriptionRef.current = null;
     notificationSubscriptionRef.current?.unsubscribe();
     notificationSubscriptionRef.current = null;
+    connectionSubscriptionRef.current?.unsubscribe();
+    connectionSubscriptionRef.current = null;
 
     if (heartbeatTimerRef.current) {
       clearInterval(heartbeatTimerRef.current);
@@ -129,7 +133,38 @@ export default function DriverScreen() {
   }, []);
 
   const startRealtime = useCallback(async () => {
+    let remoteConnectionOpened = false;
+
     setRealtimeMode('connecting');
+    connectionSubscriptionRef.current?.unsubscribe();
+    connectionSubscriptionRef.current = subscribeRealtimeConnection((state) => {
+      if (state.mode === 'mock') {
+        return;
+      }
+
+      if (state.status === 'connected') {
+        remoteConnectionOpened = true;
+        setRealtimeMode('remote');
+        setStatusMessage('B?n ?ang online. GoRide ?ang nghe cu?c m?i qua realtime.');
+        return;
+      }
+
+      if (state.status === 'connecting') {
+        setRealtimeMode('connecting');
+        return;
+      }
+
+      if (state.status === 'reconnecting' && remoteConnectionOpened) {
+        setRealtimeMode('fallback');
+        setStatusMessage('Realtime ?ang k?t n?i l?i. GoRide v?n gi? t?i x? online v? ti?p t?c g?i heartbeat khi k?nh tr? l?i.');
+        return;
+      }
+
+      if (state.status === 'error') {
+        setRealtimeMode('fallback');
+        setStatusMessage(state.lastError ?? 'Realtime t?m th?i gi?n ?o?n, GoRide s? t? k?t n?i l?i.');
+      }
+    });
 
     try {
       const connection = await connectRealtime();
