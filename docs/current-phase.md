@@ -7,19 +7,18 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Validation and polish
 - Phase: Phase 7 - Validation and polish
 - Branch: codex/validation-polish
-- Current commit scope: Commit 2 - driver completed-trip reset polish
-- Status: In progress
+- Current commit scope: Phase 7 closeout assessment
+- Status: Ready to merge
 
 ## Last Completed Checkpoint
 
-- Commit: `fd8ca77` - Fix JSX React imports for validation
-- Implementation log entry: `2026-05-27 - Phase 7 Validation and Polish - Commit 1`
-- Review status: User approved TypeScript validation fix on 2026-05-27; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
+- Commit: `166cdec` - Polish driver completed trip reset
+- Implementation log entry: `2026-05-27 - Phase 7 Validation and Polish - Commit 2`
+- Review status: User approved completed-trip reset polish on 2026-05-27; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`
 
 ## Next Checkpoint
 
-- Polish driver completed-trip behavior so the driver can return to online waiting after `COMPLETED`.
-- Re-run lint and full `tsc`, then commit and wait for user review.
+- Merge `codex/validation-polish` back to `main` and push `main` to GitHub.
 
 ## Phase 7 Targets
 
