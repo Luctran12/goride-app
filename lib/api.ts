@@ -126,9 +126,9 @@ function normalizeApiError(error: unknown) {
 function shouldRefreshAccessToken(error: unknown, skipAuth: boolean) {
   return Boolean(
     !skipAuth &&
-      accessTokenRefreshHandler &&
-      axios.isAxiosError(error) &&
-      error.response?.status === 401,
+    accessTokenRefreshHandler &&
+    axios.isAxiosError(error) &&
+    error.response?.status === 401,
   );
 }
 
@@ -140,19 +140,70 @@ async function refreshAccessToken() {
   }
 }
 
-function normalizeAxiosError(error: AxiosError<ApiErrorBody>) {
+function normalizeAxiosError(error: AxiosError<unknown>) {
   const status = error.response?.status;
   const data = error.response?.data;
   const message =
-    data?.message ??
-    data?.error ??
+    getApiErrorMessage(data) ??
     (status ? `Request failed with status ${status}` : error.message || 'Network request failed');
 
-  return new ApiError(message, status ?? 0, data?.code);
+  return new ApiError(message, status ?? 0, getApiErrorCode(data));
 }
 
-type ApiErrorBody = {
-  message?: string;
-  error?: string;
-  code?: string;
-};
+function getApiErrorMessage(data: unknown) {
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
+
+  if (!isRecord(data)) {
+    return undefined;
+  }
+
+  const directMessage = getStringValue(data.message);
+
+  if (directMessage) {
+    return directMessage;
+  }
+
+  const errorValue = data.error;
+
+  if (typeof errorValue === 'string' && errorValue.trim()) {
+    return errorValue;
+  }
+
+  if (isRecord(errorValue)) {
+    return (
+      getStringValue(errorValue.message) ??
+      getStringValue(errorValue.error) ??
+      getStringValue(errorValue.title)
+    );
+  }
+
+  return undefined;
+}
+
+function getApiErrorCode(data: unknown) {
+  if (!isRecord(data)) {
+    return undefined;
+  }
+
+  const directCode = getStringValue(data.code);
+
+  if (directCode) {
+    return directCode;
+  }
+
+  if (isRecord(data.error)) {
+    return getStringValue(data.error.code);
+  }
+
+  return undefined;
+}
+
+function getStringValue(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
