@@ -5,9 +5,14 @@ import React from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { initializeAuthSession } from '@/lib/auth-api';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  React.useEffect(() => {
+    void initializeAuthSession().catch(() => undefined);
+  }, []);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

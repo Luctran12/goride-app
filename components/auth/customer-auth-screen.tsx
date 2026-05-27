@@ -1,4 +1,6 @@
 import { rf, rs, rvs } from '@/constants/responsive';
+import { ApiError } from '@/lib/api';
+import { login as loginWithPhone, registerPassenger } from '@/lib/auth-api';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -50,13 +52,18 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
   const [rememberMe, setRememberMe] = React.useState(true);
   const [acceptedTerms, setAcceptedTerms] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
 
   const title = isRegister ? 'Tạo tài khoản' : 'Đăng nhập';
   const subtitle = isRegister
     ? 'Bắt đầu đặt xe với số điện thoại của bạn.'
     : 'Tiếp tục đặt xe cùng GoRide.';
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (submitting) {
+      return;
+    }
+
     if (!phone.trim() || !password.trim()) {
       setError('Vui lòng nhập số điện thoại và mật khẩu.');
       return;
@@ -85,7 +92,29 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
     }
 
     setError('');
-    router.replace('/(customer)');
+    setSubmitting(true);
+
+    try {
+      if (isRegister) {
+        await registerPassenger({
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          email: email.trim() || undefined,
+          password,
+        });
+      } else {
+        await loginWithPhone({
+          phone: phone.trim(),
+          password,
+        });
+      }
+
+      router.replace('/(customer)');
+    } catch (submitError) {
+      setError(getAuthErrorMessage(submitError, isRegister));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -209,8 +238,15 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
             </View>
           ) : null}
 
-          <TouchableOpacity activeOpacity={0.86} style={styles.primaryButton} onPress={handleSubmit}>
-            <Text style={styles.primaryButtonText}>{isRegister ? 'Đăng ký' : 'Đăng nhập'}</Text>
+          <TouchableOpacity
+            activeOpacity={0.86}
+            disabled={submitting}
+            style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
+            onPress={handleSubmit}
+          >
+            <Text style={styles.primaryButtonText}>
+              {submitting ? 'Đang xử lý...' : isRegister ? 'Đăng ký' : 'Đăng nhập'}
+            </Text>
             <Feather name="arrow-right" size={rs(30)} color="#ffffff" />
           </TouchableOpacity>
         </View>
@@ -229,6 +265,14 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function getAuthErrorMessage(error: unknown, isRegister: boolean) {
+  if (error instanceof ApiError || error instanceof Error) {
+    return error.message;
+  }
+
+  return isRegister ? 'Không thể đăng ký lúc này.' : 'Không thể đăng nhập lúc này.';
 }
 
 type FieldProps = {
@@ -480,6 +524,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: rs(13),
+  },
+  primaryButtonDisabled: {
+    opacity: 0.68,
   },
   primaryButtonText: {
     color: '#ffffff',

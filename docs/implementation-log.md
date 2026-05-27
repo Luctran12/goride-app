@@ -1,5 +1,97 @@
 # Implementation Log
 
+## 2026-05-26 - Auth Integration - Login Flash Bugfix
+
+- Branch: `mock_api`
+- Scope: Removed the login-screen flash while restoring a persisted auth session.
+- Files changed:
+  - `app/(customer)/_layout.tsx`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - During `checking`, customer layout now renders a neutral background gate instead of allowing login/register screens to mount.
+  - Public auth screens are available only when auth status is confirmed `anonymous`.
+  - Protected customer screens are available only when auth status is confirmed `authenticated`.
+  - This prevents the login screen from flashing for about 0.5s when reopening the app with a saved session.
+- Validation:
+  - Ran `npm run lint`: passed with 0 errors.
+  - Ran focused TypeScript output search for `app/(customer)/_layout.tsx`: no matching errors.
+- Known risks:
+  - The app will show a blank brand-colored gate while SecureStore/session refresh resolves; runtime review should confirm that delay is acceptable.
+
+## 2026-05-26 - Auth Integration - Route Guard And Refresh Follow-up
+
+- Branch: `mock_api`
+- Base commit: `45ffe92`
+- Scope: Block unauthenticated customer screens and refresh expired access tokens.
+- Files changed:
+  - `app/(customer)/_layout.tsx`
+  - `lib/api.ts`
+  - `lib/auth-api.ts`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Customer route layout now uses Expo Router `Stack.Protected` to treat `login` and `register` as public routes and the customer home, booking, profile, and billing screens as protected routes.
+  - Replaced manual `Redirect`/`router.replace` route-guard navigation to avoid the development warning `The action 'REPLACE' with payload {"name":"index","params":{}} was not handled by any navigator`.
+  - Authenticated users are prevented from staying on login/register because those public screens are removed from the stack once a session exists.
+  - Route guard restores persisted session before rendering protected customer screens.
+  - Auth session changes are now observable, so logout or refresh failure clears the session and redirects protected screens back to login.
+  - `apiRequest()` retries one protected axios request after a `401` by invoking the registered access-token refresh handler.
+  - Added `/auth/refresh` integration using the stored `refreshToken` request body and the existing Spring Boot `ApiResponseAuthResponse` wrapper.
+  - Startup/session restore now decodes JWT `exp` and refreshes the access token before opening protected screens when the saved token is expired or within 30 seconds of expiry.
+- Validation:
+  - Ran `npm run lint`: passed with 0 errors.
+  - Ran focused TypeScript output search for `app/(customer)/_layout.tsx`, `lib/api.ts`, and `lib/auth-api.ts`: no matching errors.
+  - Ran `git diff --check`: passed; Git reported line-ending normalization warnings only.
+  - Full `npx tsc --noEmit --pretty false` remains blocked by existing React UMD global errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+- Review:
+  - Manual review performed for route guard and refresh-token flow.
+  - No blocking findings found in this changed scope.
+  - Refresh calls use `skipAuth: true`, preventing recursion if `/auth/refresh` itself returns `401`.
+- Known risks:
+  - Runtime verification still needs real backend credentials and an expired-token scenario.
+  - The driver route remains demo-only and is not gated by this customer auth guard.
+
+## 2026-05-26 - Auth Integration - Uncommitted Work
+
+- Branch: `mock_api`
+- Base commit: `fe73adf`
+- Scope: Wired passenger login/register to the Spring Boot auth API with axios and persisted JWT session storage.
+- Files changed:
+  - `app.json`
+  - `app/_layout.tsx`
+  - `app/(customer)/profile.tsx`
+  - `components/auth/customer-auth-screen.tsx`
+  - `lib/api.ts`
+  - `lib/auth-api.ts`
+  - `lib/config.ts`
+  - `package.json`
+  - `package-lock.json`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `axios` and SDK-compatible `expo-secure-store`.
+  - Added default auth backend base URL `http://172.26.96.1:8080/api/v1`, with `EXPO_PUBLIC_AUTH_API_BASE_URL` override.
+  - Converted the shared API request helper to axios while preserving bearer-token injection.
+  - Added auth API helpers for `/auth/login`, `/auth/register`, and `/auth/logout`.
+  - Auth response handling now unwraps Spring Boot `ApiResponseAuthResponse` and persists `data.accessToken`, `data.refreshToken`, `data.userId`, and `data.roles`.
+  - Root layout restores persisted access token into the axios auth state on app startup.
+  - Customer login/register forms now submit to backend before navigating to the customer home screen.
+  - Profile logout clears local token state and persisted auth session.
+- Validation:
+  - Ran `npm run lint`: passed with 0 errors.
+  - Ran `npx expo config --json`: passed and resolved `expo-secure-store` plugin version `15.0.8`.
+  - Ran focused TypeScript output search for changed auth/API files: no matching errors.
+  - Ran full `npx tsc --noEmit --pretty false`: failed only on existing React UMD global errors in untouched files such as `app/(driver)/index.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`: passed; Git reported existing line-ending normalization warnings only.
+- Review:
+  - Manual review performed for auth/API changes.
+  - No blocking findings found in the changed scope.
+  - Confirmed auth endpoints and request/response shapes against `docs/api-docs.json`.
+- Known risks:
+  - Real login/register smoke test was not run because no backend credentials were provided.
+  - Backend reachability from a physical device still depends on the device being able to access `172.26.96.1:8080` and backend CORS/network config.
+  - Full TypeScript validation remains blocked by pre-existing React import errors outside this auth scope.
+
 ## 2026-05-23 - Phase 1 Foundation - Commit 1
 
 - Branch: `codex/frontend-foundation`
