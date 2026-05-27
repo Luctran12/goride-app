@@ -1023,3 +1023,278 @@
 - Known risks:
   - Real STOMP/SockJS connection logic remains pending until dependencies are installed and remote backend integration begins.
   - Notifications without `data.tripId` still pass through by design because TDD personal notifications may be global/user-level.
+
+## 2026-05-26 - Phase 5 Passenger Realtime Tracking - Merge
+
+- Source branch: `codex/passenger-realtime-tracking`
+- Target branch: `main`
+- Merge commit: `f52bac1`
+- Scope: Closed Phase 5 passenger realtime tracking and prepared the workspace for Phase 6 driver flow.
+- Files changed:
+  - Phase 5 passenger realtime tracking commits were merged into `main`.
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior preserved on `main`:
+  - Passenger waiting-driver realtime tracking, driver marker, fallback polling, timeline, ETA card, contextual footer, cancel API/mock wiring, completed receipt/rating placeholder, and terminal-state lifecycle hardening.
+- Git actions:
+  - Merged `codex/passenger-realtime-tracking` into `main` with merge commit `f52bac1`.
+  - Pushed `main` to `origin/main` successfully.
+  - Created new Phase 6 branch `codex/driver-flow` from updated `main`.
+- Next phase setup:
+  - `docs/current-phase.md` now points to Phase 6 - Driver realtime flow on `codex/driver-flow`.
+  - First driver commit should inspect and replace the static `app/(driver)/index.tsx` screen in small reviewable slices.
+- Known risks:
+  - Phase 6 driver flow is not implemented yet.
+  - Existing project-wide full TypeScript check still has pre-existing React UMD import errors in untouched template/driver files.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 1
+
+- Branch: `codex/driver-flow`
+- Commit: `f1cd218`
+- Scope: Replaced the static driver waiting screen with an online/offline shell and realtime request listener.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `app/(driver)/_layout.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added stateful online/offline toggle that calls `setDriverOnline(true/false)`.
+  - Requests foreground location permission when going online and stores either current GPS or the existing default demo location fallback.
+  - Connects realtime when online and subscribes to mock/remote driver requests via `subscribeDriverRequests(DRIVER_ID, ...)`.
+  - Subscribes to personal notifications and displays the latest notification card.
+  - Starts a 15-second heartbeat loop with `sendDriverHeartbeat(DRIVER_ID)` while online and cleans it up on offline/unmount.
+  - Displays incoming trip request details with passenger, pickup/dropoff, fare, distance, duration, and a placeholder that accept/reject will be connected in the next commit.
+  - Added React import to `app/(driver)/_layout.tsx`, removing the driver layout from the existing React UMD TypeScript errors.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after removing an unused import and UTF-8 BOM.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Waiting for user runtime/code review before starting the accept/reject commit.
+- Known risks:
+  - Accept/reject actions are intentionally a placeholder in this commit.
+  - Active trip status updates and driver GPS loop are not implemented yet.
+  - Remote STOMP/SockJS integration remains a skeleton until dependencies and backend connection are wired.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 2
+
+- Branch: `codex/driver-flow`
+- Commit: `45eff6a`
+- Scope: Applied runtime UI feedback for the driver screen viewport coverage and typography scale.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `useWindowDimensions()` and a full-height `ScrollView` background so the driver screen fills the visible device viewport more consistently.
+  - Increased hero, card, metric, request, empty-state, notification, and location typography scale for better readability on device.
+  - Increased card padding, spacing, icon sizes, and empty-state height so the screen feels less compressed and better suited to mobile driver usage.
+  - Preserved the existing online/offline, GPS permission, heartbeat, incoming request listener, and notification behavior from commit 1.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved viewport coverage and typography scale.
+- Known risks:
+  - Very small screens may need a later compact variant if the larger text feels too tall.
+  - Accept/reject actions are still intentionally deferred to the next commit.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 3
+
+- Branch: `codex/driver-flow`
+- Commit: `751b022`
+- Scope: Applied runtime UI feedback for the black-looking empty driver screen background.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `app/(driver)/_layout.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Changed the driver screen background from a near-black green to a visible light GoRide mint background.
+  - Updated the native status bar to dark content so icons remain readable on the lighter background.
+  - Added matching Expo Router stack `contentStyle` background for the driver route to prevent the navigation card/root area from showing black behind the screen.
+  - Added a subtle mint border around the hero card so it still reads cleanly against the lighter background.
+  - Preserved the existing full-viewport layout, larger typography, online/offline flow, GPS permission handling, heartbeat, request listener, and notification behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved driver screen background.
+- Known risks:
+  - Accept/reject actions are still intentionally deferred to the next commit.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 4
+
+- Branch: `codex/driver-flow`
+- Commit: `6a4bc3c`
+- Scope: Connected driver incoming request accept/reject actions.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Replaced the accept/reject placeholder with two actionable buttons on incoming driver requests.
+  - Added `respondToTrip(tripId, 'ACCEPT' | 'REJECT')` calls using the existing ride API/mock adapter.
+  - Added per-action loading state so only one response can be submitted at a time.
+  - On accept, keeps the request card visible and shows an accepted confirmation with the returned trip status.
+  - On reject, clears the current request and returns the driver to the listening state with a status message.
+  - Clears stale response state when a new request arrives or when the driver goes offline.
+  - Preserved the online/offline flow, GPS permission handling, realtime subscription, heartbeat, notification card, full-screen layout, and background polish.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved driver accept/reject behavior.
+- Known risks:
+  - Accepted trips do not yet expose driver status controls (`ARRIVED`, `IN_PROGRESS`, `COMPLETED`); that is intentionally deferred to the next commit.
+  - Reject flow relies on the existing mock/backend to send another request later.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 5
+
+- Branch: `codex/driver-flow`
+- Commit: `b22a061`
+- Scope: Added active trip status controls for accepted driver trips.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - After a driver accepts a request, the request card now becomes an active trip card.
+  - Added a status progress rail for `ACCEPTED`, `ARRIVED`, `IN_PROGRESS`, and `COMPLETED`.
+  - Added one primary action button that advances the trip through `Đã đến điểm đón`, `Bắt đầu chuyến`, and `Hoàn thành chuyến`.
+  - Calls `updateTripStatus(tripId, status)` through the existing ride API/mock adapter.
+  - Emits `sendTripStatus(tripId, status)` after each successful update so mock realtime subscribers can receive status changes.
+  - Shows per-status loading state and disables repeat taps while an update is in flight.
+  - Updates the driver hero status message for each phase of the active trip.
+  - Preserved request accept/reject, online/offline, GPS permission handling, realtime subscription, heartbeat, notification card, full-screen layout, and background polish.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after changing `Array<T>` to `T[]`.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-26: approved active trip status controls.
+- Known risks:
+  - Active trip status updates currently rely on REST/mock API plus mock realtime emission; real backend STOMP send remains pending until remote WebSocket wiring is implemented.
+  - Driver GPS sending during the active trip is not implemented yet.
+
+## 2026-05-26 - Phase 6 Driver Realtime Flow - Commit 6
+
+- Branch: `codex/driver-flow`
+- Commit: `7272090`
+- Scope: Added GPS sending loop for active driver trips.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Starts a driver location loop when the active trip status is `ACCEPTED`, `ARRIVED`, or `IN_PROGRESS`.
+  - Sends an immediate location ping, then sends another ping every 10 seconds while the trip remains active.
+  - Uses `getCurrentLocationPoint({ timeoutMs: 8000 })` for fresh GPS coordinates when available.
+  - Falls back to the last known driver location or default demo location if GPS lookup fails, while still emitting a mock/remote-compatible location payload.
+  - Calls `sendDriverLocation({ tripId, driverId, lat, lng, updatedAt })` so passenger tracking can receive driver movement in mock realtime.
+  - Stops the location timer when the trip is no longer active, when the trip completes, when the driver goes offline, or when the screen unmounts.
+  - Added a driver GPS status panel showing tracking state and last sent timestamp.
+  - Preserved request accept/reject, active status controls, online/offline flow, GPS permission handling, realtime subscription, heartbeat, notification card, full-screen layout, and background polish.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran filtered TypeScript output search with `cmd /c npx tsc --noEmit --pretty false 2>&1 | findstr /R /C:"app/(driver)/index\\.tsx" /C:"app/(driver)/_layout\\.tsx" /C:"app\\\\(driver\\\\)\\\\index\\.tsx" /C:"app\\\\(driver\\\\)\\\\_layout\\.tsx"`.
+  - Result: no matching TypeScript errors for the changed driver files.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: both passed. Git reported line-ending normalization warnings for modified files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User runtime/code review on 2026-05-27: approved driver GPS sending loop.
+- Known risks:
+  - Real backend STOMP send remains pending until remote WebSocket wiring is implemented; current send path supports mock realtime and preserves the contract shape for remote implementation.
+  - Fresh GPS lookup every 10 seconds can be battery-heavy on real devices; later production tuning may switch to native location watch APIs or a backend-configurable interval.
+
+## 2026-05-27 - Phase 6 Driver Realtime Flow - Closeout Check
+
+- Branch: `codex/driver-flow`
+- Scope: Reviewed Phase 6 for merge readiness after user approved the driver GPS sending loop.
+- Commits reviewed:
+  - `bcaa00e` - Start driver flow phase
+  - `f1cd218` - Add driver online request shell
+  - `45eff6a` - Polish driver screen scale
+  - `751b022` - Polish driver screen background
+  - `6a4bc3c` - Add driver request response actions
+  - `b22a061` - Add driver trip status controls
+  - `7272090` - Add driver GPS tracking loop
+- Phase 6 coverage:
+  - Driver online/offline flow with `PATCH /drivers/me/status` through `setDriverOnline()`.
+  - Foreground GPS permission request and current/default location fallback.
+  - Driver realtime request subscription through `subscribeDriverRequests(DRIVER_ID, ...)`.
+  - Heartbeat loop through `sendDriverHeartbeat(DRIVER_ID)`.
+  - Incoming request UI with fare, passenger, pickup/dropoff, distance, and duration.
+  - Accept/reject actions through `respondToTrip(tripId, action)`.
+  - Active trip controls for `ARRIVED`, `IN_PROGRESS`, and `COMPLETED` through `updateTripStatus(tripId, status)`.
+  - Mock realtime trip status emission through `sendTripStatus(tripId, status)`.
+  - Active trip GPS sending loop through `sendDriverLocation({ tripId, driverId, lat, lng, updatedAt })`.
+  - Runtime UI feedback fixes for full-screen coverage, larger typography, and non-black background.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran full `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: failed due existing project-wide JSX React import errors in untouched files such as `app/(customer)/booking/_layout.tsx`, `app/modal.tsx`, and shared template components.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for docs only.
+- Merge assessment:
+  - No additional Phase 6 cleanup commit is required before merging.
+  - Remaining risks are already tracked: real STOMP/SockJS remote WebSocket implementation is pending, and active GPS interval may need production tuning later.
+- Next action:
+  - Merge `codex/driver-flow` into `main` and push `main`.
