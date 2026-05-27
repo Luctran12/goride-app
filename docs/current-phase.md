@@ -4,20 +4,27 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Passenger authentication API wiring
-- Phase: Auth integration
-- Branch: `mock_api`
-- Current commit scope: Protect customer screens behind a persisted auth session and refresh expired access tokens through `/auth/refresh`.
-- Status: Implemented; awaiting user runtime review with backend credentials.
+- Feature: Validation and polish
+- Phase: Phase 7 - Validation and polish
+- Branch: codex/validation-polish
+- Current commit scope: Commit 1 - fix project-wide TypeScript JSX React import errors
+- Status: In progress
 
 ## Last Completed Checkpoint
 
-- Commit: `9525c09` - Wire passenger trip cancellation
-- Implementation log entry: `2026-05-26 - Phase 5 Passenger Realtime Tracking - Commit 7`
-- Review status: User approved runtime/code review on 2026-05-26; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
+- Commit: `4394767` - Merge driver flow phase into `main`
+- Implementation log entry: `2026-05-27 - Phase 6 Driver Realtime Flow - Closeout Check`
+- Review status: Phase 6 approved by user, merged into `main`, and pushed to GitHub on 2026-05-27
 
 ## Next Checkpoint
 
-- Runtime test unauthenticated direct navigation to `/(customer)`, `/(customer)/profile`, `/(customer)/billing`, and booking routes.
-- Runtime test login/register against the configured auth base URL and confirm customer routes become reachable only after token storage succeeds.
-- Runtime test an expired access token path to confirm `/auth/refresh` returns and persists a new `data.accessToken`.
+- Fix full TypeScript validation errors caused by JSX files missing React imports.
+- Run lint and full `tsc` again, then commit and wait for user review before continuing Phase 7.
+
+## Phase 7 Targets
+
+- Run `cmd /c npm run lint`.
+- Run full `cmd /c npx tsc --noEmit --pretty false` and remove project-wide strict errors where feasible.
+- Manual test passenger happy path and permission-denied paths.
+- Manual test driver online/accept/reject/status/GPS loop.
+- Keep any remaining backend/STOMP limitations documented in implementation log and changes-in-implementation when they differ from TDD.
