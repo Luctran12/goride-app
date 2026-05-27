@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     marginBottom: rvs(32),
   },
   profileCard: {
-    minHeight: rvs(232),
+    minHeight: rvs(180),
     marginHorizontal: rs(36),
     marginBottom: rvs(43),
     borderRadius: rs(20),
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   menuRow: {
-    minHeight: rvs(132),
+    minHeight: rvs(90),
     paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   logoutRow: {
-    minHeight: rvs(126),
+    minHeight: rvs(90),
     paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
