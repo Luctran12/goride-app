@@ -1,3 +1,7 @@
+import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+
+import { getAccessToken } from '@/lib/api';
 import { USE_MOCK_REALTIME, WS_URL } from '@/lib/config';
 import { mockGetDriverLocation, mockUpdateTripStatus } from '@/lib/mock-ride-api';
 import type { DriverLocationUpdate, DriverTripRequest, TripStatus, WsNotification } from '@/types/ride';
@@ -21,12 +25,41 @@ export type RealtimeSubscription = {
 
 type Handler<TPayload> = (payload: TPayload) => void;
 
+export type RealtimeConnection = { mode: 'mock' } | { mode: 'remote'; url: string };
+
+export type RealtimeConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+
+export type RealtimeConnectionState = {
+  isConnected: boolean;
+  mode: 'mock' | 'remote';
+  status: RealtimeConnectionStatus;
+  lastError?: string;
+  updatedAt: string;
+};
+
+export type RealtimePublishResult = {
+  destination: string;
+  mode: 'mock' | 'remote';
+  sent: boolean;
+  sentAt: string;
+  reason?: string;
+};
+
+type RemoteSubscriptionEntry = {
+  destination: string;
+  handler: Handler<IMessage>;
+  subscription?: StompSubscription;
+};
+
 type RealtimeEventMap = {
   notification: WsNotification;
   driverRequest: DriverTripRequest;
   tripStatus: TripStatusMessage;
   driverLocation: DriverLocationUpdate;
 };
+
+const REMOTE_CONNECT_TIMEOUT_MS = 12000;
+const REMOTE_RECONNECT_DELAY_MS = 5000;
 
 const eventHandlers = {
   notification: new Set<Handler<WsNotification>>(),
@@ -35,40 +68,86 @@ const eventHandlers = {
   driverLocation: new Set<Handler<DriverLocationUpdate>>(),
 };
 
+const connectionListeners = new Set<Handler<RealtimeConnectionState>>();
+
 let isConnected = false;
 let mockRequestTimer: ReturnType<typeof setTimeout> | undefined;
 const mockTripTimers = new Map<number, ReturnType<typeof setTimeout>[]>();
+let remoteClient: Client | undefined;
+let remoteConnectPromise: Promise<RealtimeConnection> | undefined;
+let connectionStatus: RealtimeConnectionStatus = 'disconnected';
+let lastConnectionError: string | undefined;
+let connectionUpdatedAt = new Date().toISOString();
+const remoteSubscriptions = new Set<RemoteSubscriptionEntry>();
 
-export async function connectRealtime() {
-  if (!USE_MOCK_REALTIME && WS_URL) {
-    isConnected = true;
-    return { mode: 'remote' as const, url: WS_URL };
+export async function connectRealtime(): Promise<RealtimeConnection> {
+  if (USE_MOCK_REALTIME) {
+    setConnectionStatus('connected');
+    return { mode: 'mock' };
   }
 
-  isConnected = true;
-  return { mode: 'mock' as const };
+  if (!WS_URL) {
+    throw new Error('WebSocket URL is not configured');
+  }
+
+  if (remoteClient?.connected) {
+    setConnectionStatus('connected');
+    return { mode: 'remote', url: WS_URL };
+  }
+
+  if (remoteConnectPromise) {
+    return remoteConnectPromise;
+  }
+
+  setConnectionStatus(remoteClient ? 'reconnecting' : 'connecting');
+
+  remoteConnectPromise = createRemoteConnection(WS_URL).finally(() => {
+    remoteConnectPromise = undefined;
+  });
+
+  return remoteConnectPromise;
 }
 
 export function disconnectRealtime() {
-  isConnected = false;
+  setConnectionStatus('disconnected');
 
   if (mockRequestTimer) {
     clearTimeout(mockRequestTimer);
     mockRequestTimer = undefined;
   }
 
+  clearRemoteSubscriptions();
+  void remoteClient?.deactivate();
+  remoteClient = undefined;
+  remoteConnectPromise = undefined;
   clearMockTripTimers();
   clearAllHandlers();
 }
 
-export function getRealtimeConnectionState() {
+export function getRealtimeConnectionState(): RealtimeConnectionState {
   return {
     isConnected,
     mode: USE_MOCK_REALTIME ? ('mock' as const) : ('remote' as const),
+    status: connectionStatus,
+    lastError: lastConnectionError,
+    updatedAt: connectionUpdatedAt,
+  };
+}
+
+export function subscribeRealtimeConnection(handler: Handler<RealtimeConnectionState>): RealtimeSubscription {
+  connectionListeners.add(handler);
+  handler(getRealtimeConnectionState());
+
+  return {
+    unsubscribe: () => connectionListeners.delete(handler),
   };
 }
 
 export function subscribeTrip(tripId: number, handlers: TripSubscriptionHandlers): RealtimeSubscription {
+  if (!USE_MOCK_REALTIME) {
+    return subscribeRemoteTrip(tripId, handlers);
+  }
+
   const subscriptions: RealtimeSubscription[] = [];
 
   if (handlers.onStatus) {
@@ -103,46 +182,77 @@ export function subscribeTrip(tripId: number, handlers: TripSubscriptionHandlers
     );
   }
 
-  if (USE_MOCK_REALTIME) {
-    queueMockTripProgress(tripId);
-  } else if (!WS_URL) {
-    handlers.onError?.(new Error('WebSocket URL is not configured'));
-  }
+  queueMockTripProgress(tripId);
 
   return combineSubscriptions(subscriptions);
 }
 
 export function subscribeNotifications(handler: Handler<WsNotification>): RealtimeSubscription {
+  if (!USE_MOCK_REALTIME) {
+    return subscribeRemote('/user/queue/notifications', (message) => {
+      const notification = normalizeNotification(parseJsonMessage(message));
+
+      if (notification) {
+        handler(notification);
+      }
+    });
+  }
+
   return subscribe('notification', handler);
 }
 
 export function subscribeDriverRequests(driverId: number, handler: Handler<DriverTripRequest>): RealtimeSubscription {
-  const subscription = subscribe('driverRequest', handler);
+  if (!USE_MOCK_REALTIME) {
+    return subscribeRemote(`/topic/driver/${driverId}/request`, (message) => {
+      const request = normalizeDriverTripRequest(parseJsonMessage(message));
 
-  if (USE_MOCK_REALTIME) {
-    queueMockDriverRequest(driverId);
+      if (request) {
+        handler(request);
+      }
+    });
   }
+
+  const subscription = subscribe('driverRequest', handler);
+  queueMockDriverRequest(driverId);
 
   return subscription;
 }
 
 export function sendDriverLocation(payload: DriverLocationUpdate) {
+  const destination = '/app/driver.location';
+  const message = {
+    ...payload,
+    updatedAt: payload.updatedAt ?? new Date().toISOString(),
+  };
+
   if (USE_MOCK_REALTIME) {
-    emit('driverLocation', {
-      ...payload,
-      updatedAt: payload.updatedAt ?? new Date().toISOString(),
-    });
+    emit('driverLocation', message);
+    return createPublishResult(destination, true);
   }
+
+  return createPublishResult(destination, publishRemote(destination, message));
 }
 
-export function sendDriverHeartbeat(_driverId: number) {
-  return {
-    sentAt: new Date().toISOString(),
+export function sendDriverHeartbeat(driverId: number) {
+  const destination = '/app/driver.heartbeat';
+  const sentAt = new Date().toISOString();
+  const heartbeat = {
+    driverId,
+    sentAt,
     mode: USE_MOCK_REALTIME ? ('mock' as const) : ('remote' as const),
+    sent: true,
+    destination,
   };
+
+  if (!USE_MOCK_REALTIME) {
+    heartbeat.sent = publishRemote(destination, { driverId });
+  }
+
+  return heartbeat;
 }
 
 export function sendTripStatus(tripId: number, status: TripStatus) {
+  const destination = '/app/trip.status';
   const message = {
     tripId,
     status,
@@ -158,9 +268,268 @@ export function sendTripStatus(tripId: number, status: TripStatus) {
       // Keep emitting realtime demo events even if the optional mock REST store is unavailable.
     });
     emit('tripStatus', message);
+    return {
+      ...message,
+      sent: true,
+      destination,
+    };
   }
 
-  return message;
+  return {
+    ...message,
+    sent: publishRemote(destination, message),
+    destination,
+  };
+}
+
+function createRemoteConnection(url: string): Promise<RealtimeConnection> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const settle = (callback: () => void) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+
+      callback();
+    };
+
+    const client = new Client({
+      reconnectDelay: REMOTE_RECONNECT_DELAY_MS,
+      debug: () => undefined,
+      beforeConnect: () => {
+        const token = getAccessToken();
+        client.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+      },
+      webSocketFactory: () => new SockJS(url),
+      onConnect: () => {
+        setConnectionStatus('connected');
+        restoreRemoteSubscriptions();
+        settle(() => resolve({ mode: 'remote', url }));
+      },
+      onDisconnect: () => {
+        setConnectionStatus('disconnected');
+      },
+      onStompError: (frame) => {
+        const message = frame.headers.message ?? 'Realtime STOMP connection failed';
+        setConnectionStatus('error', message);
+        settle(() => reject(new Error(message)));
+      },
+      onWebSocketClose: () => {
+        setConnectionStatus(client.active ? 'reconnecting' : 'disconnected');
+      },
+      onWebSocketError: () => {
+        const message = 'Realtime WebSocket connection failed';
+        setConnectionStatus(client.active ? 'reconnecting' : 'error', message);
+        settle(() => reject(new Error(message)));
+      },
+    });
+
+    timeout = setTimeout(() => {
+      const message = 'Realtime connection timed out';
+      setConnectionStatus('error', message);
+      settle(() => reject(new Error(message)));
+      void client.deactivate();
+    }, REMOTE_CONNECT_TIMEOUT_MS);
+
+    remoteClient = client;
+    client.activate();
+  });
+}
+
+function subscribeRemoteTrip(tripId: number, handlers: TripSubscriptionHandlers): RealtimeSubscription {
+  const subscriptions: RealtimeSubscription[] = [];
+
+  if (!remoteClient?.connected) {
+    handlers.onError?.(new Error('Realtime connection is not ready'));
+    return combineSubscriptions(subscriptions);
+  }
+
+  if (handlers.onStatus) {
+    subscriptions.push(
+      subscribeRemote(`/topic/trip/${tripId}/status`, (message) => {
+        const status = normalizeTripStatusMessage(parseJsonMessage(message), tripId);
+
+        if (status) {
+          handlers.onStatus?.(status);
+        }
+      }),
+    );
+  }
+
+  if (handlers.onLocation) {
+    subscriptions.push(
+      subscribeRemote(`/topic/trip/${tripId}/location`, (message) => {
+        const location = normalizeDriverLocation(parseJsonMessage(message), tripId);
+
+        if (location) {
+          handlers.onLocation?.(location);
+        }
+      }),
+    );
+  }
+
+  if (handlers.onNotification) {
+    subscriptions.push(
+      subscribeNotifications((notification) => {
+        const notificationTripId = getNotificationTripId(notification);
+
+        if (notificationTripId === null || notificationTripId === tripId) {
+          handlers.onNotification?.(notification);
+        }
+      }),
+    );
+  }
+
+  return combineSubscriptions(subscriptions);
+}
+
+function subscribeRemote(destination: string, handler: Handler<IMessage>): RealtimeSubscription {
+  const entry: RemoteSubscriptionEntry = { destination, handler };
+  remoteSubscriptions.add(entry);
+  attachRemoteSubscription(entry);
+
+  return {
+    unsubscribe: () => {
+      entry.subscription?.unsubscribe();
+      remoteSubscriptions.delete(entry);
+    },
+  };
+}
+
+function restoreRemoteSubscriptions() {
+  remoteSubscriptions.forEach(attachRemoteSubscription);
+}
+
+function attachRemoteSubscription(entry: RemoteSubscriptionEntry) {
+  const client = remoteClient;
+
+  if (!client?.connected) {
+    return;
+  }
+
+  entry.subscription?.unsubscribe();
+  entry.subscription = client.subscribe(entry.destination, entry.handler);
+}
+
+function publishRemote(destination: string, body: unknown) {
+  if (!remoteClient?.connected) {
+    return false;
+  }
+
+  remoteClient.publish({
+    destination,
+    body: JSON.stringify(body),
+  });
+
+  return true;
+}
+
+function createPublishResult(destination: string, sent: boolean): RealtimePublishResult {
+  return {
+    destination,
+    mode: USE_MOCK_REALTIME ? 'mock' : 'remote',
+    sent,
+    sentAt: new Date().toISOString(),
+    reason: sent ? undefined : 'Realtime socket is not connected',
+  };
+}
+
+function parseJsonMessage(message: IMessage): unknown {
+  try {
+    return JSON.parse(message.body) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeTripStatusMessage(payload: unknown, fallbackTripId?: number): TripStatusMessage | undefined {
+  const record = asRecord(payload);
+  const status = typeof record?.status === 'string' ? (record.status as TripStatus) : undefined;
+  const tripId = toFiniteNumber(record?.tripId) ?? fallbackTripId;
+
+  if (!status || typeof tripId !== 'number') {
+    return undefined;
+  }
+
+  return {
+    tripId,
+    status,
+    updatedAt: typeof record?.updatedAt === 'string' ? record.updatedAt : new Date().toISOString(),
+  };
+}
+
+function normalizeDriverLocation(payload: unknown, fallbackTripId?: number): DriverLocationUpdate | undefined {
+  const record = asRecord(payload);
+  const lat = toFiniteNumber(record?.lat) ?? toFiniteNumber(record?.latitude);
+  const lng = toFiniteNumber(record?.lng) ?? toFiniteNumber(record?.longitude);
+
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
+    return undefined;
+  }
+
+  return {
+    tripId: toFiniteNumber(record?.tripId) ?? fallbackTripId,
+    driverId: toFiniteNumber(record?.driverId),
+    lat,
+    lng,
+    bearing: toFiniteNumber(record?.bearing),
+    speed: toFiniteNumber(record?.speed),
+    updatedAt: typeof record?.updatedAt === 'string' ? record.updatedAt : new Date().toISOString(),
+  };
+}
+
+function normalizeNotification(payload: unknown): WsNotification | undefined {
+  const record = asRecord(payload);
+
+  if (!record || typeof record.type !== 'string') {
+    return undefined;
+  }
+
+  return {
+    type: record.type as WsNotification['type'],
+    title: typeof record.title === 'string' ? record.title : 'GoRide',
+    body: typeof record.body === 'string' ? record.body : '',
+    data: asRecord(record.data) ?? undefined,
+  };
+}
+
+function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undefined {
+  const record = asRecord(payload);
+  const tripId = toFiniteNumber(record?.tripId);
+
+  if (typeof tripId !== 'number') {
+    return undefined;
+  }
+
+  return {
+    ...(record as DriverTripRequest),
+    tripId,
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined;
+}
+
+function toFiniteNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
 }
 
 function subscribe<TKey extends keyof RealtimeEventMap>(
@@ -184,6 +553,20 @@ function combineSubscriptions(subscriptions: RealtimeSubscription[]): RealtimeSu
   };
 }
 
+function emptySubscription(): RealtimeSubscription {
+  return { unsubscribe: () => undefined };
+}
+
+function setConnectionStatus(status: RealtimeConnectionStatus, error?: string) {
+  connectionStatus = status;
+  isConnected = status === 'connected';
+  lastConnectionError = error ?? (status === 'error' ? lastConnectionError : undefined);
+  connectionUpdatedAt = new Date().toISOString();
+
+  const state = getRealtimeConnectionState();
+  connectionListeners.forEach((listener) => listener(state));
+}
+
 function getNotificationTripId(notification: WsNotification) {
   const tripId = notification.data?.tripId;
 
@@ -197,6 +580,11 @@ function getNotificationTripId(notification: WsNotification) {
   }
 
   return null;
+}
+
+function clearRemoteSubscriptions() {
+  remoteSubscriptions.forEach((entry) => entry.subscription?.unsubscribe());
+  remoteSubscriptions.clear();
 }
 
 function clearAllHandlers() {
@@ -213,8 +601,8 @@ function queueMockTripProgress(tripId: number) {
     setTimeout(() => {
       emitMockNotification({
         type: 'TRIP_ACCEPTED',
-        title: 'Đã tìm thấy tài xế',
-        body: 'Tài xế đang đến điểm đón của bạn.',
+        title: 'Da tim thay tai xe',
+        body: 'Tai xe dang den diem don cua ban.',
         data: { tripId },
       });
       emitMockTripStatus(tripId, 'ACCEPTED');
@@ -225,8 +613,8 @@ function queueMockTripProgress(tripId: number) {
     setTimeout(() => {
       emitMockNotification({
         type: 'DRIVER_ARRIVED',
-        title: 'Tài xế đã đến',
-        body: 'Tài xế đang chờ bạn tại điểm đón.',
+        title: 'Tai xe da den',
+        body: 'Tai xe dang cho ban tai diem don.',
         data: { tripId },
       });
       emitMockTripStatus(tripId, 'ARRIVED');
@@ -234,8 +622,8 @@ function queueMockTripProgress(tripId: number) {
     setTimeout(() => {
       emitMockNotification({
         type: 'TRIP_STARTED',
-        title: 'Chuyến đi bắt đầu',
-        body: 'GoRide đang theo dõi hành trình của bạn.',
+        title: 'Chuyen di bat dau',
+        body: 'GoRide dang theo doi hanh trinh cua ban.',
         data: { tripId },
       });
       emitMockTripStatus(tripId, 'IN_PROGRESS');
@@ -244,8 +632,8 @@ function queueMockTripProgress(tripId: number) {
     setTimeout(() => {
       emitMockNotification({
         type: 'TRIP_COMPLETED',
-        title: 'Chuyến đi hoàn thành',
-        body: 'Cảm ơn bạn đã sử dụng GoRide.',
+        title: 'Chuyen di hoan thanh',
+        body: 'Cam on ban da su dung GoRide.',
         data: { tripId },
       });
       emitMockTripStatus(tripId, 'COMPLETED');
@@ -307,20 +695,20 @@ function queueMockDriverRequest(driverId: number) {
       tripId: 101,
       passenger: {
         id: 1,
-        fullName: 'Nguyễn Văn A',
+        fullName: 'Nguyen Van A',
         phone: '0901234567',
       },
       pickup: {
         lat: 10.762622,
         lng: 106.660172,
-        address: 'Công viên Tao Đàn, Quận 1',
-        label: 'Điểm đón',
+        address: 'Cong vien Tao Dan, Quan 1',
+        label: 'Diem don',
       },
       dropoff: {
         lat: 10.772,
         lng: 106.698,
-        address: 'Bitexco Financial Tower, Quận 1',
-        label: 'Điểm đến',
+        address: 'Bitexco Financial Tower, Quan 1',
+        label: 'Diem den',
       },
       estimatedFare: 48000,
       estimatedDistance: 3.8,
@@ -329,10 +717,9 @@ function queueMockDriverRequest(driverId: number) {
 
     emit('notification', {
       type: 'NEW_TRIP_REQUEST',
-      title: 'Có cuốc mới',
-      body: `Tài xế ${driverId} có một yêu cầu đặt xe mới.`,
+      title: 'Co cuoc moi',
+      body: `Tai xe ${driverId} co mot yeu cau dat xe moi.`,
       data: { tripId: 101 },
     });
   }, 2000);
 }
-

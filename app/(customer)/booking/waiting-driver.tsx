@@ -16,7 +16,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DriverInfoCard, MapPicker, TripCompletionCard, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
 import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
-import { connectRealtime, sendTripStatus, subscribeTrip, type RealtimeSubscription } from '@/lib/realtime';
+import {
+  connectRealtime,
+  sendTripStatus,
+  subscribeRealtimeConnection,
+  subscribeTrip,
+  type RealtimeSubscription,
+} from '@/lib/realtime';
 import type { DriverLocationUpdate, LocationPoint, TripDetail, TripStatus, WsNotification } from '@/types/ride';
 
 const palette = {
@@ -161,9 +167,40 @@ export default function WaitingDriverScreen() {
 
     let isActive = true;
     let subscription: RealtimeSubscription | null = null;
+    let connectionSubscription: RealtimeSubscription | null = null;
+    let remoteConnectionOpened = false;
 
     setRealtimeMode('connecting');
     setTrackingError(null);
+
+    connectionSubscription = subscribeRealtimeConnection((state) => {
+      if (!isActive || state.mode === 'mock') {
+        return;
+      }
+
+      if (state.status === 'connected') {
+        remoteConnectionOpened = true;
+        setRealtimeMode('remote');
+        setTrackingError(null);
+        return;
+      }
+
+      if (state.status === 'connecting') {
+        setRealtimeMode('connecting');
+        return;
+      }
+
+      if (state.status === 'reconnecting' && remoteConnectionOpened) {
+        setRealtimeMode('fallback');
+        setTrackingError('K?nh realtime ?ang k?t n?i l?i, GoRide t?m d?ng REST fallback.');
+        return;
+      }
+
+      if (state.status === 'error') {
+        setRealtimeMode('fallback');
+        setTrackingError(state.lastError ?? 'K?nh realtime t?m th?i gi?n ?o?n.');
+      }
+    });
 
     connectRealtime()
       .then((connection) => {
@@ -202,6 +239,7 @@ export default function WaitingDriverScreen() {
     return () => {
       isActive = false;
       subscription?.unsubscribe();
+      connectionSubscription?.unsubscribe();
     };
   }, [applyDriverLocation, hydrateTripDetail, numericTripId]);
 

@@ -19,16 +19,21 @@ import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermis
 import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import {
   connectRealtime,
+  disconnectRealtime,
   sendDriverHeartbeat,
   sendDriverLocation,
   sendTripStatus,
   subscribeDriverRequests,
   subscribeNotifications,
+  subscribeRealtimeConnection,
   type RealtimeSubscription,
 } from '@/lib/realtime';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_ID = 5;
+const DRIVER_HEARTBEAT_INTERVAL_MS = 10000;
+const DRIVER_LOCATION_INTERVAL_MS = 5000;
+const DRIVER_LOCATION_TIMEOUT_MS = 4500;
 
 const palette = {
   background: '#eaf7ef',
@@ -86,9 +91,11 @@ export default function DriverScreen() {
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const notificationSubscriptionRef = useRef<RealtimeSubscription | null>(null);
+  const connectionSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationRef = useRef<LocationPoint | null>(null);
+  const driverGpsPingInFlightRef = useRef(false);
 
   const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
   const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
@@ -102,6 +109,8 @@ export default function DriverScreen() {
     requestSubscriptionRef.current = null;
     notificationSubscriptionRef.current?.unsubscribe();
     notificationSubscriptionRef.current = null;
+    connectionSubscriptionRef.current?.unsubscribe();
+    connectionSubscriptionRef.current = null;
 
     if (heartbeatTimerRef.current) {
       clearInterval(heartbeatTimerRef.current);
@@ -112,6 +121,9 @@ export default function DriverScreen() {
       clearInterval(driverLocationTimerRef.current);
       driverLocationTimerRef.current = null;
     }
+
+    driverGpsPingInFlightRef.current = false;
+    disconnectRealtime();
   }, []);
 
   const startHeartbeat = useCallback(() => {
@@ -121,15 +133,53 @@ export default function DriverScreen() {
 
     const sendHeartbeat = () => {
       const heartbeat = sendDriverHeartbeat(DRIVER_ID);
-      setLastHeartbeatAt(heartbeat.sentAt);
+
+      if (heartbeat.sent) {
+        setLastHeartbeatAt(heartbeat.sentAt);
+        return;
+      }
+
+      setRealtimeMode('fallback');
+      setStatusMessage('Realtime chưa sẵn sàng để gửi heartbeat. GoRide sẽ tiếp tục thử lại theo chu kỳ.');
     };
 
     sendHeartbeat();
-    heartbeatTimerRef.current = setInterval(sendHeartbeat, 15000);
+    heartbeatTimerRef.current = setInterval(sendHeartbeat, DRIVER_HEARTBEAT_INTERVAL_MS);
   }, []);
 
   const startRealtime = useCallback(async () => {
+    let remoteConnectionOpened = false;
+
     setRealtimeMode('connecting');
+    connectionSubscriptionRef.current?.unsubscribe();
+    connectionSubscriptionRef.current = subscribeRealtimeConnection((state) => {
+      if (state.mode === 'mock') {
+        return;
+      }
+
+      if (state.status === 'connected') {
+        remoteConnectionOpened = true;
+        setRealtimeMode('remote');
+        setStatusMessage('B?n ?ang online. GoRide ?ang nghe cu?c m?i qua realtime.');
+        return;
+      }
+
+      if (state.status === 'connecting') {
+        setRealtimeMode('connecting');
+        return;
+      }
+
+      if (state.status === 'reconnecting' && remoteConnectionOpened) {
+        setRealtimeMode('fallback');
+        setStatusMessage('Realtime ?ang k?t n?i l?i. GoRide v?n gi? t?i x? online v? ti?p t?c g?i heartbeat khi k?nh tr? l?i.');
+        return;
+      }
+
+      if (state.status === 'error') {
+        setRealtimeMode('fallback');
+        setStatusMessage(state.lastError ?? 'Realtime t?m th?i gi?n ?o?n, GoRide s? t? k?t n?i l?i.');
+      }
+    });
 
     try {
       const connection = await connectRealtime();
@@ -292,27 +342,41 @@ export default function DriverScreen() {
   }, []);
 
   const sendDriverGpsPing = useCallback(async (tripId: number) => {
+    if (driverGpsPingInFlightRef.current) {
+      return;
+    }
+
+    driverGpsPingInFlightRef.current = true;
     let nextLocation = driverLocationRef.current ?? getDefaultLocationPoint();
 
     try {
-      nextLocation = await getCurrentLocationPoint({ timeoutMs: 8000 });
+      nextLocation = await getCurrentLocationPoint({ timeoutMs: DRIVER_LOCATION_TIMEOUT_MS });
       setDriverTrackingMessage('GPS cuốc đang gửi vị trí thật theo chu kỳ.');
     } catch (error: unknown) {
       setDriverTrackingMessage(getErrorMessage(error, 'Không lấy được GPS mới, tạm gửi vị trí gần nhất.'));
+    } finally {
+      driverGpsPingInFlightRef.current = false;
     }
 
     const sentAt = new Date().toISOString();
 
     driverLocationRef.current = nextLocation;
     setDriverLocation(nextLocation);
-    setLastDriverLocationSentAt(sentAt);
-    sendDriverLocation({
+    const publishResult = sendDriverLocation({
       tripId,
       driverId: DRIVER_ID,
       lat: nextLocation.lat,
       lng: nextLocation.lng,
       updatedAt: sentAt,
     });
+
+    if (publishResult.sent) {
+      setLastDriverLocationSentAt(sentAt);
+      return;
+    }
+
+    setRealtimeMode('fallback');
+    setDriverTrackingMessage('Realtime chưa sẵn sàng để gửi GPS, GoRide sẽ thử lại ở nhịp tiếp theo.');
   }, []);
 
   useEffect(() => {
@@ -340,7 +404,7 @@ export default function DriverScreen() {
     void sendDriverGpsPing(activeTripId);
     driverLocationTimerRef.current = setInterval(() => {
       void sendDriverGpsPing(activeTripId);
-    }, 10000);
+    }, DRIVER_LOCATION_INTERVAL_MS);
 
     return () => {
       if (driverLocationTimerRef.current) {

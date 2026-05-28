@@ -1,5 +1,178 @@
 # Implementation Log
 
+## 2026-05-28 - Phase 8 Realtime Backend Integration - Closeout Check
+
+- Branch: `codex/realtime-stomp`
+- Scope: Reviewed Phase 8 for merge readiness after user approved realtime publish feedback.
+- Commits reviewed:
+  - `0c7b839` - Wire remote realtime STOMP adapter
+  - `925de90` - Record realtime adapter review status
+  - `029083b` - Handle realtime reconnect state
+  - `2dd2091` - Record reconnect review status
+  - `d189f2a` - Tune driver realtime intervals
+  - `6a0b5e9` - Record driver interval review status
+  - `51b0b0d` - Surface realtime publish failures
+  - `f637313` - Record publish feedback review status
+- Phase 8 coverage:
+  - Added STOMP/SockJS dependencies and TypeScript support.
+  - `lib/realtime.ts` now opens a real STOMP-over-SockJS connection when `EXPO_PUBLIC_WS_URL` is configured.
+  - STOMP connect headers include the current bearer token from the shared API auth state when available.
+  - Passenger trip subscriptions cover `/topic/trip/{tripId}/status`, `/topic/trip/{tripId}/location`, and `/user/queue/notifications`.
+  - Driver request subscriptions cover `/topic/driver/{driverId}/request` plus personal notifications.
+  - Remote publish paths cover `/app/driver.location`, `/app/driver.heartbeat`, and `/app/trip.status`.
+  - Remote subscriptions are restored after reconnect, and screens react to connection state changes.
+  - Driver heartbeat and GPS cadence now match the TDD/MVP guidance more closely: 10-second heartbeat and 5-second active-trip GPS loop.
+  - Driver heartbeat/GPS UI now avoids marking sends as successful when the STOMP socket is disconnected.
+  - Mock realtime remains the default fallback when `EXPO_PUBLIC_WS_URL` is absent.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for docs only.
+- Review:
+  - Attempted CodeRabbit review skill after the closeout commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected in this run.
+  - No CodeRabbit issues are available for this closeout checkpoint. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Merge assessment:
+  - No additional Phase 8 cleanup commit is required before merging.
+  - Remaining risk is real backend/device smoke testing, because this environment has not exercised a live `EXPO_PUBLIC_WS_URL` session.
+  - Backend-specific STOMP payload variations may still require small adapters after integration testing.
+- Next action:
+  - Wait for user review of this closeout checkpoint.
+  - If approved, merge `codex/realtime-stomp` into `main` and push `main`.
+
+## 2026-05-28 - Phase 8 Realtime Backend Integration - Commit 4
+
+- Branch: `codex/realtime-stomp`
+- Scope: Added publish feedback for driver realtime sends.
+- Files changed:
+  - `lib/realtime.ts`
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `RealtimePublishResult` so realtime send helpers can report whether a mock/remote publish actually went out.
+  - `sendDriverLocation()` now returns publish status instead of silently dropping the payload when remote STOMP is disconnected.
+  - `sendDriverHeartbeat()` now includes `sent`, `destination`, and `mode` metadata while preserving `sentAt` for the existing driver UI.
+  - `sendTripStatus()` now includes publish status metadata for remote status sends.
+  - Driver heartbeat UI only updates the last heartbeat timestamp after a successful mock/remote publish.
+  - Driver GPS loop only updates the last sent timestamp after a successful publish and switches to fallback copy when the remote socket is not connected.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - Attempted CodeRabbit review skill after commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected in this run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Phase 8 commit 3 on 2026-05-28 before this commit started.
+- Known risks:
+  - Remote publish status only confirms that the STOMP client accepted the publish locally; it does not confirm backend processing unless backend sends an acknowledgement/status event.
+  - Passenger cancel/status sends still do not surface publish failure in UI; this commit focuses on driver heartbeat/GPS because those are repeated lifecycle signals.
+
+## 2026-05-28 - Phase 8 Realtime Backend Integration - Commit 3
+
+- Branch: `codex/realtime-stomp`
+- Scope: Tuned driver heartbeat/GPS lifecycle for the realtime backend contract.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Changed driver heartbeat loop from 15 seconds to 10 seconds, matching the TDD heartbeat guidance.
+  - Changed active-trip driver GPS send loop from 10 seconds to 5 seconds, matching the planned MVP 3-5 second tracking cadence.
+  - Added a shorter 4.5 second GPS lookup timeout so the 5 second loop does not routinely overlap slow location requests.
+  - Added an in-flight guard to skip a GPS ping if a previous ping is still resolving.
+  - Driver online service cleanup now resets GPS in-flight state and calls `disconnectRealtime()` when the driver goes offline or the screen unmounts.
+  - Preserved existing mock/remote send payload shape and driver UI behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - Attempted CodeRabbit review skill after commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected in this run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Phase 8 commit 2 on 2026-05-28 before this commit started.
+- Known risks:
+  - A 5 second GPS loop is closer to MVP tracking, but production battery tuning may still move to a native watch-position strategy or backend-configurable interval.
+  - Disconnecting realtime on driver offline assumes the driver screen owns the realtime session in this MVP flow.
+
+## 2026-05-27 - Phase 8 Realtime Backend Integration - Commit 2
+
+- Branch: `codex/realtime-stomp`
+- Scope: Added realtime connection-state notifications and resilient remote resubscription.
+- Files changed:
+  - `lib/realtime.ts`
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added exported realtime connection state types and `subscribeRealtimeConnection()` so screens can react to `connecting`, `connected`, `reconnecting`, `error`, and `disconnected` states.
+  - Reworked remote STOMP subscriptions into a registry that re-attaches active topic subscriptions after a STOMP reconnect.
+  - Passenger waiting screen now switches to fallback UI/copy when the remote realtime channel is reconnecting or errors, while REST fallback polling keeps tracking alive.
+  - Driver screen now listens to realtime connection state and shows reconnect/fallback status while keeping the driver online flow intact.
+  - Mock realtime behavior remains unchanged for local UI demo mode.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - Attempted CodeRabbit review skill after commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Phase 8 commit 1 on 2026-05-27 before this commit started.
+- Known risks:
+  - Real backend smoke testing is still needed to confirm STOMP reconnect behavior and backend topic permissions on device.
+  - Driver-side fallback cannot receive new trip requests without WebSocket; it only keeps the UI explicit while the STOMP client reconnects.
+
+## 2026-05-27 - Phase 8 Realtime Backend Integration - Commit 1
+
+- Branch: `codex/realtime-stomp`
+- Scope: Added STOMP/SockJS dependencies and wired the remote realtime adapter.
+- Files changed:
+  - `lib/realtime.ts`
+  - `package.json`
+  - `package-lock.json`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added `@stomp/stompjs`, `sockjs-client`, and `@types/sockjs-client`.
+  - `connectRealtime()` now opens a real STOMP-over-SockJS connection when `EXPO_PUBLIC_WS_URL` is configured.
+  - STOMP connect headers include the current bearer token from the shared API auth state when available.
+  - Remote passenger subscriptions now listen to `/topic/trip/{tripId}/status`, `/topic/trip/{tripId}/location`, and `/user/queue/notifications`.
+  - Remote driver subscriptions now listen to `/topic/driver/{driverId}/request`.
+  - Remote send helpers publish driver location, driver heartbeat, and trip status messages to `/app/driver.location`, `/app/driver.heartbeat`, and `/app/trip.status`.
+  - Mock realtime remains the default fallback when `EXPO_PUBLIC_WS_URL` is missing, preserving current passenger and driver demo behavior.
+  - Remote messages are normalized defensively for numeric string IDs and `latitude`/`longitude` payload variants.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - Attempted CodeRabbit review skill after commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - Runtime verification against the real backend WebSocket endpoint is still pending because no live `EXPO_PUBLIC_WS_URL`/backend session was exercised in this checkpoint.
+  - Backend-specific payload names beyond the normalized fields may require small adapters once tested with real STOMP frames.
+
 ## 2026-05-26 - Auth Integration - Login Flash Bugfix
 
 - Branch: `mock_api`
