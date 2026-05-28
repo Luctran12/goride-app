@@ -1,5 +1,44 @@
 # Implementation Log
 
+## 2026-05-28 - Phase 8 Realtime Backend Integration - Closeout Check
+
+- Branch: `codex/realtime-stomp`
+- Scope: Reviewed Phase 8 for merge readiness after user approved realtime publish feedback.
+- Commits reviewed:
+  - `0c7b839` - Wire remote realtime STOMP adapter
+  - `925de90` - Record realtime adapter review status
+  - `029083b` - Handle realtime reconnect state
+  - `2dd2091` - Record reconnect review status
+  - `d189f2a` - Tune driver realtime intervals
+  - `6a0b5e9` - Record driver interval review status
+  - `51b0b0d` - Surface realtime publish failures
+  - `f637313` - Record publish feedback review status
+- Phase 8 coverage:
+  - Added STOMP/SockJS dependencies and TypeScript support.
+  - `lib/realtime.ts` now opens a real STOMP-over-SockJS connection when `EXPO_PUBLIC_WS_URL` is configured.
+  - STOMP connect headers include the current bearer token from the shared API auth state when available.
+  - Passenger trip subscriptions cover `/topic/trip/{tripId}/status`, `/topic/trip/{tripId}/location`, and `/user/queue/notifications`.
+  - Driver request subscriptions cover `/topic/driver/{driverId}/request` plus personal notifications.
+  - Remote publish paths cover `/app/driver.location`, `/app/driver.heartbeat`, and `/app/trip.status`.
+  - Remote subscriptions are restored after reconnect, and screens react to connection state changes.
+  - Driver heartbeat and GPS cadence now match the TDD/MVP guidance more closely: 10-second heartbeat and 5-second active-trip GPS loop.
+  - Driver heartbeat/GPS UI now avoids marking sends as successful when the STOMP socket is disconnected.
+  - Mock realtime remains the default fallback when `EXPO_PUBLIC_WS_URL` is absent.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for docs only.
+- Merge assessment:
+  - No additional Phase 8 cleanup commit is required before merging.
+  - Remaining risk is real backend/device smoke testing, because this environment has not exercised a live `EXPO_PUBLIC_WS_URL` session.
+  - Backend-specific STOMP payload variations may still require small adapters after integration testing.
+- Next action:
+  - Wait for user review of this closeout checkpoint.
+  - If approved, merge `codex/realtime-stomp` into `main` and push `main`.
+
 ## 2026-05-28 - Phase 8 Realtime Backend Integration - Commit 4
 
 - Branch: `codex/realtime-stomp`
