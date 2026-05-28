@@ -7,18 +7,18 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Realtime backend integration
 - Phase: Phase 8 - STOMP/SockJS realtime wiring
 - Branch: `codex/realtime-stomp`
-- Current commit scope: Commit 2 complete - realtime reconnect state and remote resubscribe
+- Current commit scope: Commit 3 - driver heartbeat and GPS lifecycle tuning
 - Status: Ready for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `029083b` - Handle realtime reconnect state
+- Commit: `2dd2091` - Record reconnect review status
 - Implementation log entry: `2026-05-27 - Phase 8 Realtime Backend Integration - Commit 2`
-- Review status: Awaiting user review for commit 2; CodeRabbit CLI review blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
+- Review status: User approved Phase 8 commit 2 on 2026-05-28; CodeRabbit CLI review remained blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
 
 ## Next Checkpoint
 
-- User reviews Phase 8 reconnect/resubscribe commit.
+- User reviews Phase 8 driver heartbeat/GPS lifecycle commit.
 - Wait for user approval before continuing to the next Phase 8 commit.
 
 ## Phase 8 Targets

@@ -1,5 +1,33 @@
 # Implementation Log
 
+## 2026-05-28 - Phase 8 Realtime Backend Integration - Commit 3
+
+- Branch: `codex/realtime-stomp`
+- Scope: Tuned driver heartbeat/GPS lifecycle for the realtime backend contract.
+- Files changed:
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Changed driver heartbeat loop from 15 seconds to 10 seconds, matching the TDD heartbeat guidance.
+  - Changed active-trip driver GPS send loop from 10 seconds to 5 seconds, matching the planned MVP 3-5 second tracking cadence.
+  - Added a shorter 4.5 second GPS lookup timeout so the 5 second loop does not routinely overlap slow location requests.
+  - Added an in-flight guard to skip a GPS ping if a previous ping is still resolving.
+  - Driver online service cleanup now resets GPS in-flight state and calls `disconnectRealtime()` when the driver goes offline or the screen unmounts.
+  - Preserved existing mock/remote send payload shape and driver UI behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - CodeRabbit review still needs to be attempted after commit. Previous attempts were blocked because `coderabbit` is not installed and this Windows shell has no `sh`.
+- User review:
+  - User approved Phase 8 commit 2 on 2026-05-28 before this commit started.
+- Known risks:
+  - A 5 second GPS loop is closer to MVP tracking, but production battery tuning may still move to a native watch-position strategy or backend-configurable interval.
+  - Disconnecting realtime on driver offline assumes the driver screen owns the realtime session in this MVP flow.
+
 ## 2026-05-27 - Phase 8 Realtime Backend Integration - Commit 2
 
 - Branch: `codex/realtime-stomp`

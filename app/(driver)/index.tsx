@@ -19,6 +19,7 @@ import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermis
 import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import {
   connectRealtime,
+  disconnectRealtime,
   sendDriverHeartbeat,
   sendDriverLocation,
   sendTripStatus,
@@ -30,6 +31,9 @@ import {
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_ID = 5;
+const DRIVER_HEARTBEAT_INTERVAL_MS = 10000;
+const DRIVER_LOCATION_INTERVAL_MS = 5000;
+const DRIVER_LOCATION_TIMEOUT_MS = 4500;
 
 const palette = {
   background: '#eaf7ef',
@@ -91,6 +95,7 @@ export default function DriverScreen() {
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationRef = useRef<LocationPoint | null>(null);
+  const driverGpsPingInFlightRef = useRef(false);
 
   const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
   const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
@@ -116,6 +121,9 @@ export default function DriverScreen() {
       clearInterval(driverLocationTimerRef.current);
       driverLocationTimerRef.current = null;
     }
+
+    driverGpsPingInFlightRef.current = false;
+    disconnectRealtime();
   }, []);
 
   const startHeartbeat = useCallback(() => {
@@ -129,7 +137,7 @@ export default function DriverScreen() {
     };
 
     sendHeartbeat();
-    heartbeatTimerRef.current = setInterval(sendHeartbeat, 15000);
+    heartbeatTimerRef.current = setInterval(sendHeartbeat, DRIVER_HEARTBEAT_INTERVAL_MS);
   }, []);
 
   const startRealtime = useCallback(async () => {
@@ -327,13 +335,20 @@ export default function DriverScreen() {
   }, []);
 
   const sendDriverGpsPing = useCallback(async (tripId: number) => {
+    if (driverGpsPingInFlightRef.current) {
+      return;
+    }
+
+    driverGpsPingInFlightRef.current = true;
     let nextLocation = driverLocationRef.current ?? getDefaultLocationPoint();
 
     try {
-      nextLocation = await getCurrentLocationPoint({ timeoutMs: 8000 });
+      nextLocation = await getCurrentLocationPoint({ timeoutMs: DRIVER_LOCATION_TIMEOUT_MS });
       setDriverTrackingMessage('GPS cuốc đang gửi vị trí thật theo chu kỳ.');
     } catch (error: unknown) {
       setDriverTrackingMessage(getErrorMessage(error, 'Không lấy được GPS mới, tạm gửi vị trí gần nhất.'));
+    } finally {
+      driverGpsPingInFlightRef.current = false;
     }
 
     const sentAt = new Date().toISOString();
@@ -375,7 +390,7 @@ export default function DriverScreen() {
     void sendDriverGpsPing(activeTripId);
     driverLocationTimerRef.current = setInterval(() => {
       void sendDriverGpsPing(activeTripId);
-    }, 10000);
+    }, DRIVER_LOCATION_INTERVAL_MS);
 
     return () => {
       if (driverLocationTimerRef.current) {
