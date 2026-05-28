@@ -133,7 +133,14 @@ export default function DriverScreen() {
 
     const sendHeartbeat = () => {
       const heartbeat = sendDriverHeartbeat(DRIVER_ID);
-      setLastHeartbeatAt(heartbeat.sentAt);
+
+      if (heartbeat.sent) {
+        setLastHeartbeatAt(heartbeat.sentAt);
+        return;
+      }
+
+      setRealtimeMode('fallback');
+      setStatusMessage('Realtime chưa sẵn sàng để gửi heartbeat. GoRide sẽ tiếp tục thử lại theo chu kỳ.');
     };
 
     sendHeartbeat();
@@ -355,14 +362,21 @@ export default function DriverScreen() {
 
     driverLocationRef.current = nextLocation;
     setDriverLocation(nextLocation);
-    setLastDriverLocationSentAt(sentAt);
-    sendDriverLocation({
+    const publishResult = sendDriverLocation({
       tripId,
       driverId: DRIVER_ID,
       lat: nextLocation.lat,
       lng: nextLocation.lng,
       updatedAt: sentAt,
     });
+
+    if (publishResult.sent) {
+      setLastDriverLocationSentAt(sentAt);
+      return;
+    }
+
+    setRealtimeMode('fallback');
+    setDriverTrackingMessage('Realtime chưa sẵn sàng để gửi GPS, GoRide sẽ thử lại ở nhịp tiếp theo.');
   }, []);
 
   useEffect(() => {

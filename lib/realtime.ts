@@ -37,6 +37,14 @@ export type RealtimeConnectionState = {
   updatedAt: string;
 };
 
+export type RealtimePublishResult = {
+  destination: string;
+  mode: 'mock' | 'remote';
+  sent: boolean;
+  sentAt: string;
+  reason?: string;
+};
+
 type RemoteSubscriptionEntry = {
   destination: string;
   handler: Handler<IMessage>;
@@ -211,6 +219,7 @@ export function subscribeDriverRequests(driverId: number, handler: Handler<Drive
 }
 
 export function sendDriverLocation(payload: DriverLocationUpdate) {
+  const destination = '/app/driver.location';
   const message = {
     ...payload,
     updatedAt: payload.updatedAt ?? new Date().toISOString(),
@@ -218,27 +227,32 @@ export function sendDriverLocation(payload: DriverLocationUpdate) {
 
   if (USE_MOCK_REALTIME) {
     emit('driverLocation', message);
-    return;
+    return createPublishResult(destination, true);
   }
 
-  publishRemote('/app/driver.location', message);
+  return createPublishResult(destination, publishRemote(destination, message));
 }
 
 export function sendDriverHeartbeat(driverId: number) {
+  const destination = '/app/driver.heartbeat';
+  const sentAt = new Date().toISOString();
   const heartbeat = {
     driverId,
-    sentAt: new Date().toISOString(),
+    sentAt,
     mode: USE_MOCK_REALTIME ? ('mock' as const) : ('remote' as const),
+    sent: true,
+    destination,
   };
 
   if (!USE_MOCK_REALTIME) {
-    publishRemote('/app/driver.heartbeat', heartbeat);
+    heartbeat.sent = publishRemote(destination, { driverId });
   }
 
   return heartbeat;
 }
 
 export function sendTripStatus(tripId: number, status: TripStatus) {
+  const destination = '/app/trip.status';
   const message = {
     tripId,
     status,
@@ -254,12 +268,18 @@ export function sendTripStatus(tripId: number, status: TripStatus) {
       // Keep emitting realtime demo events even if the optional mock REST store is unavailable.
     });
     emit('tripStatus', message);
-    return message;
+    return {
+      ...message,
+      sent: true,
+      destination,
+    };
   }
 
-  publishRemote('/app/trip.status', message);
-
-  return message;
+  return {
+    ...message,
+    sent: publishRemote(destination, message),
+    destination,
+  };
 }
 
 function createRemoteConnection(url: string): Promise<RealtimeConnection> {
@@ -410,6 +430,16 @@ function publishRemote(destination: string, body: unknown) {
   });
 
   return true;
+}
+
+function createPublishResult(destination: string, sent: boolean): RealtimePublishResult {
+  return {
+    destination,
+    mode: USE_MOCK_REALTIME ? 'mock' : 'remote',
+    sent,
+    sentAt: new Date().toISOString(),
+    reason: sent ? undefined : 'Realtime socket is not connected',
+  };
 }
 
 function parseJsonMessage(message: IMessage): unknown {

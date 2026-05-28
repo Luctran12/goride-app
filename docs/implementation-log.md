@@ -1,5 +1,34 @@
 # Implementation Log
 
+## 2026-05-28 - Phase 8 Realtime Backend Integration - Commit 4
+
+- Branch: `codex/realtime-stomp`
+- Scope: Added publish feedback for driver realtime sends.
+- Files changed:
+  - `lib/realtime.ts`
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - Added `RealtimePublishResult` so realtime send helpers can report whether a mock/remote publish actually went out.
+  - `sendDriverLocation()` now returns publish status instead of silently dropping the payload when remote STOMP is disconnected.
+  - `sendDriverHeartbeat()` now includes `sent`, `destination`, and `mode` metadata while preserving `sentAt` for the existing driver UI.
+  - `sendTripStatus()` now includes publish status metadata for remote status sends.
+  - Driver heartbeat UI only updates the last heartbeat timestamp after a successful mock/remote publish.
+  - Driver GPS loop only updates the last sent timestamp after a successful publish and switches to fallback copy when the remote socket is not connected.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - CodeRabbit review still needs to be attempted after commit. Previous attempts were blocked because `coderabbit` is not installed.
+- User review:
+  - User approved Phase 8 commit 3 on 2026-05-28 before this commit started.
+- Known risks:
+  - Remote publish status only confirms that the STOMP client accepted the publish locally; it does not confirm backend processing unless backend sends an acknowledgement/status event.
+  - Passenger cancel/status sends still do not surface publish failure in UI; this commit focuses on driver heartbeat/GPS because those are repeated lifecycle signals.
+
 ## 2026-05-28 - Phase 8 Realtime Backend Integration - Commit 3
 
 - Branch: `codex/realtime-stomp`
