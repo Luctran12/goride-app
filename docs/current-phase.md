@@ -12,9 +12,9 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Last Completed Checkpoint
 
-- Commit: `51b0b0d` - Surface realtime publish failures
-- Implementation log entry: `2026-05-28 - Phase 8 Realtime Backend Integration - Commit 4`
-- Review status: User approved Phase 8 commit 4 on 2026-05-28; CodeRabbit CLI review remained blocked because `coderabbit` is not installed.
+- Commit: `a977029` - Record realtime phase closeout
+- Implementation log entry: `2026-05-28 - Phase 8 Realtime Backend Integration - Closeout Check`
+- Review status: Awaiting user review for Phase 8 closeout; CodeRabbit CLI review blocked because `coderabbit` is not installed and the installer escalation was rejected in this run.
 
 ## Next Checkpoint
 

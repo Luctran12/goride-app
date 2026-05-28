@@ -31,6 +31,11 @@
   - Result: passed with no TypeScript errors.
   - Ran `git diff --check`.
   - Result: passed. Git reported line-ending normalization warnings for docs only.
+- Review:
+  - Attempted CodeRabbit review skill after the closeout commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected in this run.
+  - No CodeRabbit issues are available for this closeout checkpoint. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
 - Merge assessment:
   - No additional Phase 8 cleanup commit is required before merging.
   - Remaining risk is real backend/device smoke testing, because this environment has not exercised a live `EXPO_PUBLIC_WS_URL` session.
