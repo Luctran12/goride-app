@@ -7,20 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger trip history
 - Phase: Phase 9 - Passenger activity/history
 - Branch: `codex/passenger-trip-history`
-- Current commit scope: Commit 1 - add booking history API/mock adapter
-- Status: In progress
+- Current commit scope: Commit 1 complete - booking history API/mock adapter
+- Status: Ready for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `beea140` - Merge realtime STOMP phase
-- Implementation log entry: `2026-05-28 - Phase 8 Realtime Backend Integration - Closeout Check`
-- Review status: User approved Phase 8, branch merged into `main`, and `main` pushed to GitHub.
+- Commit: `ae58e1c` - Add passenger booking history API
+- Implementation log entry: `2026-05-29 - Phase 9 Passenger Trip History - Commit 1`
+- Review status: Awaiting user review; CodeRabbit CLI review blocked because `coderabbit` is not installed and the installer escalation was rejected in this run.
 
 ## Next Checkpoint
 
-- Commit booking history API/mock foundation after validation.
-- Attempt CodeRabbit review; currently expected to be blocked unless the CLI is installed in this Windows environment.
-- Wait for user review before continuing to the next Phase 9 commit.
+- User reviews Phase 9 booking history API/mock foundation.
+- Wait for user approval before implementing the Activity screen commit.
 
 ## Phase 9 Targets
 

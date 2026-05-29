@@ -1,5 +1,38 @@
 # Implementation Log
 
+## 2026-05-29 - Phase 9 Passenger Trip History - Commit 1
+
+- Branch: `codex/passenger-trip-history`
+- Commit: `ae58e1c` - Add passenger booking history API
+- Scope: Added passenger booking history data contract, API wrapper, and mock adapter data.
+- Files changed:
+  - `types/ride.ts`
+  - `lib/ride-api.ts`
+  - `lib/mock-ride-api.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `TripHistoryPage` type with `items`, `page`, `size`, and `total` fields.
+  - Added `listBookings(page, size)` to call `GET /bookings?page=...&size=...` in remote mode.
+  - Added response normalization for common backend list shapes: raw arrays, `{ data: [] }`, `{ items }`, `{ content }`, and Spring-style total fields.
+  - Added seeded mock trip history records so the upcoming Activity screen can render completed and cancelled trips without a backend.
+  - Updated `mockGetTrip()` so seeded history trips can be opened by trip id in mock mode.
+  - Started Phase 9 tracking in `docs/current-phase.md` from `main` on branch `codex/passenger-trip-history`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check` before commit.
+  - Result: passed. Git reported line-ending normalization warnings for changed files only.
+- Review:
+  - Attempted CodeRabbit review skill after commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected in this run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - The real backend list response may use a wrapper shape not covered by the current normalizer; this can be adjusted after integration testing against `docs/api-docs.json` output.
+  - The Activity UI is not implemented in this commit; it is intentionally deferred to the next reviewable commit.
+
 ## 2026-05-28 - Phase 8 Realtime Backend Integration - Closeout Check
 
 - Branch: `codex/realtime-stomp`
