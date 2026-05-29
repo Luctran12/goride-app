@@ -87,6 +87,13 @@ export type TripDetail = {
   acceptedAt?: string | null;
 };
 
+export type TripHistoryPage = {
+  items: TripDetail[];
+  page: number;
+  size: number;
+  total: number;
+};
+
 export type DriverTripRequest = {
   tripId: number;
   passenger: UserSummary;
