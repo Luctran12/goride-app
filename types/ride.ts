@@ -72,6 +72,13 @@ export type DriverSummary = UserSummary & {
   averageRating?: number;
 };
 
+export type TripRating = {
+  score: number;
+  comment?: string;
+  tags?: string[];
+  createdAt?: string;
+};
+
 export type TripDetail = {
   tripId: number;
   status: TripStatus;
@@ -85,6 +92,7 @@ export type TripDetail = {
   finalFare?: number | null;
   requestedAt?: string;
   acceptedAt?: string | null;
+  passengerRating?: TripRating;
 };
 
 export type TripHistoryPage = {

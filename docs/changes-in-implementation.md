@@ -41,3 +41,13 @@ Each entry should include:
 - Implemented behavior: `lib/realtime.ts` now uses `@stomp/stompjs` plus `sockjs-client` for remote mode when `EXPO_PUBLIC_WS_URL` exists, while keeping the mock event bus fallback when the env var is missing.
 - Reason for change: This resolves the earlier Phase 1 realtime skeleton limitation while preserving backend-free demo mode for local UI review.
 - Impact: Passenger and driver screens can now connect to the planned backend STOMP destinations. Real backend smoke testing is still required to confirm payload naming and auth expectations.
+
+## 2026-06-01 - Passenger History Detail And Rebook UI
+
+- Date: 2026-06-01
+- Branch: `codex/passenger-trip-history`
+- Feature: Phase 9 - Passenger activity/history
+- TDD expectation: Trip history is part of Passenger App scope and ratings are modeled by the separate `ratings` table/API.
+- Implemented behavior: Passenger Activity keeps the history list compact, opens an in-screen detail modal, and reads optional `passengerRating` data from `TripDetail`/mock history so the UI can show the rating the passenger already submitted.
+- Reason for change: User requested compact history cards, richer detail on tap, rating display, and a `Dat lai` action from history.
+- Impact: Front-end demo can show rating and rebook behavior before a dedicated rating lookup endpoint is wired. Backend may later replace embedded `passengerRating` with a separate trip-rating API response without changing the visible UI.

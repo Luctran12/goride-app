@@ -36,7 +36,7 @@ const shadow = {
 
 const menuItems: MenuItemProps[] = [
   { icon: 'account-outline', label: 'Thông tin cá nhân' },
-  { icon: 'history', label: 'Lịch sử chuyến đi' },
+  { icon: 'history', label: 'Lịch sử chuyến đi', route: '/(customer)/activity' },
   { icon: 'cash-multiple', label: 'Thanh toán', route: '/(customer)/billing' },
   { icon: 'ticket-percent-outline', label: 'Voucher của tôi' },
   { icon: 'heart-outline', label: 'Địa chỉ yêu thích' },
@@ -115,11 +115,11 @@ export default function ProfileScreen() {
 
       <View style={styles.bottomNav}>
         <NavItem icon="home-outline" label="Home" onPress={() => router.push('/(customer)')} />
-        <NavItem icon="history" label="Activity" />
+        <NavItem icon="history" label="Activity" onPress={() => router.push('/(customer)/activity')} />
         <NavItem
           icon="cash-multiple"
           label="Payment"
-          onPress={() => router.push('/billing')}
+          onPress={() => router.push('/(customer)/billing')}
         />
         <TouchableOpacity activeOpacity={0.84} style={styles.navActive}>
           <MaterialCommunityIcons name="account-outline" size={rs(34)} color="#9a8fee" />

@@ -83,11 +83,11 @@ export default function HomeScreen() {
                 active 
                 onPress={() => router.push('/(customer)/booking/pickup')}
             />
-            <ActionButton icon="history" label="Lịch sử" />
+            <ActionButton icon="history" label="Lịch sử" onPress={() => router.push('/(customer)/activity')} />
             <ActionButton
               icon="cash-multiple"
               label={'Thanh\ntoán'}
-              onPress={() => router.push('/billing')}
+              onPress={() => router.push('/(customer)/billing')}
             />
           </View>
         </View>
@@ -139,16 +139,16 @@ export default function HomeScreen() {
           <Feather name="home" size={rs(33)} color="#9a8fee" />
           <Text style={styles.navActiveText}>Home</Text>
         </TouchableOpacity>
-        <NavItem icon="history" label="Activity" />
+        <NavItem icon="history" label="Activity" onPress={() => router.push('/(customer)/activity')} />
         <NavItem
           icon="cash-multiple"
           label="Payment"
-          onPress={() => router.push('/billing')}
+          onPress={() => router.push('/(customer)/billing')}
         />
         <NavItem
           icon="account-outline"
           label="Profile"
-          onPress={() => router.push('/profile')}
+          onPress={() => router.push('/(customer)/profile')}
         />
       </View>
     </SafeAreaView>

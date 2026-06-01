@@ -75,6 +75,12 @@ const seededTrips: TripDetail[] = [
     estimatedDuration: 18,
     requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     acceptedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 + 1000 * 60 * 2).toISOString(),
+    passengerRating: {
+      score: 5,
+      comment: 'Tai xe than thien, don dung diem va xe rat sach.',
+      tags: ['Dung gio', 'Than thien', 'Xe sach'],
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString(),
+    },
   },
   {
     tripId: 90,
@@ -124,6 +130,12 @@ const seededTrips: TripDetail[] = [
     estimatedDuration: 21,
     requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
     acceptedAt: new Date(Date.now() - 1000 * 60 * 60 * 72 + 1000 * 60 * 3).toISOString(),
+    passengerRating: {
+      score: 4,
+      comment: 'Chuyen di on, lo trinh nhanh hon du kien.',
+      tags: ['Lai xe an toan', 'Lo trinh tot'],
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 71).toISOString(),
+    },
   },
 ];
 
