@@ -1873,3 +1873,39 @@
 - Known risks:
   - Rating is updated optimistically in local screen state after successful API response; if a later backend response includes richer rating fields, the UI should prefer backend response data.
   - UI currently supports score/comment only, matching TDD `POST /ratings`; tag selection remains display-only for existing mock ratings.
+
+## 2026-06-01 - Phase 10 Passenger Rating - Closeout Check
+
+- Branch: `codex/passenger-rating`
+- Scope: Reviewed Phase 10 for merge readiness after user approved the Activity rating form.
+- Commits reviewed:
+  - `4d71fe3` - Start passenger rating phase
+  - `ec4d4b3` - Add passenger rating API
+  - `39c8240` - Record passenger rating API review status
+  - `9305276` - Add passenger rating form
+  - `1857f6f` - Record passenger rating form review status
+- Phase 10 coverage:
+  - Added `TripRatingDraft` and `TripRatingResponse` types for TDD `POST /ratings`.
+  - Added `submitTripRating()` API wrapper for remote `/ratings` and mock mode.
+  - Mock mode validates score range, completed-trip status, duplicate ratings, and trip existence.
+  - Activity detail modal shows a rating form for completed, unrated trips.
+  - Rating form supports star score, optional comment, loading state, inline error, and submit CTA.
+  - Successful submit updates selected trip detail and Activity history list immediately.
+  - Already-rated trips continue to display the submitted rating summary.
+  - Non-completed trips explain that rating is available after completion.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Commit 2 on 2026-06-01.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and the installer command requires `sh`, which is unavailable in this Windows shell.
+- Merge assessment:
+  - No additional Phase 10 cleanup commit is required before merging.
+  - Branch is ready to merge back to `main` after user approval to merge.
+- Known risks:
+  - UI supports score/comment only, matching the current TDD `POST /ratings`; rating tags are display-only for seeded mock ratings.
+  - If real backend returns richer rating data, the UI should later prefer backend response data instead of the local rating object.
