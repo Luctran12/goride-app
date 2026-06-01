@@ -7,6 +7,7 @@ import {
   mockGetDriverLocation,
   mockGetPricing,
   mockGetTrip,
+  mockListBookings,
   mockRespondToTrip,
   mockSetDriverOnline,
   mockUpdateTripStatus,
@@ -20,11 +21,20 @@ import type {
   DriverLocationUpdate,
   PricingConfig,
   TripDetail,
+  TripHistoryPage,
   TripStatus,
 } from '@/types/ride';
 
 type PricingResponse = {
   items: PricingConfig[];
+};
+
+type ApiListResponse<TItem> = {
+  data?: TItem[] | { items?: TItem[]; content?: TItem[]; total?: number; totalElements?: number };
+  items?: TItem[];
+  content?: TItem[];
+  total?: number;
+  totalElements?: number;
 };
 
 export function getPricing() {
@@ -62,6 +72,15 @@ export function createBooking(draft: BookingDraft, estimate: BookingEstimate) {
 
 export function getTrip(tripId: number) {
   return USE_MOCK_API ? mockGetTrip(tripId) : apiRequest<TripDetail>(`/bookings/${tripId}`);
+}
+
+export async function listBookings(page = 1, size = 20): Promise<TripHistoryPage> {
+  if (USE_MOCK_API) {
+    return mockListBookings(page, size);
+  }
+
+  const response = await apiRequest<ApiListResponse<TripDetail>>(`/bookings?page=${page}&size=${size}`);
+  return normalizeTripHistoryPage(response, page, size);
 }
 
 export function cancelTrip(tripId: number) {
@@ -103,5 +122,40 @@ export function updateTripStatus(tripId: number, status: TripStatus) {
         method: 'PATCH',
         body: { status },
       });
+}
+
+function normalizeTripHistoryPage(
+  response: ApiListResponse<TripDetail> | TripDetail[],
+  page: number,
+  size: number,
+): TripHistoryPage {
+  if (Array.isArray(response)) {
+    return {
+      items: response,
+      page,
+      size,
+      total: response.length,
+    };
+  }
+
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      page,
+      size,
+      total: response.total ?? response.totalElements ?? data.length,
+    };
+  }
+
+  const items = response.items ?? response.content ?? data?.items ?? data?.content ?? [];
+
+  return {
+    items,
+    page,
+    size,
+    total: response.total ?? response.totalElements ?? data?.total ?? data?.totalElements ?? items.length,
+  };
 }
 

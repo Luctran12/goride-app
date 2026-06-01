@@ -117,7 +117,7 @@ export default function PaymentScreen() {
 
       <View style={styles.bottomNav}>
         <NavItem icon="home-outline" label="Home" onPress={() => router.push('/(customer)')} />
-        <NavItem icon="history" label="Activity" />
+        <NavItem icon="history" label="Activity" onPress={() => router.push('/(customer)/activity')} />
         <TouchableOpacity activeOpacity={0.84} style={styles.navActive}>
           <MaterialCommunityIcons name="cash-multiple" size={rs(34)} color="#9a8fee" />
           <Text style={styles.navActiveText}>Payment</Text>
@@ -125,7 +125,7 @@ export default function PaymentScreen() {
         <NavItem
           icon="account-outline"
           label="Profile"
-          onPress={() => router.push('/profile')}
+          onPress={() => router.push('/(customer)/profile')}
         />
       </View>
     </SafeAreaView>

@@ -1,5 +1,38 @@
 # Implementation Log
 
+## 2026-05-29 - Phase 9 Passenger Trip History - Commit 1
+
+- Branch: `codex/passenger-trip-history`
+- Commit: `ae58e1c` - Add passenger booking history API
+- Scope: Added passenger booking history data contract, API wrapper, and mock adapter data.
+- Files changed:
+  - `types/ride.ts`
+  - `lib/ride-api.ts`
+  - `lib/mock-ride-api.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `TripHistoryPage` type with `items`, `page`, `size`, and `total` fields.
+  - Added `listBookings(page, size)` to call `GET /bookings?page=...&size=...` in remote mode.
+  - Added response normalization for common backend list shapes: raw arrays, `{ data: [] }`, `{ items }`, `{ content }`, and Spring-style total fields.
+  - Added seeded mock trip history records so the upcoming Activity screen can render completed and cancelled trips without a backend.
+  - Updated `mockGetTrip()` so seeded history trips can be opened by trip id in mock mode.
+  - Started Phase 9 tracking in `docs/current-phase.md` from `main` on branch `codex/passenger-trip-history`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check` before commit.
+  - Result: passed. Git reported line-ending normalization warnings for changed files only.
+- Review:
+  - Attempted CodeRabbit review skill after commit.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted installer command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected in this run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- Known risks:
+  - The real backend list response may use a wrapper shape not covered by the current normalizer; this can be adjusted after integration testing against `docs/api-docs.json` output.
+  - The Activity UI is not implemented in this commit; it is intentionally deferred to the next reviewable commit.
+
 ## 2026-05-28 - Phase 8 Realtime Backend Integration - Closeout Check
 
 - Branch: `codex/realtime-stomp`
@@ -1659,3 +1692,115 @@
   - Branch is ready to merge back to `main`.
 - Next action:
   - Merge `codex/validation-polish` into `main` and push `main`.
+
+## 2026-06-01 - Phase 9 Passenger Trip History - Commit 2
+
+- Branch: `codex/passenger-trip-history`
+- Commit: `94802f9`
+- Scope: Added Passenger Activity/history screen with compact history cards, trip detail modal, and rebook action.
+- Files changed:
+  - `app/(customer)/activity.tsx`
+  - `app/(customer)/_layout.tsx`
+  - `app/(customer)/index.tsx`
+  - `app/(customer)/profile.tsx`
+  - `app/(customer)/billing.tsx`
+  - `types/ride.ts`
+  - `lib/mock-ride-api.ts`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added protected customer route `activity`.
+  - Linked Home quick history action, customer bottom nav, Profile history menu, and Billing bottom nav to Activity.
+  - Activity screen loads `listBookings(1, 20)` and supports loading, empty, error, retry, and pull-to-refresh states.
+  - Trip history cards now show only pickup, dropoff, booking date/time, and fare, per user feedback.
+  - Tapping a trip opens an in-screen detail modal with trip code, status, full route, fare, distance, duration, driver info, driver rating, and passenger-submitted rating summary.
+  - Added `Dat lai`/rebook action that routes to `/(customer)/booking/select-vehicle` with the historical pickup/dropoff encoded in params.
+  - Extended `TripDetail` with optional `passengerRating` and seeded mock ratings for completed history trips.
+  - Recorded the rating/detail deviation in `docs/changes-in-implementation.md`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after removing the unused `MetaItem` helper.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors after adding `formatDriverRating()`.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: passed after removing trailing whitespace in `app/(customer)/activity.tsx`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User reviewed the first Activity UI draft on 2026-06-01 and requested compact list cards, detail-on-tap, rating display, trip code, route details, driver info, and a rebook button. These requests are included in this commit.
+- Known risks:
+  - Trip detail is currently an in-screen modal, not a dedicated detail route.
+  - `passengerRating` is optional mock/API-ready data on `TripDetail`; real backend may later provide rating through a separate endpoint.
+  - Rebook navigates directly to select-vehicle with historical pickup/dropoff; if product later wants users to confirm pickup/destination first, routing should change to pickup/destination screens.
+
+## 2026-06-01 - Phase 9 Passenger Trip History - Commit 3
+
+- Branch: `codex/passenger-trip-history`
+- Commit: `631ad7d`
+- Scope: Preserved user review fixes for Activity copy and local backend origin.
+- Files changed:
+  - `app/(customer)/activity.tsx`
+  - `lib/config.ts`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Kept user spelling/encoding fixes in Activity detail modal labels such as route distance, driver info, rebook button, and rating copy.
+  - Kept user backend URL update by changing `DEFAULT_BACKEND_ORIGIN` to `http://10.255.253.75:8080` while preserving env override behavior.
+  - Recorded the local backend origin change in `docs/changes-in-implementation.md`.
+  - Updated `docs/current-phase.md` to track this follow-up review commit.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Phase 9 Commit 2 and explicitly requested keeping their changes in `app/(customer)/activity.tsx` and `lib/config.ts` on 2026-06-01.
+- Known risks:
+  - `DEFAULT_BACKEND_ORIGIN` is a local development fallback. Shared/prod runs should continue using `EXPO_PUBLIC_API_BASE_URL`.
+
+## 2026-06-01 - Phase 9 Passenger Trip History - Closeout Check
+
+- Branch: `codex/passenger-trip-history`
+- Scope: Reviewed Phase 9 for merge readiness after user approved the Activity copy/backend-origin follow-up.
+- Commits reviewed:
+  - `ae58e1c` - Add passenger booking history API
+  - `1c00caa` - Record history API review status
+  - `94802f9` - Add passenger activity history screen
+  - `02a6830` - Record activity history review status
+  - `631ad7d` - Apply activity review copy fixes
+  - `3bdc636` - Record activity copy review status
+- Phase 9 coverage:
+  - Passenger booking history API wrapper for `GET /bookings?page=1&size=20` through `listBookings()`.
+  - Mock history records for completed/cancelled trips, including optional passenger rating data for completed trip details.
+  - Protected customer Activity screen linked from Home quick action, customer bottom nav, Profile menu, and Billing bottom nav.
+  - Compact history cards showing pickup, dropoff, booking date/time, and fare.
+  - Detail modal showing trip code, status, route, fare, distance, duration, driver info, driver rating, and passenger rating summary.
+  - `Dat lai` rebook action that forwards historical pickup/dropoff to `select-vehicle`.
+  - User-requested backend origin fallback update to `http://10.255.253.75:8080`, while keeping env override behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Commit 3 on 2026-06-01.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and the installer command requires `sh`, which is unavailable in this Windows shell.
+- Merge assessment:
+  - No additional Phase 9 cleanup commit is required before merging.
+  - Branch is ready to merge back to `main` after user approval to merge.
+- Known risks:
+  - Trip detail is an in-screen modal, not a dedicated route.
+  - Real backend rating payload may later be served by a separate endpoint instead of embedded `passengerRating`.
+  - The default backend origin is local to the user's current network; shared/prod should use `EXPO_PUBLIC_API_BASE_URL`.

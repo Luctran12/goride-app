@@ -4,27 +4,27 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Realtime backend integration
-- Phase: Phase 8 - STOMP/SockJS realtime wiring
-- Branch: `codex/realtime-stomp`
-- Current commit scope: Phase 8 closeout assessment
-- Status: Ready to merge
+- Feature: Passenger trip history
+- Phase: Phase 9 - Passenger activity/history
+- Branch: `codex/passenger-trip-history`
+- Current commit scope: Phase 9 closeout complete - passenger trip history ready to merge
+- Status: Ready to merge after user approval
 
 ## Last Completed Checkpoint
 
-- Commit: `a977029` - Record realtime phase closeout
-- Implementation log entry: `2026-05-28 - Phase 8 Realtime Backend Integration - Closeout Check`
-- Review status: Awaiting user review for Phase 8 closeout; CodeRabbit CLI review blocked because `coderabbit` is not installed and the installer escalation was rejected in this run.
+- Commit: `631ad7d` - Apply activity review copy fixes
+- Implementation log entry: `2026-06-01 - Phase 9 Passenger Trip History - Commit 3`
+- Review status: User approved Phase 9 Commit 3 on 2026-06-01; CodeRabbit CLI review remained blocked because `coderabbit` is not installed and the installer failed in this Windows shell because `sh` is unavailable.
 
 ## Next Checkpoint
 
-- Merge `codex/realtime-stomp` back to `main` and push `main` after user approves this closeout checkpoint.
+- Merge `codex/passenger-trip-history` into `main` after user approval.
+- Push `main`, then create the next phase branch from `main`.
 
-## Phase 8 Targets
+## Phase 9 Targets
 
-- Add `@stomp/stompjs`, `sockjs-client`, and TypeScript support for SockJS.
-- Replace remote realtime skeleton in `lib/realtime.ts` with a real STOMP client when `EXPO_PUBLIC_WS_URL` is configured.
-- Keep mock realtime as the default fallback when no WebSocket URL exists.
-- Subscribe to trip status, trip driver location, passenger notifications, and driver request topics.
-- Publish driver location, driver heartbeat, and trip status messages to backend STOMP destinations.
-- Preserve passenger/driver screen behavior in mock mode.
+- Add passenger booking history API wrapper for `GET /bookings?page=1&size=20`.
+- Add mock trip history data so Activity can render without backend.
+- Add a Passenger Activity screen linked from Home/Profile/Bottom nav.
+- Display compact route/date/fare cards, detail modal with driver/route/rating/code, and empty/loading/error states.
+- Preserve mock-mode behavior and avoid changing existing booking flow.

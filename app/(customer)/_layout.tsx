@@ -50,6 +50,7 @@ export default function CustomerLayout() {
         <Stack.Screen name="booking" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="billing" />
+        <Stack.Screen name="activity" />
       </Stack.Protected>
     </Stack>
   );

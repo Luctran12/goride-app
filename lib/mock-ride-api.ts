@@ -9,6 +9,7 @@ import type {
   DriverSummary,
   PricingConfig,
   TripDetail,
+  TripHistoryPage,
   TripStatus,
 } from '@/types/ride';
 
@@ -50,6 +51,93 @@ const MOCK_DRIVER: DriverSummary = {
 
 let nextTripId = 100;
 const trips = new Map<number, TripDetail>();
+
+const seededTrips: TripDetail[] = [
+  {
+    tripId: 91,
+    status: 'COMPLETED',
+    pickup: {
+      lat: 10.776889,
+      lng: 106.700806,
+      address: 'Ben Thanh Market, District 1',
+      label: 'Pickup',
+    },
+    dropoff: {
+      lat: 10.795053,
+      lng: 106.721889,
+      address: 'Landmark 81, Binh Thanh',
+      label: 'Dropoff',
+    },
+    driver: MOCK_DRIVER,
+    estimatedFare: 52000,
+    finalFare: 50000,
+    estimatedDistance: 4.8,
+    estimatedDuration: 18,
+    requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    acceptedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 + 1000 * 60 * 2).toISOString(),
+    passengerRating: {
+      score: 5,
+      comment: 'Tai xe than thien, don dung diem va xe rat sach.',
+      tags: ['Dung gio', 'Than thien', 'Xe sach'],
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString(),
+    },
+  },
+  {
+    tripId: 90,
+    status: 'CANCELLED',
+    pickup: {
+      lat: 10.762622,
+      lng: 106.660172,
+      address: 'Tao Dan Park, District 1',
+      label: 'Pickup',
+    },
+    dropoff: {
+      lat: 10.772,
+      lng: 106.698,
+      address: 'Bitexco Financial Tower, District 1',
+      label: 'Dropoff',
+    },
+    estimatedFare: 45000,
+    estimatedDistance: 3.6,
+    estimatedDuration: 14,
+    requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+    acceptedAt: null,
+  },
+  {
+    tripId: 89,
+    status: 'COMPLETED',
+    pickup: {
+      lat: 10.786,
+      lng: 106.681,
+      address: 'War Remnants Museum, District 3',
+      label: 'Pickup',
+    },
+    dropoff: {
+      lat: 10.801,
+      lng: 106.713,
+      address: 'Vinhomes Central Park, Binh Thanh',
+      label: 'Dropoff',
+    },
+    driver: {
+      ...MOCK_DRIVER,
+      id: 6,
+      fullName: 'Nguyen Hoang Nam',
+      vehiclePlate: '59A-812.34',
+    },
+    estimatedFare: 61000,
+    finalFare: 59000,
+    estimatedDistance: 5.5,
+    estimatedDuration: 21,
+    requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+    acceptedAt: new Date(Date.now() - 1000 * 60 * 60 * 72 + 1000 * 60 * 3).toISOString(),
+    passengerRating: {
+      score: 4,
+      comment: 'Chuyen di on, lo trinh nhanh hon du kien.',
+      tags: ['Lai xe an toan', 'Lo trinh tot'],
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 71).toISOString(),
+    },
+  },
+];
 
 function calculateDistanceKm(from: Coordinates, to: Coordinates) {
   const radiusKm = 6371;
@@ -123,13 +211,32 @@ export async function mockCreateBooking(
 }
 
 export async function mockGetTrip(tripId: number): Promise<TripDetail> {
-  const trip = trips.get(tripId);
+  const trip = trips.get(tripId) ?? seededTrips.find((item) => item.tripId === tripId);
 
   if (!trip) {
     throw new Error(`Mock trip ${tripId} was not found`);
   }
 
   return trip;
+}
+
+export async function mockListBookings(page = 1, size = 20): Promise<TripHistoryPage> {
+  const currentTrips = Array.from(trips.values());
+  const items = [...currentTrips, ...seededTrips].sort((left, right) => {
+    const leftTime = new Date(left.requestedAt ?? 0).getTime();
+    const rightTime = new Date(right.requestedAt ?? 0).getTime();
+    return rightTime - leftTime;
+  });
+  const safePage = Math.max(1, page);
+  const safeSize = Math.max(1, size);
+  const start = (safePage - 1) * safeSize;
+
+  return {
+    items: items.slice(start, start + safeSize),
+    page: safePage,
+    size: safeSize,
+    total: items.length,
+  };
 }
 
 export async function mockCancelTrip(tripId: number): Promise<CancelTripResponse> {
