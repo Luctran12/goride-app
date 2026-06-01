@@ -7,19 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger trip history
 - Phase: Phase 9 - Passenger activity/history
 - Branch: `codex/passenger-trip-history`
-- Current commit scope: Commit 3 - user review copy fixes and backend origin update
-- Status: In progress
+- Current commit scope: Commit 3 complete - user review copy fixes and backend origin update
+- Status: Ready for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `94802f9` - Add passenger activity history screen
-- Implementation log entry: `2026-06-01 - Phase 9 Passenger Trip History - Commit 2`
-- Review status: User approved Phase 9 Commit 2 on 2026-06-01; CodeRabbit CLI review remained blocked because `coderabbit` is not installed and the installer failed in this Windows shell because `sh` is unavailable.
+- Commit: `631ad7d` - Apply activity review copy fixes
+- Implementation log entry: `2026-06-01 - Phase 9 Passenger Trip History - Commit 3`
+- Review status: Awaiting user review; CodeRabbit CLI review blocked because `coderabbit` is not installed and the installer failed in this Windows shell because `sh` is unavailable.
 
 ## Next Checkpoint
 
-- Keep user edits in Activity copy and `lib/config.ts` default backend origin.
-- Validate, commit, run review workflow, document implementation log, then wait for user review.
+- User reviews Phase 9 follow-up copy fixes and backend origin update.
+- Wait for user approval before closing or merging Phase 9.
 
 ## Phase 9 Targets
 

@@ -1735,3 +1735,35 @@
   - Trip detail is currently an in-screen modal, not a dedicated detail route.
   - `passengerRating` is optional mock/API-ready data on `TripDetail`; real backend may later provide rating through a separate endpoint.
   - Rebook navigates directly to select-vehicle with historical pickup/dropoff; if product later wants users to confirm pickup/destination first, routing should change to pickup/destination screens.
+
+## 2026-06-01 - Phase 9 Passenger Trip History - Commit 3
+
+- Branch: `codex/passenger-trip-history`
+- Commit: `631ad7d`
+- Scope: Preserved user review fixes for Activity copy and local backend origin.
+- Files changed:
+  - `app/(customer)/activity.tsx`
+  - `lib/config.ts`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Kept user spelling/encoding fixes in Activity detail modal labels such as route distance, driver info, rebook button, and rating copy.
+  - Kept user backend URL update by changing `DEFAULT_BACKEND_ORIGIN` to `http://10.255.253.75:8080` while preserving env override behavior.
+  - Recorded the local backend origin change in `docs/changes-in-implementation.md`.
+  - Updated `docs/current-phase.md` to track this follow-up review commit.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Phase 9 Commit 2 and explicitly requested keeping their changes in `app/(customer)/activity.tsx` and `lib/config.ts` on 2026-06-01.
+- Known risks:
+  - `DEFAULT_BACKEND_ORIGIN` is a local development fallback. Shared/prod runs should continue using `EXPO_PUBLIC_API_BASE_URL`.
