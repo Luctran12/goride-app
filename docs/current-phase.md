@@ -7,20 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger trip rating
 - Phase: Phase 10 - Passenger rating submission
 - Branch: `codex/passenger-rating`
-- Current commit scope: Commit 2 - Activity detail rating submission UI
-- Status: In progress
+- Current commit scope: Commit 2 complete - Activity detail rating submission UI
+- Status: Ready for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `ec4d4b3` - Add passenger rating API
-- Implementation log entry: `2026-06-01 - Phase 10 Passenger Rating - Commit 1`
-- Review status: User approved Phase 10 Commit 1 on 2026-06-01; CodeRabbit CLI review remained blocked because `coderabbit` is not installed and the installer failed in this Windows shell because `sh` is unavailable.
+- Commit: `9305276` - Add passenger rating form
+- Implementation log entry: `2026-06-01 - Phase 10 Passenger Rating - Commit 2`
+- Review status: Awaiting user review; CodeRabbit CLI review blocked because `coderabbit` is not installed and the installer failed in this Windows shell because `sh` is unavailable.
 
 ## Next Checkpoint
 
-- Wire `submitTripRating()` into Activity trip detail for completed, unrated trips.
-- Update selected trip and history list immediately after successful submit.
-- Validate, commit, run review workflow, document implementation log, then wait for user review.
+- User reviews Phase 10 Activity rating form.
+- Wait for user approval before closing Phase 10 or adding any requested polish.
 
 ## Phase 10 Targets
 
