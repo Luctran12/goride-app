@@ -304,23 +304,23 @@ function TripDetailModal({
 
             <View style={styles.detailGrid}>
               <InfoTile icon="cash" label="Giá tiền" value={formatCurrency(fare)} />
-              <InfoTile icon="map-marker-distance" label="Qu?ng ???ng" value={formatDistance(trip.estimatedDistance)} />
+              <InfoTile icon="map-marker-distance" label="Quãng đường" value={formatDistance(trip.estimatedDistance)} />
               <InfoTile icon="clock-outline" label="Thời gian" value={formatDuration(trip.estimatedDuration)} />
               <InfoTile icon="receipt-text-outline" label="Trạng thái" value={statusMeta.label} />
             </View>
 
             <View style={styles.detailSection}>
               <Text style={styles.detailSectionTitle}>Thông tin tài xế</Text>
-              <InfoRow icon="account-outline" label="T?i x?" value={trip.driver?.fullName ?? 'Ch?a c? t?i x?'} />
-              <InfoRow icon="car-info" label="Bi?n s?" value={trip.driver?.vehiclePlate ?? '--'} />
-              <InfoRow icon="star-outline" label="?i?m t?i x?" value={formatDriverRating(trip.driver?.averageRating)} />
+              <InfoRow icon="account-outline" label="Tài xế" value={trip.driver?.fullName ?? 'Chưa có tài xế'} />
+              <InfoRow icon="car-info" label="Biển số" value={trip.driver?.vehiclePlate ?? '--'} />
+              <InfoRow icon="star-outline" label="Điểm tài xế" value={formatDriverRating(trip.driver?.averageRating)} />
             </View>
 
             <RatingSummary rating={trip.passengerRating} />
 
             <TouchableOpacity activeOpacity={0.88} style={styles.rebookButton} onPress={() => onRebook(trip)}>
               <MaterialCommunityIcons name="repeat" size={rs(30)} color="#ffffff" />
-              <Text style={styles.rebookText}>??t l?i</Text>
+              <Text style={styles.rebookText}>Đặt lại</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -371,15 +371,15 @@ function RatingSummary({ rating }: { rating?: TripRating }) {
   if (!rating) {
     return (
       <View style={styles.detailSection}>
-        <Text style={styles.detailSectionTitle}>??nh gi? chuy?n ?i</Text>
-        <Text style={styles.emptyRatingText}>B?n ch?a g?i ??nh gi? cho chuy?n ?i n?y.</Text>
+        <Text style={styles.detailSectionTitle}>đánh giá chuyến đi</Text>
+        <Text style={styles.emptyRatingText}>Bạn chưa gửi đánh giá cho chuyến đi này.</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.detailSection}>
-      <Text style={styles.detailSectionTitle}>??nh gi? chuy?n ?i</Text>
+      <Text style={styles.detailSectionTitle}>đánh giá chuyến đi</Text>
       <View style={styles.ratingRow}>
         {Array.from({ length: 5 }).map((_, index) => (
           <MaterialCommunityIcons

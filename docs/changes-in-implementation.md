@@ -51,3 +51,13 @@ Each entry should include:
 - Implemented behavior: Passenger Activity keeps the history list compact, opens an in-screen detail modal, and reads optional `passengerRating` data from `TripDetail`/mock history so the UI can show the rating the passenger already submitted.
 - Reason for change: User requested compact history cards, richer detail on tap, rating display, and a `Dat lai` action from history.
 - Impact: Front-end demo can show rating and rebook behavior before a dedicated rating lookup endpoint is wired. Backend may later replace embedded `passengerRating` with a separate trip-rating API response without changing the visible UI.
+
+## 2026-06-01 - Local Backend Origin Update
+
+- Date: 2026-06-01
+- Branch: `codex/passenger-trip-history`
+- Feature: Local API configuration
+- TDD expectation: Backend base URL is environment/config driven.
+- Implemented behavior: Default development backend origin changed from `http://192.168.1.8:8080` to `http://10.255.253.75:8080` in `lib/config.ts` while keeping env override behavior intact.
+- Reason for change: User requested keeping their local URL update for runtime testing.
+- Impact: Local/dev fallback points to the user's current backend host. Production or shared environments should still prefer `EXPO_PUBLIC_API_BASE_URL`.
