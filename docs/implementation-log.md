@@ -1767,3 +1767,40 @@
   - User approved Phase 9 Commit 2 and explicitly requested keeping their changes in `app/(customer)/activity.tsx` and `lib/config.ts` on 2026-06-01.
 - Known risks:
   - `DEFAULT_BACKEND_ORIGIN` is a local development fallback. Shared/prod runs should continue using `EXPO_PUBLIC_API_BASE_URL`.
+
+## 2026-06-01 - Phase 9 Passenger Trip History - Closeout Check
+
+- Branch: `codex/passenger-trip-history`
+- Scope: Reviewed Phase 9 for merge readiness after user approved the Activity copy/backend-origin follow-up.
+- Commits reviewed:
+  - `ae58e1c` - Add passenger booking history API
+  - `1c00caa` - Record history API review status
+  - `94802f9` - Add passenger activity history screen
+  - `02a6830` - Record activity history review status
+  - `631ad7d` - Apply activity review copy fixes
+  - `3bdc636` - Record activity copy review status
+- Phase 9 coverage:
+  - Passenger booking history API wrapper for `GET /bookings?page=1&size=20` through `listBookings()`.
+  - Mock history records for completed/cancelled trips, including optional passenger rating data for completed trip details.
+  - Protected customer Activity screen linked from Home quick action, customer bottom nav, Profile menu, and Billing bottom nav.
+  - Compact history cards showing pickup, dropoff, booking date/time, and fare.
+  - Detail modal showing trip code, status, route, fare, distance, duration, driver info, driver rating, and passenger rating summary.
+  - `Dat lai` rebook action that forwards historical pickup/dropoff to `select-vehicle`.
+  - User-requested backend origin fallback update to `http://10.255.253.75:8080`, while keeping env override behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Commit 3 on 2026-06-01.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and the installer command requires `sh`, which is unavailable in this Windows shell.
+- Merge assessment:
+  - No additional Phase 9 cleanup commit is required before merging.
+  - Branch is ready to merge back to `main` after user approval to merge.
+- Known risks:
+  - Trip detail is an in-screen modal, not a dedicated route.
+  - Real backend rating payload may later be served by a separate endpoint instead of embedded `passengerRating`.
+  - The default backend origin is local to the user's current network; shared/prod should use `EXPO_PUBLIC_API_BASE_URL`.
