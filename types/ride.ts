@@ -79,6 +79,18 @@ export type TripRating = {
   createdAt?: string;
 };
 
+export type TripRatingDraft = {
+  tripId: number;
+  score: number;
+  comment?: string;
+};
+
+export type TripRatingResponse = {
+  ratingId: number;
+  tripId: number;
+  score: number;
+};
+
 export type TripDetail = {
   tripId: number;
   status: TripStatus;

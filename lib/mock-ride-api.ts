@@ -10,6 +10,8 @@ import type {
   PricingConfig,
   TripDetail,
   TripHistoryPage,
+  TripRatingDraft,
+  TripRatingResponse,
   TripStatus,
 } from '@/types/ride';
 
@@ -50,6 +52,7 @@ const MOCK_DRIVER: DriverSummary = {
 };
 
 let nextTripId = 100;
+let nextRatingId = 55;
 const trips = new Map<number, TripDetail>();
 
 const seededTrips: TripDetail[] = [
@@ -310,4 +313,50 @@ export async function mockUpdateTripStatus(tripId: number, status: TripStatus) {
   }
 
   return { tripId, status };
+}
+
+export async function mockSubmitTripRating(draft: TripRatingDraft): Promise<TripRatingResponse> {
+  const score = Math.round(draft.score);
+
+  if (score < 1 || score > 5) {
+    throw new Error('Rating score must be between 1 and 5');
+  }
+
+  const mutableTrip = trips.get(draft.tripId);
+  const seededIndex = seededTrips.findIndex((item) => item.tripId === draft.tripId);
+  const trip = mutableTrip ?? seededTrips[seededIndex];
+
+  if (!trip) {
+    throw new Error(`Mock trip ${draft.tripId} was not found`);
+  }
+
+  if (trip.status !== 'COMPLETED') {
+    throw new Error('Only completed trips can be rated');
+  }
+
+  if (trip.passengerRating) {
+    throw new Error('This trip already has a passenger rating');
+  }
+
+  const rating = {
+    score,
+    comment: draft.comment?.trim() || undefined,
+    createdAt: new Date().toISOString(),
+  };
+  const updatedTrip = {
+    ...trip,
+    passengerRating: rating,
+  };
+
+  if (mutableTrip) {
+    trips.set(draft.tripId, updatedTrip);
+  } else if (seededIndex >= 0) {
+    seededTrips[seededIndex] = updatedTrip;
+  }
+
+  return {
+    ratingId: nextRatingId++,
+    tripId: draft.tripId,
+    score,
+  };
 }
