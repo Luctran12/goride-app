@@ -10,6 +10,7 @@ import {
   mockListBookings,
   mockRespondToTrip,
   mockSetDriverOnline,
+  mockSubmitTripRating,
   mockUpdateTripStatus,
 } from '@/lib/mock-ride-api';
 import type {
@@ -22,6 +23,8 @@ import type {
   PricingConfig,
   TripDetail,
   TripHistoryPage,
+  TripRatingDraft,
+  TripRatingResponse,
   TripStatus,
 } from '@/types/ride';
 
@@ -121,6 +124,19 @@ export function updateTripStatus(tripId: number, status: TripStatus) {
     : apiRequest<{ tripId: number; status: TripStatus }>(`/drivers/trips/${tripId}/status`, {
         method: 'PATCH',
         body: { status },
+      });
+}
+
+export function submitTripRating(draft: TripRatingDraft) {
+  return USE_MOCK_API
+    ? mockSubmitTripRating(draft)
+    : apiRequest<TripRatingResponse>('/ratings', {
+        method: 'POST',
+        body: {
+          tripId: draft.tripId,
+          score: draft.score,
+          comment: draft.comment,
+        },
       });
 }
 

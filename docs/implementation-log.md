@@ -1804,3 +1804,108 @@
   - Trip detail is an in-screen modal, not a dedicated route.
   - Real backend rating payload may later be served by a separate endpoint instead of embedded `passengerRating`.
   - The default backend origin is local to the user's current network; shared/prod should use `EXPO_PUBLIC_API_BASE_URL`.
+
+## 2026-06-01 - Phase 10 Passenger Rating - Commit 1
+
+- Branch: `codex/passenger-rating`
+- Setup commit: `4d71fe3` - Start passenger rating phase
+- Commit: `ec4d4b3` - Add passenger rating API
+- Scope: Added rating request/response types, REST API wrapper, and mock adapter support for passenger trip ratings.
+- Files changed:
+  - `types/ride.ts`
+  - `lib/ride-api.ts`
+  - `lib/mock-ride-api.ts`
+  - `docs/current-phase.md` (setup commit)
+- Behavior implemented:
+  - Added `TripRatingDraft` and `TripRatingResponse` types based on TDD `POST /ratings` contract.
+  - Added `submitTripRating(draft)` to `lib/ride-api.ts`.
+  - Remote mode posts to `/ratings` with `tripId`, `score`, and `comment`.
+  - Mock mode validates rating score range, completed-trip status, duplicate ratings, and trip existence.
+  - Mock mode updates either mutable runtime trips or seeded history trips so submitted ratings are visible through later history/detail reads.
+  - Kept UI wiring deferred to the next commit to keep this API foundation reviewable.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified TypeScript files only before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Phase 10 Commit 1.
+- Known risks:
+  - The real backend may reject `comment: undefined` depending on request deserialization; UI should normalize empty comments before submission.
+  - Mock validation requires trip status `COMPLETED`; UI should only show the submit form for completed, unrated trips.
+
+## 2026-06-01 - Phase 10 Passenger Rating - Commit 2
+
+- Branch: `codex/passenger-rating`
+- Commit: `9305276` - Add passenger rating form
+- Scope: Wired passenger rating submission UI into the Activity trip detail modal.
+- Files changed:
+  - `app/(customer)/activity.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Activity detail now shows an interactive rating form for completed trips that do not already have `passengerRating`.
+  - Added five-star selection, optional multi-line comment input, loading state, inline error state, and submit CTA.
+  - Submit calls `submitTripRating()` and updates both the selected trip detail modal and the Activity history list immediately after success.
+  - Existing rated trips continue to show the submitted rating summary.
+  - Non-completed/unrated trips show a message that rating is available after the trip is completed.
+  - Preserved rebook behavior, trip detail modal, compact history list, and pull-to-refresh flow.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for `app/(customer)/activity.tsx` before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Phase 10 Commit 2.
+- Known risks:
+  - Rating is updated optimistically in local screen state after successful API response; if a later backend response includes richer rating fields, the UI should prefer backend response data.
+  - UI currently supports score/comment only, matching TDD `POST /ratings`; tag selection remains display-only for existing mock ratings.
+
+## 2026-06-01 - Phase 10 Passenger Rating - Closeout Check
+
+- Branch: `codex/passenger-rating`
+- Scope: Reviewed Phase 10 for merge readiness after user approved the Activity rating form.
+- Commits reviewed:
+  - `4d71fe3` - Start passenger rating phase
+  - `ec4d4b3` - Add passenger rating API
+  - `39c8240` - Record passenger rating API review status
+  - `9305276` - Add passenger rating form
+  - `1857f6f` - Record passenger rating form review status
+- Phase 10 coverage:
+  - Added `TripRatingDraft` and `TripRatingResponse` types for TDD `POST /ratings`.
+  - Added `submitTripRating()` API wrapper for remote `/ratings` and mock mode.
+  - Mock mode validates score range, completed-trip status, duplicate ratings, and trip existence.
+  - Activity detail modal shows a rating form for completed, unrated trips.
+  - Rating form supports star score, optional comment, loading state, inline error, and submit CTA.
+  - Successful submit updates selected trip detail and Activity history list immediately.
+  - Already-rated trips continue to display the submitted rating summary.
+  - Non-completed trips explain that rating is available after completion.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Commit 2 on 2026-06-01.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and the installer command requires `sh`, which is unavailable in this Windows shell.
+- Merge assessment:
+  - No additional Phase 10 cleanup commit is required before merging.
+  - Branch is ready to merge back to `main` after user approval to merge.
+- Known risks:
+  - UI supports score/comment only, matching the current TDD `POST /ratings`; rating tags are display-only for seeded mock ratings.
+  - If real backend returns richer rating data, the UI should later prefer backend response data instead of the local rating object.

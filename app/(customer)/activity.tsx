@@ -1,5 +1,5 @@
 import { rf, rs, rvs } from '@/constants/responsive';
-import { listBookings } from '@/lib/ride-api';
+import { listBookings, submitTripRating } from '@/lib/ride-api';
 import type { TripDetail, TripRating, TripStatus } from '@/types/ride';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -88,6 +89,15 @@ export default function ActivityScreen() {
     setRefreshing(true);
     loadHistory({ silent: true });
   }, [loadHistory]);
+
+  const handleRatingSubmitted = React.useCallback((tripId: number, rating: TripRating) => {
+    setTrips((currentTrips) =>
+      currentTrips.map((trip) => (trip.tripId === tripId ? { ...trip, passengerRating: rating } : trip)),
+    );
+    setSelectedTrip((currentTrip) =>
+      currentTrip?.tripId === tripId ? { ...currentTrip, passengerRating: rating } : currentTrip,
+    );
+  }, []);
 
   const handleRebook = React.useCallback(
     (trip: TripDetail) => {
@@ -197,7 +207,12 @@ export default function ActivityScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <TripDetailModal trip={selectedTrip} onClose={() => setSelectedTrip(null)} onRebook={handleRebook} />
+      <TripDetailModal
+        trip={selectedTrip}
+        onClose={() => setSelectedTrip(null)}
+        onRebook={handleRebook}
+        onRatingSubmitted={handleRatingSubmitted}
+      />
 
       <View style={styles.bottomNav}>
         <NavItem icon="home-outline" label="Home" onPress={() => router.push('/(customer)')} />
@@ -253,10 +268,12 @@ function TripDetailModal({
   trip,
   onClose,
   onRebook,
+  onRatingSubmitted,
 }: {
   trip: TripDetail | null;
   onClose: () => void;
   onRebook: (trip: TripDetail) => void;
+  onRatingSubmitted: (tripId: number, rating: TripRating) => void;
 }) {
   if (!trip) {
     return null;
@@ -316,7 +333,7 @@ function TripDetailModal({
               <InfoRow icon="star-outline" label="Điểm tài xế" value={formatDriverRating(trip.driver?.averageRating)} />
             </View>
 
-            <RatingSummary rating={trip.passengerRating} />
+            <RatingPanel trip={trip} onRatingSubmitted={onRatingSubmitted} />
 
             <TouchableOpacity activeOpacity={0.88} style={styles.rebookButton} onPress={() => onRebook(trip)}>
               <MaterialCommunityIcons name="repeat" size={rs(30)} color="#ffffff" />
@@ -367,11 +384,126 @@ function InfoRow({
   );
 }
 
+function RatingPanel({
+  trip,
+  onRatingSubmitted,
+}: {
+  trip: TripDetail;
+  onRatingSubmitted: (tripId: number, rating: TripRating) => void;
+}) {
+  if (trip.passengerRating) {
+    return <RatingSummary rating={trip.passengerRating} />;
+  }
+
+  if (trip.status !== 'COMPLETED') {
+    return (
+      <View style={styles.detailSection}>
+        <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
+        <Text style={styles.emptyRatingText}>Bạn có thể gửi đánh giá sau khi chuyến đi hoàn tất.</Text>
+      </View>
+    );
+  }
+
+  return <RatingForm tripId={trip.tripId} onSubmitted={onRatingSubmitted} />;
+}
+
+function RatingForm({
+  tripId,
+  onSubmitted,
+}: {
+  tripId: number;
+  onSubmitted: (tripId: number, rating: TripRating) => void;
+}) {
+  const [score, setScore] = React.useState(5);
+  const [comment, setComment] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (submitting) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await submitTripRating({
+        tripId,
+        score,
+        comment: comment.trim() || undefined,
+      });
+      onSubmitted(tripId, {
+        score,
+        comment: comment.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (submitError) {
+      const message = submitError instanceof Error ? submitError.message : 'Không thể gửi đánh giá lúc này.';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <View style={styles.detailSection}>
+      <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
+      <Text style={styles.ratingPrompt}>Bạn thấy chuyến đi này thế nào?</Text>
+
+      <View style={styles.ratingSelectRow}>
+        {Array.from({ length: 5 }).map((_, index) => {
+          const starScore = index + 1;
+          const active = starScore <= score;
+
+          return (
+            <TouchableOpacity
+              key={starScore}
+              activeOpacity={0.8}
+              style={styles.ratingStarButton}
+              disabled={submitting}
+              onPress={() => setScore(starScore)}
+            >
+              <MaterialCommunityIcons
+                name={active ? 'star' : 'star-outline'}
+                size={rs(42)}
+                color={palette.amber}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <TextInput
+        multiline
+        editable={!submitting}
+        value={comment}
+        onChangeText={setComment}
+        placeholder="Chia sẻ thêm về tài xế hoặc chuyến đi"
+        placeholderTextColor="#9c96a8"
+        style={styles.ratingInput}
+      />
+
+      {error ? <Text selectable style={styles.ratingError}>{error}</Text> : null}
+
+      <TouchableOpacity
+        activeOpacity={0.88}
+        style={[styles.submitRatingButton, submitting && styles.submitRatingButtonDisabled]}
+        disabled={submitting}
+        onPress={handleSubmit}
+      >
+        {submitting ? <ActivityIndicator color="#ffffff" /> : null}
+        <Text style={styles.submitRatingText}>{submitting ? 'Đang gửi...' : 'Gửi đánh giá'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function RatingSummary({ rating }: { rating?: TripRating }) {
   if (!rating) {
     return (
       <View style={styles.detailSection}>
-        <Text style={styles.detailSectionTitle}>đánh giá chuyến đi</Text>
+        <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
         <Text style={styles.emptyRatingText}>Bạn chưa gửi đánh giá cho chuyến đi này.</Text>
       </View>
     );
@@ -379,7 +511,7 @@ function RatingSummary({ rating }: { rating?: TripRating }) {
 
   return (
     <View style={styles.detailSection}>
-      <Text style={styles.detailSectionTitle}>đánh giá chuyến đi</Text>
+      <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
       <View style={styles.ratingRow}>
         {Array.from({ length: 5 }).map((_, index) => (
           <MaterialCommunityIcons
@@ -1018,6 +1150,67 @@ const styles = StyleSheet.create({
     lineHeight: rf(31),
     fontWeight: '800',
     textAlign: 'right',
+  },
+  ratingPrompt: {
+    color: palette.muted,
+    fontSize: rf(24),
+    lineHeight: rf(32),
+    fontWeight: '700',
+    marginBottom: rvs(12),
+  },
+  ratingSelectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    marginBottom: rvs(16),
+  },
+  ratingStarButton: {
+    width: rs(54),
+    height: rs(54),
+    borderRadius: rs(27),
+    backgroundColor: palette.amberSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ratingInput: {
+    minHeight: rvs(118),
+    borderRadius: rs(18),
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: '#fffafd',
+    color: palette.text,
+    fontSize: rf(24),
+    lineHeight: rf(32),
+    fontWeight: '600',
+    paddingHorizontal: rs(18),
+    paddingVertical: rvs(14),
+    textAlignVertical: 'top',
+  },
+  ratingError: {
+    color: palette.danger,
+    fontSize: rf(22),
+    lineHeight: rf(29),
+    fontWeight: '700',
+    marginTop: rvs(12),
+  },
+  submitRatingButton: {
+    minHeight: rvs(70),
+    borderRadius: rs(18),
+    backgroundColor: palette.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rs(10),
+    marginTop: rvs(18),
+  },
+  submitRatingButtonDisabled: {
+    opacity: 0.68,
+  },
+  submitRatingText: {
+    color: '#ffffff',
+    fontSize: rf(25),
+    lineHeight: rf(33),
+    fontWeight: '900',
   },
   emptyRatingText: {
     color: palette.muted,
