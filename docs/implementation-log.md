@@ -1692,3 +1692,46 @@
   - Branch is ready to merge back to `main`.
 - Next action:
   - Merge `codex/validation-polish` into `main` and push `main`.
+
+## 2026-06-01 - Phase 9 Passenger Trip History - Commit 2
+
+- Branch: `codex/passenger-trip-history`
+- Commit: `94802f9`
+- Scope: Added Passenger Activity/history screen with compact history cards, trip detail modal, and rebook action.
+- Files changed:
+  - `app/(customer)/activity.tsx`
+  - `app/(customer)/_layout.tsx`
+  - `app/(customer)/index.tsx`
+  - `app/(customer)/profile.tsx`
+  - `app/(customer)/billing.tsx`
+  - `types/ride.ts`
+  - `lib/mock-ride-api.ts`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added protected customer route `activity`.
+  - Linked Home quick history action, customer bottom nav, Profile history menu, and Billing bottom nav to Activity.
+  - Activity screen loads `listBookings(1, 20)` and supports loading, empty, error, retry, and pull-to-refresh states.
+  - Trip history cards now show only pickup, dropoff, booking date/time, and fare, per user feedback.
+  - Tapping a trip opens an in-screen detail modal with trip code, status, full route, fare, distance, duration, driver info, driver rating, and passenger-submitted rating summary.
+  - Added `Dat lai`/rebook action that routes to `/(customer)/booking/select-vehicle` with the historical pickup/dropoff encoded in params.
+  - Extended `TripDetail` with optional `passengerRating` and seeded mock ratings for completed history trips.
+  - Recorded the rating/detail deviation in `docs/changes-in-implementation.md`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after removing the unused `MetaItem` helper.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors after adding `formatDriverRating()`.
+  - Ran `git diff --check` and `git diff --cached --check`.
+  - Result: passed after removing trailing whitespace in `app/(customer)/activity.tsx`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell has no `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User reviewed the first Activity UI draft on 2026-06-01 and requested compact list cards, detail-on-tap, rating display, trip code, route details, driver info, and a rebook button. These requests are included in this commit.
+- Known risks:
+  - Trip detail is currently an in-screen modal, not a dedicated detail route.
+  - `passengerRating` is optional mock/API-ready data on `TripDetail`; real backend may later provide rating through a separate endpoint.
+  - Rebook navigates directly to select-vehicle with historical pickup/dropoff; if product later wants users to confirm pickup/destination first, routing should change to pickup/destination screens.
