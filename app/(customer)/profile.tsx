@@ -37,7 +37,7 @@ const shadow = {
 };
 
 const menuItems: MenuItemProps[] = [
-  { icon: 'account-outline', label: 'Thông tin cá nhân' },
+  { icon: 'account-outline', label: 'Thông tin cá nhân', route: '/(customer)/personal' },
   { icon: 'history', label: 'Lịch sử chuyến đi', route: '/(customer)/activity' },
   { icon: 'cash-multiple', label: 'Thanh toán', route: '/(customer)/billing' },
   { icon: 'ticket-percent-outline', label: 'Voucher của tôi' },
