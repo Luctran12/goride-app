@@ -1,9 +1,11 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { logout as logoutAuth } from '@/lib/auth-api';
+import { getMyProfile, type UserProfile } from '@/lib/user-api';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Href, useRouter } from 'expo-router';
 import React from 'react';
 import {
+  ActivityIndicator,
   Image,
   SafeAreaView,
   ScrollView,
@@ -46,7 +48,41 @@ const menuItems: MenuItemProps[] = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const mountedRef = React.useRef(false);
+  const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = React.useState(true);
+  const [profileError, setProfileError] = React.useState<string | null>(null);
   const [loggingOut, setLoggingOut] = React.useState(false);
+
+  const loadProfile = React.useCallback(async () => {
+    setProfileLoading(true);
+    setProfileError(null);
+
+    try {
+      const nextProfile = await getMyProfile();
+
+      if (mountedRef.current) {
+        setProfile(nextProfile);
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        setProfileError(getErrorMessage(error));
+      }
+    } finally {
+      if (mountedRef.current) {
+        setProfileLoading(false);
+      }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    void loadProfile();
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [loadProfile]);
 
   async function handleLogout() {
     if (loggingOut) {
@@ -59,6 +95,11 @@ export default function ProfileScreen() {
     setLoggingOut(false);
   }
 
+  const displayName = profile?.fullName?.trim() || (profileLoading ? 'Đang tải...' : 'Khách GoRide');
+  const displayPhone = profile?.phone?.trim() || 'Chưa cập nhật số điện thoại';
+  const displayEmail = profile?.email?.trim() || 'Chưa cập nhật email';
+  const avatarUrl = profile?.avatarUrl?.trim();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
@@ -70,16 +111,35 @@ export default function ProfileScreen() {
         <Text style={styles.title}>Cá Nhân</Text>
 
         <View style={styles.profileCard}>
-          <Image
-            source={{ uri: 'https://i.pravatar.cc/240?img=12' }}
-            style={styles.avatar}
-          />
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarFallback]}>
+              {profileLoading ? (
+                <ActivityIndicator color={palette.primary} size="small" />
+              ) : (
+                <Text style={styles.avatarInitials}>{getInitials(displayName)}</Text>
+              )}
+            </View>
+          )}
           <View style={styles.profileCopy}>
-            <Text style={styles.name}>Thiện</Text>
-            <Text style={styles.contact}>+84 987 654 321</Text>
-            <Text style={styles.contact} numberOfLines={1}>
-              thien.nguyen@example.com
+            <Text style={styles.name} selectable>
+              {displayName}
             </Text>
+            <Text style={styles.contact} selectable>
+              {displayPhone}
+            </Text>
+            <Text style={styles.contact} numberOfLines={1}>
+              {displayEmail}
+            </Text>
+            {profileError ? (
+              <TouchableOpacity activeOpacity={0.82} style={styles.profileRetry} onPress={loadProfile}>
+                <Feather name="alert-circle" size={rs(22)} color={palette.danger} />
+                <Text style={styles.profileRetryText} numberOfLines={1}>
+                  Không tải được hồ sơ. Thử lại
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -128,6 +188,21 @@ export default function ProfileScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const initials = words.slice(-2).map((word) => word[0]).join('');
+
+  return initials.toUpperCase() || 'GR';
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return 'Vui lòng kiểm tra kết nối và thử lại.';
 }
 
 type MenuItemProps = {
@@ -190,7 +265,7 @@ const styles = StyleSheet.create({
     marginBottom: rvs(32),
   },
   profileCard: {
-    minHeight: rvs(232),
+    minHeight: rvs(180),
     marginHorizontal: rs(36),
     marginBottom: rvs(43),
     borderRadius: rs(20),
@@ -208,6 +283,17 @@ const styles = StyleSheet.create({
     borderColor: palette.primary,
     marginRight: rs(45),
   },
+  avatarFallback: {
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    color: palette.primary,
+    fontSize: rf(38),
+    lineHeight: rf(46),
+    fontWeight: '900',
+  },
   profileCopy: {
     flex: 1,
   },
@@ -224,6 +310,20 @@ const styles = StyleSheet.create({
     lineHeight: rf(39),
     fontWeight: '400',
   },
+  profileRetry: {
+    marginTop: rvs(10),
+    minHeight: rvs(32),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+  },
+  profileRetryText: {
+    flex: 1,
+    color: palette.danger,
+    fontSize: rf(18),
+    lineHeight: rf(24),
+    fontWeight: '700',
+  },
   menuCard: {
     marginHorizontal: rs(36),
     borderRadius: rs(18),
@@ -232,7 +332,7 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   menuRow: {
-    minHeight: rvs(132),
+    minHeight: rvs(90),
     paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
@@ -259,7 +359,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   logoutRow: {
-    minHeight: rvs(126),
+    minHeight: rvs(90),
     paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
@@ -280,8 +380,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    height: rvs(128),
+    bottom: 3,
+    height: rvs(118),
     borderTopLeftRadius: rs(16),
     borderTopRightRadius: rs(16),
     backgroundColor: palette.card,

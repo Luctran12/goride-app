@@ -40,6 +40,8 @@ const shadow = {
 
 type AuthMode = 'login' | 'register';
 
+const INVALID_LOGIN_MESSAGE = 'Tài khoản hoặc mật khẩu không đúng!';
+
 export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const isRegister = mode === 'register';
@@ -268,11 +270,31 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
 }
 
 function getAuthErrorMessage(error: unknown, isRegister: boolean) {
-  if (error instanceof ApiError || error instanceof Error) {
+  if (error instanceof ApiError) {
+    if (!isRegister && isInvalidLoginError(error)) {
+      return INVALID_LOGIN_MESSAGE;
+    }
+
+    return error.message;
+  }
+
+  if (error instanceof Error) {
     return error.message;
   }
 
   return isRegister ? 'Không thể đăng ký lúc này.' : 'Không thể đăng nhập lúc này.';
+}
+
+function isInvalidLoginError(error: ApiError) {
+  const normalizedCode = error.code?.toUpperCase();
+
+  return (
+    error.status === 401 ||
+    error.status === 403 ||
+    normalizedCode === 'INVALID_CREDENTIALS' ||
+    normalizedCode === 'BAD_CREDENTIALS' ||
+    normalizedCode === 'AUTHENTICATION_FAILED'
+  );
 }
 
 type FieldProps = {
