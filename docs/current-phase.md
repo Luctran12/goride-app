@@ -7,21 +7,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger post-trip rating
 - Phase: Phase 11 - Passenger completed-trip rating polish
 - Branch: `codex/passenger-completion-rating`
-- Current commit scope: Commit 1 - wire TripCompletionCard rating submit
-- Status: In progress
+- Current commit scope: Commit 1 complete - wire TripCompletionCard rating submit
+- Status: Ready for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `d9b6639` - Merge passenger rating phase into `main`
-- Implementation log entry: `2026-06-01 - Phase 10 Passenger Rating - Closeout Check`
-- Review status: User approved Phase 10, branch merged to `main`, and `main` pushed to GitHub on 2026-06-04.
+- Commit: `e983e29` - Wire completed trip rating submit
+- Implementation log entry: `2026-06-04 - Phase 11 Passenger Completed Rating - Commit 1`
+- Review status: Validation passed; CodeRabbit review workflow blocked because the CLI is unavailable and install approval was rejected.
 
 ## Next Checkpoint
 
-- Wire the completed-trip rating card to `submitTripRating()`.
-- Replace the placeholder alert with real loading/success/error states.
-- Keep the commit focused on the passenger completed-trip card and waiting-driver integration.
-- Validate, commit, run review workflow, document implementation log, then wait for user review.
+- Wait for user review of Commit 1 before starting the next Phase 11 commit.
+- If approved, continue polishing passenger post-trip completion behavior.
+- If user requests changes, implement them on the same branch in a new small commit.
 
 ## Phase 11 Targets
 

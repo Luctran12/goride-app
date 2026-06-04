@@ -1909,3 +1909,34 @@
 - Known risks:
   - UI supports score/comment only, matching the current TDD `POST /ratings`; rating tags are display-only for seeded mock ratings.
   - If real backend returns richer rating data, the UI should later prefer backend response data instead of the local rating object.
+
+## 2026-06-04 - Phase 11 Passenger Completed Rating - Commit 1
+
+- Branch: `codex/passenger-completion-rating`
+- Commit: `e983e29` - Wire completed trip rating submit
+- Scope: Connected the passenger completed-trip rating card to the real rating API wrapper.
+- Files changed:
+  - `components/booking/trip-completion-card.tsx`
+- Behavior implemented:
+  - Replaced the demo alert in `TripCompletionCard` with an async `submitTripRating()` call.
+  - Sends `tripId`, selected star score, and the selected feedback tag as the rating comment through the existing `POST /ratings` API wrapper.
+  - Added submit loading state, duplicate-submit guard, inline error messaging, and a success confirmation panel after submission.
+  - Resets local rating submission state when the card receives a new `tripId`.
+  - Keeps the existing receipt summary, driver thank-you text, star selector, and feedback tag UI.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warning for `components/booking/trip-completion-card.tsx` before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected, so CodeRabbit review could not run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Phase 11 Commit 1.
+- Known risks:
+  - The selected quick feedback tag is sent as `comment` because the current TDD/API contract supports score/comment, not a separate tags payload.
+  - If the completed trip route receives a non-numeric `tripId`, the UI now blocks submission and shows an inline sync error.
