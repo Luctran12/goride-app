@@ -39,6 +39,7 @@ export type TripCompletionCardProps = {
   paymentLabel: string;
   promoCode?: string;
   completedAt?: string | null;
+  initialRating?: TripRating | null;
   onRatingSubmitted?: (rating: TripRating) => void;
 };
 
@@ -55,6 +56,7 @@ export function TripCompletionCard({
   paymentLabel,
   promoCode,
   completedAt,
+  initialRating,
   onRatingSubmitted,
 }: TripCompletionCardProps) {
   const [rating, setRating] = useState(5);
@@ -75,12 +77,15 @@ export function TripCompletionCard({
   );
 
   useEffect(() => {
-    setRating(5);
-    setSelectedTag(ratingTags[0]);
+    const initialScore = initialRating?.score ?? 5;
+    const initialTag = initialRating?.tags?.[0] ?? initialRating?.comment ?? ratingTags[0];
+
+    setRating(initialScore);
+    setSelectedTag(initialTag);
     setSubmitting(false);
-    setSubmittedRating(null);
+    setSubmittedRating(initialRating ?? null);
     setSubmitError(null);
-  }, [tripId]);
+  }, [initialRating, tripId]);
 
   if (!visible) {
     return null;
