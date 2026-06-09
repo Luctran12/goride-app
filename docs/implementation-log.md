@@ -1940,3 +1940,36 @@
 - Known risks:
   - The selected quick feedback tag is sent as `comment` because the current TDD/API contract supports score/comment, not a separate tags payload.
   - If the completed trip route receives a non-numeric `tripId`, the UI now blocks submission and shows an inline sync error.
+
+## 2026-06-09 - Phase 11 Passenger Completed Rating - Commit 2
+
+- Branch: `codex/passenger-completion-rating`
+- Commit: `970b0c7` - Sync completed trip rating state
+- Scope: Synced completed-trip rating state between the waiting-driver trip detail data and `TripCompletionCard`.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `components/booking/trip-completion-card.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - `TripCompletionCard` now accepts optional `initialRating` data from `TripDetail.passengerRating`.
+  - Completed trips that already have `passengerRating` open the card in the success/read-only state instead of showing a fresh submit form.
+  - The waiting-driver screen passes `tripDetail?.passengerRating` into the completion card.
+  - After a successful rating submit, waiting-driver updates local `tripDetail.passengerRating` and `tripDetailUpdatedAt` immediately.
+  - This keeps the completed-trip card aligned with the Activity/history rating behavior and reduces duplicate-rating attempts.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified TypeScript and docs files before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected, so CodeRabbit review could not run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Phase 11 Commit 2.
+- Known risks:
+  - `initialRating.comment` is reused as the quick tag label when the backend/mock does not provide `tags`; this is display-only after submission.
+  - If the backend later returns richer rating metadata, the card should prefer those fields over locally synthesized tag/comment data.
