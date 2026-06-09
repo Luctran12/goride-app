@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
 import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission } from '@/lib/location-service';
-import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import {
   connectRealtime,
   disconnectRealtime,
@@ -28,6 +27,7 @@ import {
   subscribeRealtimeConnection,
   type RealtimeSubscription,
 } from '@/lib/realtime';
+import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_ID = 5;
@@ -50,15 +50,9 @@ const palette = {
   danger: '#d72828',
   dangerSoft: '#ffe7e7',
   blue: '#1664ff',
+  blueInk: '#050063',
   blueSoft: '#e9f0ff',
-};
-
-const shadow = {
-  shadowColor: '#03130c',
-  shadowOffset: { width: 0, height: 12 },
-  shadowOpacity: 0.14,
-  shadowRadius: 28,
-  elevation: 8,
+  mint: '#6df0a7',
 };
 
 type DriverRealtimeMode = 'offline' | 'connecting' | 'mock' | 'remote' | 'fallback';
@@ -99,6 +93,10 @@ export default function DriverScreen() {
 
   const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
   const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
+  const todayTripCount = requestResponse?.status === 'COMPLETED' ? 13 : 12;
+  const todayEarnings =
+    450000 + (requestResponse?.status === 'COMPLETED' && incomingRequest ? Math.round(incomingRequest.estimatedFare) : 0);
+  const listeningCopy = getListeningCopy(isOnline, incomingRequest);
 
   useEffect(() => {
     driverLocationRef.current = driverLocation;
@@ -160,7 +158,7 @@ export default function DriverScreen() {
       if (state.status === 'connected') {
         remoteConnectionOpened = true;
         setRealtimeMode('remote');
-        setStatusMessage('B?n ?ang online. GoRide ?ang nghe cu?c m?i qua realtime.');
+        setStatusMessage('Bạn đang online. GoRide đang nghe cuốc mới qua realtime.');
         return;
       }
 
@@ -171,13 +169,13 @@ export default function DriverScreen() {
 
       if (state.status === 'reconnecting' && remoteConnectionOpened) {
         setRealtimeMode('fallback');
-        setStatusMessage('Realtime ?ang k?t n?i l?i. GoRide v?n gi? t?i x? online v? ti?p t?c g?i heartbeat khi k?nh tr? l?i.');
+        setStatusMessage('Realtime đang kết nối lại. GoRide vẫn giữ tài xế online và tiếp tục gửi heartbeat khi kênh trở lại.');
         return;
       }
 
       if (state.status === 'error') {
         setRealtimeMode('fallback');
-        setStatusMessage(state.lastError ?? 'Realtime t?m th?i gi?n ?o?n, GoRide s? t? k?t n?i l?i.');
+        setStatusMessage(state.lastError ?? 'Realtime tạm thời gián đoạn, GoRide sẽ tự kết nối lại.');
       }
     });
 
@@ -423,6 +421,19 @@ export default function DriverScreen() {
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.consoleHeader}>
+          <View style={styles.driverIdentity}>
+            <View style={styles.driverAvatar}>
+              <MaterialCommunityIcons name="account" size={rs(34)} color={palette.greenDark} />
+            </View>
+            <Text style={styles.consoleTitle}>Driver Console</Text>
+          </View>
+          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.bellButton, pressed ? styles.pressedButton : null]}>
+            <MaterialCommunityIcons name="bell-outline" size={rs(32)} color={palette.blueInk} />
+            {latestNotification ? <View style={styles.bellDot} /> : null}
+          </Pressable>
+        </View>
+
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
             <View style={[styles.statusPill, isOnline ? styles.statusPillOnline : styles.statusPillOffline]}>
@@ -455,6 +466,30 @@ export default function DriverScreen() {
             </View>
           ) : null}
         </View>
+
+        <View style={[styles.listeningCard, incomingRequest ? styles.listeningCardHot : null, !isOnline ? styles.listeningCardIdle : null]}>
+          <View style={styles.listeningIcon}>
+            <MaterialCommunityIcons name={listeningCopy.icon} size={rs(34)} color={palette.blue} />
+          </View>
+          <View style={styles.listeningCopy}>
+            <Text style={styles.listeningTitle}>{listeningCopy.title}</Text>
+            <Text style={styles.listeningText}>{listeningCopy.text}</Text>
+          </View>
+        </View>
+
+        <View style={styles.statGrid}>
+          <StatCard label="THU NHẬP HÔM NAY" value={formatFare(todayEarnings)} />
+          <StatCard label="CHUYẾN ĐI" value={String(todayTripCount)} />
+        </View>
+
+        <View style={styles.quickActionGrid}>
+          <QuickActionTile icon="map-outline" label="Bản đồ" />
+          <QuickActionTile icon="wallet-outline" label="Ví tiền" />
+          <QuickActionTile icon="fire" label="Vùng nóng" />
+          <QuickActionTile icon="headset" label="Hỗ trợ" />
+        </View>
+
+        <DriverMapPreview location={driverLocation} />
 
         <View style={styles.locationCard}>
           <View style={styles.sectionHeader}>
@@ -670,6 +705,13 @@ export default function DriverScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <View style={styles.bottomNav}>
+        <DriverNavItem icon="home-variant" label="Home" active />
+        <DriverNavItem icon="cash-multiple" label="Earnings" />
+        <DriverNavItem icon="history" label="Activity" />
+        <DriverNavItem icon="account-outline" label="Account" />
+      </View>
     </SafeAreaView>
   );
 }
@@ -698,6 +740,79 @@ function MetricTile({
   );
 }
 
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue} selectable>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function QuickActionTile({ icon, label }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string }) {
+  return (
+    <Pressable accessibilityRole="button" style={({ pressed }) => [styles.quickActionTile, pressed ? styles.pressedButton : null]}>
+      <View style={styles.quickActionIcon}>
+        <MaterialCommunityIcons name={icon} size={rs(30)} color={palette.blueInk} />
+      </View>
+      <Text style={styles.quickActionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function DriverMapPreview({ location }: { location: LocationPoint | null }) {
+  return (
+    <View style={styles.mapCard}>
+      <View style={styles.mapCanvas}>
+        <View style={[styles.mapWater, styles.mapWaterLeft]} />
+        <View style={[styles.mapWater, styles.mapWaterRight]} />
+        <View style={[styles.mapRoad, styles.mapRoadOne]} />
+        <View style={[styles.mapRoad, styles.mapRoadTwo]} />
+        <View style={[styles.mapRoad, styles.mapRoadThree]} />
+        <View style={[styles.mapRoad, styles.mapRoadFour]} />
+        <View style={[styles.mapPark, styles.mapParkOne]} />
+        <View style={[styles.mapPark, styles.mapParkTwo]} />
+        <View style={styles.mapMarker}>
+          <MaterialCommunityIcons name="navigation-variant" size={rs(24)} color={palette.card} />
+        </View>
+      </View>
+
+      <View style={styles.mapLocationRow}>
+        <View style={styles.mapLocationIcon}>
+          <MaterialCommunityIcons name="crosshairs-gps" size={rs(28)} color={palette.blue} />
+        </View>
+        <View style={styles.mapLocationCopy}>
+          <Text style={styles.mapLocationTitle} numberOfLines={1}>
+            {location?.address ?? 'Công viên Tao Đàn, Quận 1'}
+          </Text>
+          <Text style={styles.mapLocationCoords} selectable>
+            {location ? formatCoordinates(location) : '10.76262, 106.66017'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function DriverNavItem({
+  icon,
+  label,
+  active = false,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Pressable accessibilityRole="button" style={({ pressed }) => [styles.navItem, active ? styles.navItemActive : null, pressed ? styles.pressedButton : null]}>
+      <MaterialCommunityIcons name={icon} size={rs(30)} color={active ? palette.greenDark : palette.muted} />
+      <Text style={[styles.navLabel, active ? styles.navLabelActive : null]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function RouteLine({ label, address, color }: { label: string; address: string; color: string }) {
   return (
     <View style={styles.routeLine}>
@@ -710,6 +825,33 @@ function RouteLine({ label, address, color }: { label: string; address: string; 
       </View>
     </View>
   );
+}
+
+function getListeningCopy(
+  isOnline: boolean,
+  request: DriverTripRequest | null,
+): { icon: keyof typeof MaterialCommunityIcons.glyphMap; title: string; text: string } {
+  if (request) {
+    return {
+      icon: 'bell-ring-outline',
+      title: 'Cuốc mới đang chờ',
+      text: `${request.passenger.fullName} - ${formatFare(request.estimatedFare)} - phản hồi để giữ tỷ lệ nhận cuốc.`,
+    };
+  }
+
+  if (isOnline) {
+    return {
+      icon: 'target',
+      title: 'Đang nghe cuốc mới',
+      text: 'Hệ thống đang tìm khách hàng gần nhất...',
+    };
+  }
+
+  return {
+    icon: 'power-sleep',
+    title: 'Tạm dừng nhận cuốc',
+    text: 'Bật online để mở kênh request, GPS và heartbeat.',
+  };
 }
 
 function getToneStyle(tone: 'green' | 'blue' | 'amber' | 'muted') {
@@ -908,28 +1050,72 @@ function isTripStepCompleted(currentStatus: TripStatus, stepStatus: TripStatus) 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: '#f7faf8',
   },
   scroll: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: '#f7faf8',
   },
   container: {
     flexGrow: 1,
-    paddingHorizontal: rs(34),
-    paddingTop: rvs(30),
-    paddingBottom: rvs(46),
-    gap: rvs(24),
-    backgroundColor: palette.background,
+    paddingHorizontal: rs(30),
+    paddingTop: rvs(18),
+    paddingBottom: rvs(154),
+    gap: rvs(16),
+    backgroundColor: '#f7faf8',
+  },
+  consoleHeader: {
+    minHeight: rvs(54),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: rs(16),
+  },
+  driverIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+  },
+  driverAvatar: {
+    width: rs(46),
+    height: rs(46),
+    borderRadius: rs(23),
+    backgroundColor: palette.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#bfeeda',
+  },
+  consoleTitle: {
+    color: palette.blueInk,
+    fontSize: rf(30),
+    fontWeight: '900',
+  },
+  bellButton: {
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellDot: {
+    position: 'absolute',
+    top: rvs(8),
+    right: rs(8),
+    width: rs(8),
+    height: rs(8),
+    borderRadius: rs(4),
+    backgroundColor: palette.danger,
   },
   heroCard: {
-    padding: rs(34),
-    borderRadius: rs(40),
-    backgroundColor: '#f7fff9',
+    padding: rs(24),
+    borderRadius: rs(18),
+    backgroundColor: palette.card,
     borderWidth: 1,
-    borderColor: palette.backgroundDeep,
-    gap: rvs(22),
-    ...shadow,
+    borderColor: palette.line,
+    borderLeftWidth: rs(6),
+    borderLeftColor: palette.green,
+    gap: rvs(12),
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -940,9 +1126,9 @@ const styles = StyleSheet.create({
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(10),
-    paddingHorizontal: rs(18),
-    height: rvs(48),
+    gap: rs(8),
+    paddingHorizontal: rs(12),
+    height: rvs(34),
     borderRadius: rs(999),
   },
   statusPillOnline: {
@@ -957,7 +1143,7 @@ const styles = StyleSheet.create({
     borderRadius: rs(6),
   },
   statusPillText: {
-    fontSize: rf(22),
+    fontSize: rf(24),
     fontWeight: '900',
   },
   statusTextOnline: {
@@ -968,52 +1154,51 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.ink,
-    fontSize: rf(54),
+    fontSize: rf(29),
     fontWeight: '900',
-    lineHeight: rf(62),
+    lineHeight: rf(36),
   },
   subtitle: {
     color: palette.muted,
-    fontSize: rf(28),
+    fontSize: rf(22),
     fontWeight: '700',
-    lineHeight: rf(38),
+    lineHeight: rf(30),
   },
   heroMetricRow: {
     flexDirection: 'row',
-    gap: rs(16),
+    gap: rs(18),
+    paddingTop: rvs(12),
+    borderTopWidth: 1,
+    borderTopColor: palette.line,
   },
   metricTile: {
     flex: 1,
-    padding: rs(18),
-    borderRadius: rs(28),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    gap: rvs(8),
+    padding: 0,
+    gap: rvs(4),
   },
   metricIcon: {
-    width: rs(48),
-    height: rs(48),
-    borderRadius: rs(18),
+    width: rs(30),
+    height: rs(30),
+    borderRadius: rs(15),
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricLabel: {
     color: palette.muted,
-    fontSize: rf(20),
+    fontSize: rf(18),
     fontWeight: '800',
   },
   metricValue: {
     color: palette.ink,
-    fontSize: rf(26),
+    fontSize: rf(22),
     fontWeight: '900',
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(12),
-    padding: rs(16),
-    borderRadius: rs(22),
+    padding: rs(12),
+    borderRadius: rs(14),
     backgroundColor: palette.greenSoft,
   },
   loadingText: {
@@ -1022,12 +1207,226 @@ const styles = StyleSheet.create({
     fontSize: rf(22),
     fontWeight: '800',
   },
-  locationCard: {
-    padding: rs(28),
+  listeningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(18),
+    padding: rs(22),
+    borderRadius: rs(16),
+    backgroundColor: '#d1f3df',
+  },
+  listeningCardHot: {
+    backgroundColor: '#fff4d9',
+  },
+  listeningCardIdle: {
+    backgroundColor: '#edf2ef',
+  },
+  listeningIcon: {
+    width: rs(72),
+    height: rs(72),
     borderRadius: rs(36),
+    backgroundColor: '#d8fbec',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#80a9ff',
+  },
+  listeningCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  listeningTitle: {
+    color: palette.ink,
+    fontSize: rf(25),
+    fontWeight: '900',
+  },
+  listeningText: {
+    color: palette.muted,
+    fontSize: rf(21),
+    fontWeight: '700',
+    lineHeight: rf(29),
+  },
+  statGrid: {
+    flexDirection: 'row',
+    gap: rs(16),
+  },
+  statCard: {
+    flex: 1,
+    minHeight: rvs(86),
+    paddingHorizontal: rs(22),
+    paddingVertical: rvs(18),
+    borderRadius: rs(16),
     backgroundColor: palette.card,
-    gap: rvs(20),
-    ...shadow,
+    borderWidth: 1,
+    borderColor: palette.line,
+    justifyContent: 'center',
+    gap: rvs(4),
+  },
+  statLabel: {
+    color: palette.muted,
+    fontSize: rf(18),
+    fontWeight: '900',
+  },
+  statValue: {
+    color: palette.ink,
+    fontSize: rf(32),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  quickActionGrid: {
+    flexDirection: 'row',
+    gap: rs(14),
+  },
+  quickActionTile: {
+    flex: 1,
+    minHeight: rvs(86),
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rvs(8),
+    paddingHorizontal: rs(8),
+    paddingVertical: rvs(12),
+    borderRadius: rs(16),
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  quickActionIcon: {
+    width: rs(50),
+    height: rs(50),
+    borderRadius: rs(25),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#edf8f2',
+  },
+  quickActionLabel: {
+    color: palette.ink,
+    fontSize: rf(17),
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  mapCard: {
+    overflow: 'hidden',
+    borderRadius: rs(16),
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  mapCanvas: {
+    height: rvs(148),
+    overflow: 'hidden',
+    backgroundColor: '#f4f7ef',
+  },
+  mapWater: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: rs(110),
+    backgroundColor: '#4fa9a6',
+  },
+  mapWaterLeft: {
+    left: 0,
+  },
+  mapWaterRight: {
+    right: 0,
+  },
+  mapRoad: {
+    position: 'absolute',
+    height: rvs(9),
+    borderRadius: rs(6),
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dde7df',
+  },
+  mapRoadOne: {
+    left: rs(104),
+    right: rs(116),
+    top: rvs(24),
+    transform: [{ rotate: '-26deg' }],
+  },
+  mapRoadTwo: {
+    left: rs(120),
+    right: rs(126),
+    top: rvs(70),
+    transform: [{ rotate: '28deg' }],
+  },
+  mapRoadThree: {
+    left: rs(120),
+    right: rs(115),
+    bottom: rvs(26),
+    transform: [{ rotate: '-14deg' }],
+  },
+  mapRoadFour: {
+    top: rvs(62),
+    left: rs(180),
+    width: rs(16),
+    height: rvs(170),
+    transform: [{ rotate: '16deg' }],
+  },
+  mapPark: {
+    position: 'absolute',
+    width: rs(30),
+    height: rs(42),
+    borderRadius: rs(10),
+    backgroundColor: '#b9f0b2',
+  },
+  mapParkOne: {
+    left: rs(142),
+    top: rvs(16),
+  },
+  mapParkTwo: {
+    right: rs(154),
+    bottom: rvs(16),
+  },
+  mapMarker: {
+    position: 'absolute',
+    left: '50%',
+    top: '38%',
+    width: rs(42),
+    height: rs(42),
+    marginLeft: -rs(21),
+    marginTop: -rvs(21),
+    borderRadius: rs(21),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.blue,
+    borderWidth: rs(4),
+    borderColor: '#d6e3ff',
+  },
+  mapLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(14),
+    padding: rs(22),
+  },
+  mapLocationIcon: {
+    width: rs(38),
+    height: rs(38),
+    borderRadius: rs(19),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapLocationCopy: {
+    flex: 1,
+    gap: rvs(3),
+  },
+  mapLocationTitle: {
+    color: palette.ink,
+    fontSize: rf(24),
+    fontWeight: '800',
+  },
+  mapLocationCoords: {
+    color: '#5f6c64',
+    fontSize: rf(22),
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  locationCard: {
+    padding: rs(24),
+    borderRadius: rs(18),
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+    gap: rvs(16),
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1035,9 +1434,9 @@ const styles = StyleSheet.create({
     gap: rs(16),
   },
   sectionIcon: {
-    width: rs(64),
-    height: rs(64),
-    borderRadius: rs(22),
+    width: rs(58),
+    height: rs(58),
+    borderRadius: rs(18),
     backgroundColor: palette.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1051,18 +1450,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: palette.ink,
-    fontSize: rf(34),
+    fontSize: rf(28),
     fontWeight: '900',
   },
   sectionSubtitle: {
     color: palette.muted,
-    fontSize: rf(24),
+    fontSize: rf(21),
     fontWeight: '700',
-    lineHeight: rf(34),
+    lineHeight: rf(30),
   },
   locationBox: {
-    padding: rs(22),
-    borderRadius: rs(28),
+    padding: rs(18),
+    borderRadius: rs(14),
     backgroundColor: '#f6faf8',
     gap: rvs(8),
   },
@@ -1073,9 +1472,9 @@ const styles = StyleSheet.create({
   },
   locationValue: {
     color: palette.ink,
-    fontSize: rf(28),
+    fontSize: rf(24),
     fontWeight: '900',
-    lineHeight: rf(38),
+    lineHeight: rf(32),
   },
   locationCoords: {
     color: palette.green,
@@ -1087,8 +1486,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: rs(14),
-    padding: rs(18),
-    borderRadius: rs(26),
+    padding: rs(16),
+    borderRadius: rs(14),
     backgroundColor: palette.blueSoft,
   },
   trackingIcon: {
@@ -1120,15 +1519,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   requestCard: {
-    padding: rs(28),
-    borderRadius: rs(36),
+    padding: rs(24),
+    borderRadius: rs(18),
     backgroundColor: palette.card,
-    gap: rvs(20),
-    ...shadow,
+    borderWidth: 1,
+    borderColor: palette.line,
+    gap: rvs(16),
   },
   incomingBox: {
-    padding: rs(22),
-    borderRadius: rs(30),
+    padding: rs(20),
+    borderRadius: rs(16),
     backgroundColor: '#f8fbff',
     borderWidth: 1,
     borderColor: '#dce7ff',
@@ -1380,5 +1780,40 @@ const styles = StyleSheet.create({
     fontSize: rf(22),
     fontWeight: '700',
     lineHeight: rf(30),
+  },
+  bottomNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    minHeight: rvs(86),
+    paddingHorizontal: rs(22),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(14),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: palette.card,
+    borderTopWidth: 1,
+    borderTopColor: palette.line,
+  },
+  navItem: {
+    flex: 1,
+    minHeight: rvs(62),
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rvs(4),
+    borderRadius: rs(999),
+  },
+  navItemActive: {
+    backgroundColor: palette.mint,
+  },
+  navLabel: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '900',
+  },
+  navLabelActive: {
+    color: palette.greenDark,
   },
 });
