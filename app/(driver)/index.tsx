@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import MapView, { Marker, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
@@ -34,6 +35,7 @@ const DRIVER_ID = 5;
 const DRIVER_HEARTBEAT_INTERVAL_MS = 10000;
 const DRIVER_LOCATION_INTERVAL_MS = 5000;
 const DRIVER_LOCATION_TIMEOUT_MS = 4500;
+const DRIVER_MAP_DELTA = 0.01;
 
 const palette = {
   background: '#eaf7ef',
@@ -763,20 +765,41 @@ function QuickActionTile({ icon, label }: { icon: keyof typeof MaterialCommunity
 }
 
 function DriverMapPreview({ location }: { location: LocationPoint | null }) {
+  const mapPoint = location ?? getDefaultLocationPoint();
+  const region = getDriverMapRegion(mapPoint);
+
   return (
     <View style={styles.mapCard}>
       <View style={styles.mapCanvas}>
-        <View style={[styles.mapWater, styles.mapWaterLeft]} />
-        <View style={[styles.mapWater, styles.mapWaterRight]} />
-        <View style={[styles.mapRoad, styles.mapRoadOne]} />
-        <View style={[styles.mapRoad, styles.mapRoadTwo]} />
-        <View style={[styles.mapRoad, styles.mapRoadThree]} />
-        <View style={[styles.mapRoad, styles.mapRoadFour]} />
-        <View style={[styles.mapPark, styles.mapParkOne]} />
-        <View style={[styles.mapPark, styles.mapParkTwo]} />
-        <View style={styles.mapMarker}>
-          <MaterialCommunityIcons name="navigation-variant" size={rs(24)} color={palette.card} />
-        </View>
+        <MapView
+          style={StyleSheet.absoluteFill}
+          initialRegion={region}
+          region={region}
+          loadingEnabled
+          pitchEnabled={false}
+          rotateEnabled={false}
+          scrollEnabled={false}
+          showsCompass={false}
+          showsMyLocationButton={false}
+          showsUserLocation={false}
+          toolbarEnabled={false}
+          zoomControlEnabled={false}
+          zoomEnabled={false}
+        >
+          <Marker
+            coordinate={{ latitude: mapPoint.lat, longitude: mapPoint.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            title="Vị trí tài xế"
+            description={mapPoint.address}
+          >
+            <View style={styles.mapPin}>
+              <View style={styles.mapPinHalo} />
+              <View style={styles.mapPinBubble}>
+                <MaterialCommunityIcons name="navigation-variant" size={rs(24)} color={palette.card} />
+              </View>
+            </View>
+          </Marker>
+        </MapView>
       </View>
 
       <View style={styles.mapLocationRow}>
@@ -794,6 +817,15 @@ function DriverMapPreview({ location }: { location: LocationPoint | null }) {
       </View>
     </View>
   );
+}
+
+function getDriverMapRegion(location: LocationPoint): Region {
+  return {
+    latitude: location.lat,
+    longitude: location.lng,
+    latitudeDelta: DRIVER_MAP_DELTA,
+    longitudeDelta: DRIVER_MAP_DELTA,
+  };
 }
 
 function DriverNavItem({
@@ -1314,83 +1346,30 @@ const styles = StyleSheet.create({
   mapCanvas: {
     height: rvs(148),
     overflow: 'hidden',
-    backgroundColor: '#f4f7ef',
+    backgroundColor: '#e8f2ee',
   },
-  mapWater: {
+  mapPin: {
+    width: rs(54),
+    height: rs(54),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapPinHalo: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: rs(110),
-    backgroundColor: '#4fa9a6',
+    width: rs(54),
+    height: rs(54),
+    borderRadius: rs(27),
+    backgroundColor: '#dce8ff',
   },
-  mapWaterLeft: {
-    left: 0,
-  },
-  mapWaterRight: {
-    right: 0,
-  },
-  mapRoad: {
-    position: 'absolute',
-    height: rvs(9),
-    borderRadius: rs(6),
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#dde7df',
-  },
-  mapRoadOne: {
-    left: rs(104),
-    right: rs(116),
-    top: rvs(24),
-    transform: [{ rotate: '-26deg' }],
-  },
-  mapRoadTwo: {
-    left: rs(120),
-    right: rs(126),
-    top: rvs(70),
-    transform: [{ rotate: '28deg' }],
-  },
-  mapRoadThree: {
-    left: rs(120),
-    right: rs(115),
-    bottom: rvs(26),
-    transform: [{ rotate: '-14deg' }],
-  },
-  mapRoadFour: {
-    top: rvs(62),
-    left: rs(180),
-    width: rs(16),
-    height: rvs(170),
-    transform: [{ rotate: '16deg' }],
-  },
-  mapPark: {
-    position: 'absolute',
-    width: rs(30),
-    height: rs(42),
-    borderRadius: rs(10),
-    backgroundColor: '#b9f0b2',
-  },
-  mapParkOne: {
-    left: rs(142),
-    top: rvs(16),
-  },
-  mapParkTwo: {
-    right: rs(154),
-    bottom: rvs(16),
-  },
-  mapMarker: {
-    position: 'absolute',
-    left: '50%',
-    top: '38%',
+  mapPinBubble: {
     width: rs(42),
     height: rs(42),
-    marginLeft: -rs(21),
-    marginTop: -rvs(21),
     borderRadius: rs(21),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.blue,
     borderWidth: rs(4),
-    borderColor: '#d6e3ff',
+    borderColor: palette.card,
   },
   mapLocationRow: {
     flexDirection: 'row',
