@@ -7,20 +7,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger post-trip rating
 - Phase: Phase 11 - Passenger completed-trip rating polish
 - Branch: `codex/passenger-completion-rating`
-- Current commit scope: Commit 2 complete - sync existing completed-trip rating state
-- Status: Ready for user review
+- Current commit scope: Phase 11 closeout complete
+- Status: Ready for merge after user approval
 
 ## Last Completed Checkpoint
 
 - Commit: `970b0c7` - Sync completed trip rating state
-- Implementation log entry: `2026-06-09 - Phase 11 Passenger Completed Rating - Commit 2`
-- Review status: Validation passed; CodeRabbit review workflow blocked because the CLI is unavailable and install approval was rejected.
+- Implementation log entry: `2026-06-10 - Phase 11 Passenger Completed Rating - Closeout Check`
+- Review status: User approved Commit 2 on 2026-06-10; Phase 11 validation passed and branch is ready to merge.
 
 ## Next Checkpoint
 
-- Wait for user review of Commit 2 before starting the next Phase 11 commit.
-- If approved, continue polishing passenger post-trip completion behavior or close out Phase 11 if no more passenger rating work is needed.
-- If user requests changes, implement them on the same branch in a new small commit.
+- Merge `codex/passenger-completion-rating` into `main` when the user confirms.
+- Push `main` after merge.
+- Create the next feature branch from `main` for the next phase.
 
 ## Phase 11 Targets
 

@@ -1973,3 +1973,37 @@
 - Known risks:
   - `initialRating.comment` is reused as the quick tag label when the backend/mock does not provide `tags`; this is display-only after submission.
   - If the backend later returns richer rating metadata, the card should prefer those fields over locally synthesized tag/comment data.
+
+## 2026-06-10 - Phase 11 Passenger Completed Rating - Closeout Check
+
+- Branch: `codex/passenger-completion-rating`
+- Scope: Reviewed Phase 11 for merge readiness after the user approved the completed-trip rating sync.
+- Commits reviewed:
+  - `4d4c36d` - Start passenger completion rating phase
+  - `e983e29` - Wire completed trip rating submit
+  - `459ea71` - Record completed rating review status
+  - `970b0c7` - Sync completed trip rating state
+  - `aac860e` - Record completed rating sync review status
+- Phase 11 coverage:
+  - Passenger completed-trip card now submits ratings through the existing `submitTripRating()` API wrapper.
+  - Replaced the previous demo alert with loading, error, duplicate-submit guard, and success states.
+  - Completed trips with existing `passengerRating` now render the card in success/read-only mode.
+  - Waiting-driver updates local `tripDetail.passengerRating` immediately after a successful submit.
+  - Activity/history rating flow from Phase 10 remains preserved.
+  - Mock-mode and backend-mode continue to share the same `POST /ratings` wrapper shape.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Commit 2 on 2026-06-10.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and install escalation was rejected in the previous commit review workflow.
+- Merge assessment:
+  - No additional Phase 11 code changes are required before merging.
+  - Branch is ready to merge back to `main` after user approval to merge.
+- Known risks:
+  - Rating quick tags are represented through the current score/comment API contract; backend support for separate rating tags would require a future contract update.
+  - Real backend smoke testing should confirm whether completed trip detail responses include `passengerRating` or need a dedicated rating lookup endpoint later.
