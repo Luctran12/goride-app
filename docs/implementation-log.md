@@ -2040,3 +2040,34 @@
 - Known risks:
   - The backend endpoint is assumed from the existing personal screen placeholder (`PUT /api/users/me`); if the server uses `PATCH` or a different DTO shape, the wrapper may need a small adapter update.
   - Mock profile updates are in-memory only and reset when the app reloads.
+
+## 2026-06-10 - Product Readiness Audit After Profile And Driver Merges
+
+- Branch: `main`
+- Merge commits:
+  - `f970074` - Merge passenger profile edit phase
+  - `c9863ed` - Merge driver screen phase
+- Scope: Merged reviewed feature branches into `main`, validated the full project, and documented product-readiness status.
+- Files changed:
+  - `.gitignore`
+  - `app/(driver)/index.tsx`
+  - `docs/current-phase.md`
+  - `docs/frontend-implementation.md`
+  - `docs/implementation-log.md`
+  - `lib/user-api.ts`
+- Behavior and documentation implemented:
+  - Merged `codex/passenger-profile-edit`, including `updateMyProfile()` profile API/mock support.
+  - Merged `codex/driver-screen`, including the polished driver dashboard UI.
+  - Resolved the `docs/current-phase.md` merge conflict by moving active work to product-readiness audit status.
+  - Added `Product Readiness Audit - 2026-06-10` to `docs/frontend-implementation.md`.
+  - The audit lists screens completed at MVP level, partially complete screens, incomplete product features, technical readiness, and recommended next stages.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - Awaiting user review for the product-readiness audit.
+- Known risks:
+  - `main` is ahead of `origin/main`; push should happen after the user approves the audit document.
+  - Product audit is based on static code inspection plus lint/typecheck; manual runtime testing on Android/iOS is still required.

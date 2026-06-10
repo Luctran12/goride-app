@@ -536,3 +536,245 @@ Done khi:
 - App không crash khi thiếu backend, thiếu WebSocket URL hoặc thiếu Google key.
 - `cmd /c npm run lint` pass.
 
+## 11. Product Readiness Audit - 2026-06-10
+
+### 11.1 Merge status
+
+- `codex/passenger-profile-edit` đã được merge vào `main`.
+- `codex/driver-screen` đã được merge vào `main`.
+- Validation sau merge:
+  - `cmd /c npm run lint`: pass.
+  - `cmd /c npx tsc --noEmit --pretty false`: pass.
+- `main` hiện đã có merge local; cần push `main` lên GitHub sau khi user review tài liệu audit này.
+
+### 11.2 Screens đã hoàn thiện ở mức MVP
+
+- `app/(customer)/login.tsx`
+  - Passenger đăng nhập bằng `CustomerAuthScreen`.
+  - Gọi `POST /auth/login` qua `lib/auth-api.ts`.
+  - Có loading, validation cơ bản, lỗi login, lưu session token.
+
+- `app/(customer)/register.tsx`
+  - Passenger đăng ký bằng `CustomerAuthScreen`.
+  - Gọi `POST /auth/register` với role `PASSENGER`.
+  - Có validate họ tên, phone, email, password, confirm password, terms.
+
+- `app/(customer)/booking/pickup.tsx`
+  - Chọn điểm đón bằng GPS, search, tap/drag marker trên map thật.
+  - Có xử lý permission, GPS disabled, locating, error, fallback location.
+  - Reverse geocode khi chọn điểm trên map.
+
+- `app/(customer)/booking/destination.tsx`
+  - Nhận pickup từ route params.
+  - Chọn destination bằng search hoặc map thật.
+  - Có route preview pickup -> dropoff và floating confirm CTA.
+
+- `app/(customer)/booking/select-vehicle.tsx`
+  - Gọi `estimateBooking()` khi route/vehicle thay đổi.
+  - Hiển thị distance, duration, fare, vehicle options.
+  - Gọi `createBooking()` và chuyển sang waiting-driver với `tripId`.
+  - Có chọn payment method `CASH`, `MOMO`, `VNPAY` và promo code UI.
+
+- `app/(customer)/booking/waiting-driver.tsx`
+  - Theo dõi trạng thái trip qua realtime/mock.
+  - Hiển thị map tracking pickup/dropoff/driver marker.
+  - Có fallback polling `getDriverLocation()`.
+  - Có driver info, trip timeline, ETA card, cancel trip, receipt, completed-trip rating submit.
+
+- `app/(customer)/activity.tsx`
+  - Gọi `listBookings()`.
+  - Hiển thị danh sách lịch sử compact: pickup, dropoff, ngày giờ, fare.
+  - Detail modal có route, driver info, trip code, rating, rebook.
+  - Có rating form cho completed trip chưa đánh giá.
+
+- `app/(driver)/index.tsx`
+  - Driver dashboard có online/offline toggle.
+  - Xin GPS khi online.
+  - Subscribe incoming request và notification.
+  - Gửi heartbeat định kỳ.
+  - Accept/reject incoming request.
+  - Cập nhật status `ARRIVED`, `IN_PROGRESS`, `COMPLETED`.
+  - Gửi driver GPS định kỳ khi có active trip.
+  - Có dashboard polish, stats, quick actions, map preview, realtime status.
+
+### 11.3 Screens hoàn thiện một phần
+
+- `app/index.tsx`
+  - Đã có role chooser Passenger/Driver.
+  - Product gap:
+    - Copy vẫn thiên về demo.
+    - Driver đi thẳng vào app, chưa có auth/onboarding riêng.
+
+- `app/(customer)/index.tsx`
+  - Đã có customer home, quick booking actions, activity/payment/profile navigation.
+  - Product gap:
+    - Tên user/avatar, promo, recent places vẫn là static UI.
+    - Bell notification chưa mở notification center.
+    - Recent places chưa nối saved places/history thật.
+
+- `app/(customer)/profile.tsx`
+  - Đã gọi `getMyProfile()`, hiển thị profile, logout.
+  - Product gap:
+    - Voucher, favorite places, settings, help center còn là menu item chưa có screen.
+    - Profile reload sau khi sửa thông tin cần được kiểm tra khi quay lại từ personal screen.
+
+- `app/(customer)/personal.tsx`
+  - Đã hiển thị profile detail, stats, avatar, retry khi lỗi.
+  - API `updateMyProfile()` đã sẵn sàng.
+  - Product gap:
+    - Nút chỉnh sửa vẫn là placeholder alert.
+    - Chưa có form edit/save/cancel, validation UI, success/error state.
+
+- `app/(customer)/billing.tsx`
+  - Đã có UI payment methods và coupon card.
+  - Product gap:
+    - Payment methods/coupons là static data.
+    - Add payment, set default, delete, MoMo/VNPay linking chưa có API.
+    - Promo chọn trong booking chưa đồng bộ với billing/voucher inventory.
+
+- `app/(driver)/index.tsx`
+  - Driver ride workflow MVP đã chạy được.
+  - Product gap:
+    - Driver identity, earnings, trip count vẫn demo/static.
+    - Bottom nav `Earnings`, `Activity`, `Account` chưa có route.
+    - Driver auth/profile/approval chưa có.
+    - Cần smoke test với backend realtime thật.
+
+### 11.4 Screens/chức năng chưa hoàn thiện
+
+- Driver authentication/onboarding:
+  - Chưa có login/register riêng cho driver.
+  - Chưa có driver profile, vehicle documents, approval status.
+  - Driver route chưa được protected bằng auth guard.
+
+- Passenger notification center:
+  - Bell icon chưa mở screen.
+  - Chưa có local/push notification persistence.
+  - Chưa tích hợp Firebase FCM.
+
+- Saved places/favorite addresses:
+  - Profile menu có `Địa chỉ yêu thích` nhưng chưa có screen.
+  - Home recent places vẫn static.
+
+- Voucher/payment product flow:
+  - Billing/voucher là UI demo.
+  - Promo code trong booking chưa validate với backend.
+  - MoMo/VNPay chỉ là selection UI, chưa có payment redirect/callback/status.
+
+- Driver secondary tabs:
+  - Earnings, Activity, Account mới là bottom nav placeholder.
+  - Chưa có lịch sử chuyến tài xế, doanh thu, ví tài xế, hồ sơ tài xế.
+
+- Support/settings:
+  - Help center, settings, support flows chưa có screen.
+
+- Production map configuration:
+  - `app.json` đã có location permission.
+  - Chưa cấu hình native Google Maps API key qua `android.config.googleMaps.apiKey` và `ios.config.googleMapsApiKey`.
+  - `AddressSearch` có fallback khi thiếu key, nhưng product build cần key thật.
+
+- Production backend hardening:
+  - `DEFAULT_BACKEND_ORIGIN` đang trỏ IP dev local.
+  - Cần bắt buộc dùng `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_AUTH_API_BASE_URL`, `EXPO_PUBLIC_WS_URL` theo môi trường.
+  - Cần smoke test contract thật cho auth, bookings, tracking, ratings, driver status.
+
+### 11.5 Technical readiness
+
+- Đã có:
+  - `lib/api.ts`: API client, bearer token, refresh handler, error normalization.
+  - `lib/auth-api.ts`: login/register/logout/session storage.
+  - `lib/ride-api.ts`: pricing, estimate, booking, trip detail, history, cancel, tracking, driver status, rating.
+  - `lib/realtime.ts`: STOMP/SockJS remote mode và mock realtime fallback.
+  - `lib/location-service.ts`: GPS, reverse geocode, search/geocode fallback.
+  - `lib/user-api.ts`: get/update profile API wrapper.
+
+- Cần cải thiện trước product release:
+  - Thêm environment profiles rõ ràng cho dev/staging/prod.
+  - Bỏ default local backend origin khỏi release build.
+  - Thêm remote logging/error reporting.
+  - Thêm loading skeleton/empty/error consistency cho các screen còn static.
+  - Thêm manual QA checklist theo thiết bị thật Android trước, iOS sau.
+
+### 11.6 Recommended next stages
+
+#### Stage 12 - Finish passenger profile edit
+
+- Wire `app/(customer)/personal.tsx` vào `updateMyProfile()`.
+- Thêm edit form cho full name, phone, email, avatar URL.
+- Thêm save loading, validation, inline error, success state.
+- Refresh profile display after save.
+
+Done khi:
+
+- User sửa hồ sơ và thấy dữ liệu mới trên Personal/Profile trong cùng session.
+- Mock mode và backend mode dùng cùng API wrapper.
+
+#### Stage 13 - Productize payment and vouchers
+
+- Tạo API/type cho payment methods và vouchers.
+- Billing screen gọi API/mock thay vì static array.
+- Add/set default/remove payment method ở mức MVP.
+- Promo selector trong booking đọc voucher inventory.
+- Nếu backend chưa có payment thật, giữ MoMo/VNPay ở trạng thái `coming soon` rõ ràng thay vì giả lập đã thanh toán.
+
+Done khi:
+
+- Billing không còn static hardcoded.
+- Booking promo/payment state có nguồn dữ liệu rõ ràng.
+
+#### Stage 14 - Driver product shell
+
+- Thêm driver auth guard hoặc driver login flow.
+- Tạo driver profile/account screen.
+- Tạo driver earnings screen.
+- Tạo driver activity/history screen.
+- Gắn bottom nav driver vào route thật.
+
+Done khi:
+
+- Driver không còn đi thẳng vào dashboard không auth trong product mode.
+- Driver xem được thông tin tài khoản, chuyến đã chạy, doanh thu.
+
+#### Stage 15 - Backend integration smoke test
+
+- Chạy app với backend thật qua env:
+  - `EXPO_PUBLIC_API_BASE_URL`
+  - `EXPO_PUBLIC_AUTH_API_BASE_URL`
+  - `EXPO_PUBLIC_WS_URL`
+  - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
+- Test passenger happy path:
+  - Login/register -> pickup -> destination -> estimate -> booking -> waiting -> cancel/completed -> rating -> history.
+- Test driver happy path:
+  - Online -> receive request -> accept -> update statuses -> send GPS -> complete.
+- Ghi lại API mismatch vào `docs/changes-in-implementation.md`.
+
+Done khi:
+
+- Mock mode và backend mode đều pass happy path.
+- Không còn contract mismatch chưa document.
+
+#### Stage 16 - Production map/build configuration
+
+- Chuyển native map key config sang `app.config.ts` hoặc config plugin phù hợp.
+- Cấu hình Android/iOS Google Maps API key.
+- Kiểm tra `react-native-maps` trên Expo Go/dev build và Android device.
+- Chuẩn hóa permission copy tiếng Việt.
+
+Done khi:
+
+- Map hoạt động trên build Android thật.
+- Search/reverse geocode hoạt động với Google key thật hoặc fallback rõ ràng khi thiếu key.
+
+#### Stage 17 - Release QA and polish
+
+- Chuẩn hóa toàn bộ copy tiếng Việt, kiểm tra lỗi encoding trên thiết bị thật.
+- Kiểm tra safe area/full-screen trên nhiều kích thước màn hình.
+- Kiểm tra offline/error/timeout states.
+- Kiểm tra cleanup timer/subscription khi back/unmount.
+- Thêm smoke test script hoặc manual QA checklist trong docs.
+
+Done khi:
+
+- App đủ ổn định để demo như product MVP.
+- Các flow chưa có backend thật đều có trạng thái `coming soon` hoặc mock mode rõ ràng, không gây hiểu nhầm.
+
