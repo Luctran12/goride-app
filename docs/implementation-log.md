@@ -1909,3 +1909,101 @@
 - Known risks:
   - UI supports score/comment only, matching the current TDD `POST /ratings`; rating tags are display-only for seeded mock ratings.
   - If real backend returns richer rating data, the UI should later prefer backend response data instead of the local rating object.
+
+## 2026-06-04 - Phase 11 Passenger Completed Rating - Commit 1
+
+- Branch: `codex/passenger-completion-rating`
+- Commit: `e983e29` - Wire completed trip rating submit
+- Scope: Connected the passenger completed-trip rating card to the real rating API wrapper.
+- Files changed:
+  - `components/booking/trip-completion-card.tsx`
+- Behavior implemented:
+  - Replaced the demo alert in `TripCompletionCard` with an async `submitTripRating()` call.
+  - Sends `tripId`, selected star score, and the selected feedback tag as the rating comment through the existing `POST /ratings` API wrapper.
+  - Added submit loading state, duplicate-submit guard, inline error messaging, and a success confirmation panel after submission.
+  - Resets local rating submission state when the card receives a new `tripId`.
+  - Keeps the existing receipt summary, driver thank-you text, star selector, and feedback tag UI.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warning for `components/booking/trip-completion-card.tsx` before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected, so CodeRabbit review could not run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Phase 11 Commit 1.
+- Known risks:
+  - The selected quick feedback tag is sent as `comment` because the current TDD/API contract supports score/comment, not a separate tags payload.
+  - If the completed trip route receives a non-numeric `tripId`, the UI now blocks submission and shows an inline sync error.
+
+## 2026-06-09 - Phase 11 Passenger Completed Rating - Commit 2
+
+- Branch: `codex/passenger-completion-rating`
+- Commit: `970b0c7` - Sync completed trip rating state
+- Scope: Synced completed-trip rating state between the waiting-driver trip detail data and `TripCompletionCard`.
+- Files changed:
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `components/booking/trip-completion-card.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - `TripCompletionCard` now accepts optional `initialRating` data from `TripDetail.passengerRating`.
+  - Completed trips that already have `passengerRating` open the card in the success/read-only state instead of showing a fresh submit form.
+  - The waiting-driver screen passes `tripDetail?.passengerRating` into the completion card.
+  - After a successful rating submit, waiting-driver updates local `tripDetail.passengerRating` and `tripDetailUpdatedAt` immediately.
+  - This keeps the completed-trip card aligned with the Activity/history rating behavior and reduces duplicate-rating attempts.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for modified TypeScript and docs files before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected, so CodeRabbit review could not run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Phase 11 Commit 2.
+- Known risks:
+  - `initialRating.comment` is reused as the quick tag label when the backend/mock does not provide `tags`; this is display-only after submission.
+  - If the backend later returns richer rating metadata, the card should prefer those fields over locally synthesized tag/comment data.
+
+## 2026-06-10 - Phase 11 Passenger Completed Rating - Closeout Check
+
+- Branch: `codex/passenger-completion-rating`
+- Scope: Reviewed Phase 11 for merge readiness after the user approved the completed-trip rating sync.
+- Commits reviewed:
+  - `4d4c36d` - Start passenger completion rating phase
+  - `e983e29` - Wire completed trip rating submit
+  - `459ea71` - Record completed rating review status
+  - `970b0c7` - Sync completed trip rating state
+  - `aac860e` - Record completed rating sync review status
+- Phase 11 coverage:
+  - Passenger completed-trip card now submits ratings through the existing `submitTripRating()` API wrapper.
+  - Replaced the previous demo alert with loading, error, duplicate-submit guard, and success states.
+  - Completed trips with existing `passengerRating` now render the card in success/read-only mode.
+  - Waiting-driver updates local `tripDetail.passengerRating` immediately after a successful submit.
+  - Activity/history rating flow from Phase 10 remains preserved.
+  - Mock-mode and backend-mode continue to share the same `POST /ratings` wrapper shape.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Commit 2 on 2026-06-10.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and install escalation was rejected in the previous commit review workflow.
+- Merge assessment:
+  - No additional Phase 11 code changes are required before merging.
+  - Branch is ready to merge back to `main` after user approval to merge.
+- Known risks:
+  - Rating quick tags are represented through the current score/comment API contract; backend support for separate rating tags would require a future contract update.
+  - Real backend smoke testing should confirm whether completed trip detail responses include `passengerRating` or need a dedicated rating lookup endpoint later.

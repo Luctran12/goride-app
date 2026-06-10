@@ -23,7 +23,7 @@ import {
   subscribeTrip,
   type RealtimeSubscription,
 } from '@/lib/realtime';
-import type { DriverLocationUpdate, LocationPoint, TripDetail, TripStatus, WsNotification } from '@/types/ride';
+import type { DriverLocationUpdate, LocationPoint, TripDetail, TripRating, TripStatus, WsNotification } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -127,6 +127,18 @@ export default function WaitingDriverScreen() {
     setDriverLocation(location);
     setLastTrackingAt(location.updatedAt ?? new Date().toISOString());
     setTrackingError(null);
+  }, []);
+
+  const handleRatingSubmitted = useCallback((rating: TripRating) => {
+    setTripDetail((currentDetail) =>
+      currentDetail
+        ? {
+            ...currentDetail,
+            passengerRating: rating,
+          }
+        : currentDetail,
+    );
+    setTripDetailUpdatedAt(new Date().toISOString());
   }, []);
 
   useEffect(() => {
@@ -458,6 +470,8 @@ export default function WaitingDriverScreen() {
           paymentLabel={paymentLabel}
           promoCode={promoCode}
           completedAt={lastTrackingAt ?? tripDetailUpdatedAt}
+          initialRating={tripDetail?.passengerRating}
+          onRatingSubmitted={handleRatingSubmitted}
         />
 
         <View style={styles.tripCodeCard}>

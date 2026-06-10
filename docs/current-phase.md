@@ -4,27 +4,28 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Passenger trip rating
-- Phase: Phase 10 - Passenger rating submission
-- Branch: `codex/passenger-rating`
-- Current commit scope: Phase 10 closeout complete - passenger rating ready to merge
-- Status: Ready to merge after user approval
+- Feature: Passenger post-trip rating
+- Phase: Phase 11 - Passenger completed-trip rating polish
+- Branch: `codex/passenger-completion-rating`
+- Current commit scope: Phase 11 closeout complete
+- Status: Ready for merge after user approval
 
 ## Last Completed Checkpoint
 
-- Commit: `9305276` - Add passenger rating form
-- Implementation log entry: `2026-06-01 - Phase 10 Passenger Rating - Commit 2`
-- Review status: User approved Phase 10 Commit 2 on 2026-06-01; CodeRabbit CLI review remained blocked because `coderabbit` is not installed and the installer failed in this Windows shell because `sh` is unavailable.
+- Commit: `970b0c7` - Sync completed trip rating state
+- Implementation log entry: `2026-06-10 - Phase 11 Passenger Completed Rating - Closeout Check`
+- Review status: User approved Commit 2 on 2026-06-10; Phase 11 validation passed and branch is ready to merge.
 
 ## Next Checkpoint
 
-- Merge `codex/passenger-rating` into `main` after user approval.
-- Push `main`, then create the next phase branch from `main`.
+- Merge `codex/passenger-completion-rating` into `main` when the user confirms.
+- Push `main` after merge.
+- Create the next feature branch from `main` for the next phase.
 
-## Phase 10 Targets
+## Phase 11 Targets
 
-- Let passengers submit a rating after a completed trip when no rating exists yet.
-- Reuse Activity trip detail modal as the entry point for rating submission.
-- Call `POST /ratings` in remote mode and update mock trip history in mock mode.
-- Keep submitted rating visible in Activity history detail after submit.
-- Preserve existing rebook and trip history behavior.
+- Let passengers rate immediately when a trip reaches `COMPLETED`.
+- Preserve the Activity history rating flow from Phase 10.
+- Reuse the existing `TripCompletionCard` UI instead of adding a new route.
+- Avoid duplicate rating submissions while a request is in flight.
+- Keep mock-mode and backend-mode behavior aligned with `POST /ratings`.
