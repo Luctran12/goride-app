@@ -7,20 +7,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger profile editing
 - Phase: Phase 12 - Passenger personal profile edit
 - Branch: `codex/passenger-profile-edit`
-- Current commit scope: Commit 1 - add passenger profile update API
-- Status: In progress
+- Current commit scope: Commit 1 complete - add passenger profile update API
+- Status: Ready for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `21696b8` - Merge passenger completion rating phase into `main`
-- Implementation log entry: `2026-06-10 - Phase 11 Passenger Completed Rating - Closeout Check`
-- Review status: Phase 11 merged into `main` and pushed to GitHub on 2026-06-10.
+- Commit: `469ef37` - Add passenger profile update API
+- Implementation log entry: `2026-06-10 - Phase 12 Passenger Profile Edit - Commit 1`
+- Review status: Validation passed; CodeRabbit review workflow blocked because the CLI is unavailable and install approval was rejected.
 
 ## Next Checkpoint
 
-- Add a `updateMyProfile()` API wrapper for the existing personal profile placeholder flow.
-- Keep this commit focused on types/API/mock storage only.
-- Validate, commit, run review workflow, document implementation log, then wait for user review.
+- Wait for user review of Commit 1 before wiring the personal profile edit UI.
+- If approved, replace the personal screen placeholder alert with a real editable form in the next small commit.
+- If user requests changes, implement them on the same branch in a new small commit.
 
 ## Phase 12 Targets
 

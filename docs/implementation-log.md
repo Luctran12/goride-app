@@ -2007,3 +2007,36 @@
 - Known risks:
   - Rating quick tags are represented through the current score/comment API contract; backend support for separate rating tags would require a future contract update.
   - Real backend smoke testing should confirm whether completed trip detail responses include `passengerRating` or need a dedicated rating lookup endpoint later.
+
+## 2026-06-10 - Phase 12 Passenger Profile Edit - Commit 1
+
+- Branch: `codex/passenger-profile-edit`
+- Setup commit: `285006a` - Start passenger profile edit phase
+- Commit: `469ef37` - Add passenger profile update API
+- Scope: Added passenger profile update data contract, API wrapper, and mock-session persistence for the upcoming personal profile edit form.
+- Files changed:
+  - `lib/user-api.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `UserProfileUpdateDraft` for editable profile fields: `fullName`, `phone`, `email`, and `avatarUrl`.
+  - Added `updateMyProfile()` using `PUT /api/users/me` with the same user API origin normalization as `getMyProfile()`.
+  - Normalizes profile update input by trimming provided strings and converting optional empty contact/avatar fields to `undefined`.
+  - Converted the mock profile fixture into a mutable in-memory profile so local demo updates can be reflected by later `getMyProfile()` calls in the same app session.
+  - Mock mode validates that an explicitly provided `fullName` is not blank and stamps `updatedAt` after successful updates.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warning for `lib/user-api.ts` before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected, so CodeRabbit review could not run.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Phase 12 Commit 1.
+- Known risks:
+  - The backend endpoint is assumed from the existing personal screen placeholder (`PUT /api/users/me`); if the server uses `PATCH` or a different DTO shape, the wrapper may need a small adapter update.
+  - Mock profile updates are in-memory only and reset when the app reloads.
