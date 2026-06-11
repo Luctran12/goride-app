@@ -91,6 +91,9 @@ export type BookingDraft = {
   dropoff: LocationPoint;
   vehicleType: VehicleType;
   paymentMethod: PaymentMethod;
+  voucherCode?: string;
+  discountAmount?: number;
+  finalFare?: number;
 };
 
 export type BookingCreateResponse = {

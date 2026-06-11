@@ -20,8 +20,20 @@ import {
   legacyIdFromVehicleType,
 } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
+import { listPaymentMethods, listVouchers, validateVoucher } from '@/lib/payment-api';
 import { createBooking, estimateBooking } from '@/lib/ride-api';
-import type { BookingDraft, BookingEstimate, LocationPoint, PaymentMethod, VehicleType } from '@/types/ride';
+import type {
+  BookingDraft,
+  BookingEstimate,
+  LocationPoint,
+  PassengerPaymentMethod,
+  PassengerVoucher,
+  PaymentMethod,
+  PaymentMethodStatus,
+  VehicleType,
+  VoucherStatus,
+  VoucherValidationResult,
+} from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
@@ -33,6 +45,8 @@ const palette = {
   muted: '#68646e',
   line: '#e8e4ec',
   danger: '#d72828',
+  amber: '#f59e0b',
+  amberSoft: '#fff7df',
   green: '#00b67a',
   greenSoft: '#dff8ef',
 };
@@ -46,12 +60,17 @@ const shadow = {
 };
 
 type PaymentOption = {
+  id: string;
   method: PaymentMethod;
   label: string;
   helper: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   tone: string;
   softTone: string;
+  status: PaymentMethodStatus;
+  isDefault: boolean;
+  linked: boolean;
+  badge?: string;
 };
 
 type PromotionOption = {
@@ -59,52 +78,73 @@ type PromotionOption = {
   title: string;
   description: string;
   badge?: string;
+  status: VoucherStatus;
+  voucher?: PassengerVoucher;
 };
 
-const paymentOptions: PaymentOption[] = [
-  {
-    method: 'CASH',
-    label: 'Tiền mặt',
-    helper: 'Thanh toán sau chuyến',
+const paymentThemeByMethod: Record<
+  PaymentMethod,
+  Pick<PaymentOption, 'icon' | 'tone' | 'softTone'>
+> = {
+  CASH: {
     icon: 'cash',
     tone: palette.green,
     softTone: palette.greenSoft,
   },
-  {
-    method: 'MOMO',
-    label: 'MoMo',
-    helper: 'Ví điện tử',
+  MOMO: {
     icon: 'wallet-outline',
     tone: '#b0006d',
     softTone: '#ffe8f5',
   },
-  {
-    method: 'VNPAY',
-    label: 'VNPay',
-    helper: 'QR ngân hàng',
+  VNPAY: {
     icon: 'bank-transfer',
     tone: '#0b63ce',
     softTone: '#e8f1ff',
   },
+};
+
+const fallbackPaymentMethods: PassengerPaymentMethod[] = [
+  {
+    id: 'cash',
+    method: 'CASH',
+    title: 'Tiền mặt',
+    detail: 'Thanh toán sau chuyến',
+    status: 'ACTIVE',
+    isDefault: true,
+    linked: true,
+  },
+  {
+    id: 'momo',
+    method: 'MOMO',
+    title: 'MoMo',
+    detail: 'Sắp hỗ trợ ví điện tử',
+    status: 'COMING_SOON',
+    isDefault: false,
+    linked: false,
+    badge: 'Sắp có',
+  },
+  {
+    id: 'vnpay',
+    method: 'VNPAY',
+    title: 'VNPay',
+    detail: 'Sắp hỗ trợ QR ngân hàng',
+    status: 'COMING_SOON',
+    isDefault: false,
+    linked: false,
+    badge: 'Sắp có',
+  },
 ];
 
-const promotionOptions: PromotionOption[] = [
+const noPromotionOption: PromotionOption = {
+  code: null,
+  title: 'Không dùng ưu đãi',
+  description: 'Giữ nguyên giá ước tính',
+  status: 'AVAILABLE',
+};
+
+const fallbackPromotionOptions: PromotionOption[] = [
   {
-    code: null,
-    title: 'Không dùng ưu đãi',
-    description: 'Giữ nguyên giá ước tính',
-  },
-  {
-    code: 'GORIDE10',
-    title: 'GORIDE10',
-    description: 'Giảm 10% khi thanh toán online',
-    badge: 'Online',
-  },
-  {
-    code: 'NEWUSER',
-    title: 'NEWUSER',
-    description: 'Ưu đãi khách mới, áp dụng khi tạo booking',
-    badge: 'Mới',
+    ...noPromotionOption,
   },
 ];
 
@@ -145,6 +185,13 @@ export default function SelectVehicleScreen() {
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('MOTORBIKE');
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('CASH');
   const [selectedPromotionCode, setSelectedPromotionCode] = useState<string | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<PassengerPaymentMethod[]>(fallbackPaymentMethods);
+  const [vouchers, setVouchers] = useState<PassengerVoucher[]>([]);
+  const [checkoutLoading, setCheckoutLoading] = useState(true);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [voucherValidation, setVoucherValidation] = useState<VoucherValidationResult | null>(null);
+  const [voucherValidationLoading, setVoucherValidationLoading] = useState(false);
+  const [voucherValidationError, setVoucherValidationError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<BookingEstimate | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
@@ -152,7 +199,7 @@ export default function SelectVehicleScreen() {
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [retrySeed, setRetrySeed] = useState(0);
 
-  const draft = useMemo<BookingDraft | null>(() => {
+  const estimateDraft = useMemo<BookingDraft | null>(() => {
     if (!route.pickup || !route.dropoff) {
       return null;
     }
@@ -165,14 +212,101 @@ export default function SelectVehicleScreen() {
     };
   }, [route.dropoff, route.pickup, selectedPayment, selectedVehicle]);
 
+  const activeVoucherValidation =
+    selectedPromotionCode && voucherValidation?.isValid ? voucherValidation : null;
+  const discountAmount = activeVoucherValidation?.discountAmount ?? 0;
+  const finalFare = estimate
+    ? activeVoucherValidation?.finalFare ?? estimate.estimatedFare
+    : null;
+  const bookingEstimate = useMemo<BookingEstimate | null>(() => {
+    if (!estimate) {
+      return null;
+    }
+
+    return {
+      ...estimate,
+      estimatedFare: finalFare ?? estimate.estimatedFare,
+    };
+  }, [estimate, finalFare]);
+
+  const bookingDraft = useMemo<BookingDraft | null>(() => {
+    if (!estimateDraft) {
+      return null;
+    }
+
+    return {
+      ...estimateDraft,
+      voucherCode: activeVoucherValidation?.voucher?.code,
+      discountAmount,
+      finalFare: finalFare ?? undefined,
+    };
+  }, [activeVoucherValidation?.voucher?.code, discountAmount, estimateDraft, finalFare]);
+
   useEffect(() => {
-    if (!draft) {
+    let cancelled = false;
+
+    async function loadCheckoutData() {
+      setCheckoutLoading(true);
+      setCheckoutError(null);
+
+      try {
+        const [methodResult, voucherResult] = await Promise.allSettled([
+          listPaymentMethods(),
+          listVouchers({ includeUnavailable: true }),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (methodResult.status === 'fulfilled' && methodResult.value.length) {
+          setPaymentMethods(methodResult.value);
+
+          const defaultMethod =
+            methodResult.value.find((method) => method.status === 'ACTIVE' && method.linked && method.isDefault) ??
+            methodResult.value.find((method) => method.status === 'ACTIVE' && method.linked);
+
+          if (defaultMethod) {
+            setSelectedPayment(defaultMethod.method);
+          }
+        } else if (methodResult.status === 'rejected') {
+          setPaymentMethods(fallbackPaymentMethods);
+          setCheckoutError(methodResult.reason instanceof Error ? methodResult.reason.message : 'Không thể tải ví.');
+        }
+
+        if (voucherResult.status === 'fulfilled') {
+          setVouchers(voucherResult.value);
+        } else {
+          setVouchers([]);
+          setCheckoutError((currentError) =>
+            currentError ??
+            (voucherResult.reason instanceof Error
+              ? voucherResult.reason.message
+              : 'Không thể tải danh sách ưu đãi.'),
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckoutLoading(false);
+        }
+      }
+    }
+
+    void loadCheckoutData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!estimateDraft) {
       setEstimate(null);
       setEstimateError('Thiếu điểm đón hoặc điểm đến. Vui lòng chọn lại lộ trình.');
       return;
     }
 
-    const activeDraft = draft;
+    const activeDraft = estimateDraft;
     let cancelled = false;
 
     async function loadEstimate() {
@@ -202,7 +336,60 @@ export default function SelectVehicleScreen() {
     return () => {
       cancelled = true;
     };
-  }, [draft, retrySeed]);
+  }, [estimateDraft, retrySeed]);
+
+  useEffect(() => {
+    if (!selectedPromotionCode) {
+      setVoucherValidation(null);
+      setVoucherValidationError(null);
+      setVoucherValidationLoading(false);
+      return;
+    }
+
+    if (!estimate) {
+      setVoucherValidation(null);
+      setVoucherValidationError('Chờ GoRide tính giá trước khi áp dụng ưu đãi.');
+      setVoucherValidationLoading(false);
+      return;
+    }
+
+    const activePromotionCode = selectedPromotionCode;
+    const activeEstimate = estimate;
+    let cancelled = false;
+
+    async function validateSelectedVoucher() {
+      setVoucherValidationLoading(true);
+      setVoucherValidationError(null);
+
+      try {
+        const result = await validateVoucher({
+          code: activePromotionCode,
+          fare: activeEstimate.estimatedFare,
+          paymentMethod: selectedPayment,
+        });
+
+        if (!cancelled) {
+          setVoucherValidation(result);
+          setVoucherValidationError(result.isValid ? null : result.message ?? 'Ưu đãi không khả dụng.');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setVoucherValidation(null);
+          setVoucherValidationError(error instanceof Error ? error.message : 'Không thể kiểm tra ưu đãi.');
+        }
+      } finally {
+        if (!cancelled) {
+          setVoucherValidationLoading(false);
+        }
+      }
+    }
+
+    void validateSelectedVoucher();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [estimate, selectedPayment, selectedPromotionCode]);
 
   const vehicleOptions = useMemo(
     () =>
@@ -214,16 +401,84 @@ export default function SelectVehicleScreen() {
     [estimate?.estimatedFare, selectedVehicle],
   );
 
+  const paymentOptions = useMemo(() => paymentMethods.map(toPaymentOption), [paymentMethods]);
+  const promotionOptions = useMemo<PromotionOption[]>(
+    () =>
+      vouchers.length
+        ? [
+            noPromotionOption,
+            ...vouchers.map((voucher) => ({
+              code: voucher.code,
+              title: voucher.title,
+              description: getVoucherDescription(voucher),
+              badge: getVoucherBadge(voucher),
+              status: voucher.status,
+              voucher,
+            })),
+          ]
+        : fallbackPromotionOptions,
+    [vouchers],
+  );
+
   const selectedOption = vehicleOptions.find((option) => option.vehicleType === selectedVehicle) ?? vehicleOptions[0];
   const selectedPaymentOption =
     paymentOptions.find((option) => option.method === selectedPayment) ?? paymentOptions[0];
   const selectedPromotion =
     promotionOptions.find((option) => option.code === selectedPromotionCode) ?? promotionOptions[0];
-  const canContinue = Boolean(draft && estimate && !estimateLoading && !estimateError && !bookingLoading);
+  const selectedPaymentReady = isPaymentOptionReady(selectedPaymentOption);
+  const selectedVoucherBlocked = Boolean(
+    selectedPromotionCode &&
+      (voucherValidationLoading || voucherValidationError || !voucherValidation?.isValid),
+  );
+  const canContinue = Boolean(
+    bookingDraft &&
+      bookingEstimate &&
+      selectedPaymentReady &&
+      !estimateLoading &&
+      !estimateError &&
+      !bookingLoading &&
+      !selectedVoucherBlocked,
+  );
+
+  const handlePaymentPress = (option: PaymentOption) => {
+    if (!isPaymentOptionReady(option)) {
+      Alert.alert(
+        'Sắp hỗ trợ',
+        `${option.label} đang được chuẩn bị. Hiện GoRide mini ưu tiên thanh toán tiền mặt để đặt xe ổn định.`,
+      );
+      return;
+    }
+
+    setSelectedPayment(option.method);
+  };
+
+  const handlePromotionPress = (option: PromotionOption) => {
+    if (!option.code) {
+      setSelectedPromotionCode(null);
+      return;
+    }
+
+    if (option.status !== 'AVAILABLE') {
+      Alert.alert(option.title, getUnavailableVoucherMessage(option.status));
+      return;
+    }
+
+    setSelectedPromotionCode(option.code);
+  };
 
   const handleConfirmBooking = async () => {
-    if (!draft || !estimate) {
+    if (!bookingDraft || !bookingEstimate) {
       Alert.alert('Chưa có giá ước tính', 'Vui lòng chờ GoRide tính giá hoặc thử lại trước khi đặt xe.');
+      return;
+    }
+
+    if (!selectedPaymentReady) {
+      Alert.alert('Thanh toán chưa sẵn sàng', `${selectedPaymentOption.label} chưa thể dùng trong bản MVP này.`);
+      return;
+    }
+
+    if (selectedVoucherBlocked) {
+      Alert.alert('Ưu đãi chưa hợp lệ', voucherValidationError ?? 'Vui lòng bỏ ưu đãi hoặc chọn mã khác.');
       return;
     }
 
@@ -231,8 +486,8 @@ export default function SelectVehicleScreen() {
       return;
     }
 
-    const activeDraft = draft;
-    const activeEstimate = estimate;
+    const activeDraft = bookingDraft;
+    const activeEstimate = bookingEstimate;
 
     setBookingLoading(true);
     setBookingError(null);
@@ -241,6 +496,7 @@ export default function SelectVehicleScreen() {
       const booking = await createBooking(activeDraft, activeEstimate);
       const estimatedFare = booking.estimatedFare ?? activeEstimate.estimatedFare;
       const estimatedDistance = booking.estimatedDistance ?? activeEstimate.estimatedDistance;
+      const promoCode = activeVoucherValidation?.voucher?.code ?? selectedPromotionCode ?? '';
 
       router.push({
         pathname: '/(customer)/booking/waiting-driver',
@@ -264,7 +520,9 @@ export default function SelectVehicleScreen() {
           pricingConfigId: String(activeEstimate.pricingConfigId),
           paymentMethod: selectedPayment,
           paymentLabel: selectedPaymentOption.label,
-          promoCode: selectedPromotionCode ?? '',
+          promoCode,
+          originalFare: estimate ? String(estimate.estimatedFare) : '',
+          discountAmount: String(discountAmount),
         },
       });
     } catch (error) {
@@ -305,6 +563,21 @@ export default function SelectVehicleScreen() {
           onRetry={() => setRetrySeed((value) => value + 1)}
         />
 
+        {(checkoutLoading || checkoutError) && (
+          <View style={[styles.checkoutStateCard, checkoutError && styles.checkoutStateCardError]}>
+            {checkoutLoading ? (
+              <ActivityIndicator size="small" color={palette.primary} />
+            ) : (
+              <Ionicons name="cloud-offline-outline" size={rs(24)} color={palette.amber} />
+            )}
+            <Text style={[styles.checkoutStateText, checkoutError && styles.checkoutStateTextError]}>
+              {checkoutLoading
+                ? 'Đang đồng bộ phương thức thanh toán và ưu đãi...'
+                : `${checkoutError} GoRide vẫn giữ lựa chọn tiền mặt để bạn tiếp tục đặt xe.`}
+            </Text>
+          </View>
+        )}
+
         {bookingError && (
           <View style={styles.bookingErrorCard}>
             <Ionicons name="warning-outline" size={rs(26)} color={palette.danger} />
@@ -342,7 +615,7 @@ export default function SelectVehicleScreen() {
                 key={option.method}
                 option={option}
                 selected={option.method === selectedPayment}
-                onPress={setSelectedPayment}
+                onPress={() => handlePaymentPress(option)}
               />
             ))}
           </View>
@@ -356,7 +629,10 @@ export default function SelectVehicleScreen() {
                 key={option.code ?? 'none'}
                 option={option}
                 selected={option.code === selectedPromotionCode}
-                onPress={setSelectedPromotionCode}
+                validationResult={option.code === selectedPromotionCode ? voucherValidation : null}
+                validationLoading={option.code === selectedPromotionCode && voucherValidationLoading}
+                validationError={option.code === selectedPromotionCode ? voucherValidationError : null}
+                onPress={() => handlePromotionPress(option)}
               />
             ))}
           </View>
@@ -377,13 +653,25 @@ export default function SelectVehicleScreen() {
               <Text style={styles.paymentLabel}>Thanh toán</Text>
               <Text style={styles.paymentMethod}>{selectedPaymentOption.label}</Text>
               <Text style={styles.promotionSummary} numberOfLines={1}>
-                {selectedPromotion.code ? `Ưu đãi: ${selectedPromotion.code}` : 'Chưa dùng ưu đãi'}
+                {selectedPromotion.code
+                  ? voucherValidationLoading
+                    ? 'Đang kiểm tra ưu đãi...'
+                    : activeVoucherValidation
+                      ? `Ưu đãi: ${activeVoucherValidation.voucher?.code ?? selectedPromotion.code}`
+                      : `Ưu đãi chưa hợp lệ: ${selectedPromotion.code}`
+                  : 'Chưa dùng ưu đãi'}
               </Text>
             </View>
           </View>
           <View style={styles.fareSummary}>
-            <Text style={styles.fareLabel}>Tạm tính</Text>
-            <Text style={styles.fareValue}>{estimate ? formatFare(estimate.estimatedFare) : '-- đ'}</Text>
+            <Text style={styles.fareLabel}>{discountAmount > 0 ? 'Sau ưu đãi' : 'Tạm tính'}</Text>
+            {discountAmount > 0 && estimate ? (
+              <Text style={styles.originalFareValue}>{formatFare(estimate.estimatedFare)}</Text>
+            ) : null}
+            <Text style={styles.fareValue}>{finalFare !== null ? formatFare(finalFare) : '-- đ'}</Text>
+            {discountAmount > 0 ? (
+              <Text style={styles.discountText}>Giảm {formatFare(discountAmount)}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -414,15 +702,21 @@ function PaymentMethodCard({
 }: {
   option: PaymentOption;
   selected: boolean;
-  onPress: (method: PaymentMethod) => void;
+  onPress: () => void;
 }) {
+  const disabled = !isPaymentOptionReady(option);
+
   return (
     <TouchableOpacity
       activeOpacity={0.86}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={() => onPress(option.method)}
-      style={[styles.paymentOptionCard, selected && styles.paymentOptionCardSelected]}
+      accessibilityState={{ selected, disabled }}
+      onPress={onPress}
+      style={[
+        styles.paymentOptionCard,
+        selected && styles.paymentOptionCardSelected,
+        disabled && styles.paymentOptionCardDisabled,
+      ]}
     >
       <View style={[styles.paymentOptionIcon, { backgroundColor: option.softTone }]}>
         <MaterialCommunityIcons name={option.icon} size={rs(30)} color={option.tone} />
@@ -431,6 +725,13 @@ function PaymentMethodCard({
         <Text style={styles.paymentOptionTitle}>{option.label}</Text>
         <Text style={styles.paymentOptionHelper}>{option.helper}</Text>
       </View>
+      {option.badge || disabled ? (
+        <View style={[styles.methodBadge, disabled && styles.methodBadgeMuted]}>
+          <Text style={[styles.methodBadgeText, disabled && styles.methodBadgeTextMuted]}>
+            {option.badge ?? getPaymentStatusLabel(option.status)}
+          </Text>
+        </View>
+      ) : null}
       {selected && <Ionicons name="checkmark-circle" size={rs(26)} color={palette.primary} />}
     </TouchableOpacity>
   );
@@ -439,22 +740,44 @@ function PaymentMethodCard({
 function PromotionCard({
   option,
   selected,
+  validationResult,
+  validationLoading,
+  validationError,
   onPress,
 }: {
   option: PromotionOption;
   selected: boolean;
-  onPress: (code: string | null) => void;
+  validationResult?: VoucherValidationResult | null;
+  validationLoading?: boolean;
+  validationError?: string | null;
+  onPress: () => void;
 }) {
+  const unavailable = option.status !== 'AVAILABLE';
+  const validSelected = Boolean(selected && validationResult?.isValid);
+  const noneSelected = selected && !option.code;
+
   return (
     <TouchableOpacity
       activeOpacity={0.86}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={() => onPress(option.code)}
-      style={[styles.promoCard, selected && styles.promoCardSelected]}
+      accessibilityState={{ selected, disabled: unavailable }}
+      onPress={onPress}
+      style={[
+        styles.promoCard,
+        selected && styles.promoCardSelected,
+        unavailable && styles.promoCardDisabled,
+      ]}
     >
-      <View style={[styles.promoIcon, selected && styles.promoIconSelected]}>
-        <MaterialCommunityIcons name="ticket-percent-outline" size={rs(28)} color={selected ? '#fff' : palette.primary} />
+      <View style={[styles.promoIcon, selected && styles.promoIconSelected, validSelected && styles.promoIconValid]}>
+        {validationLoading ? (
+          <ActivityIndicator size="small" color={selected ? '#fff' : palette.primary} />
+        ) : (
+          <MaterialCommunityIcons
+            name="ticket-percent-outline"
+            size={rs(28)}
+            color={selected ? '#fff' : palette.primary}
+          />
+        )}
       </View>
       <View style={styles.promoCopy}>
         <View style={styles.promoTitleRow}>
@@ -466,10 +789,124 @@ function PromotionCard({
           )}
         </View>
         <Text style={styles.promoDescription}>{option.description}</Text>
+        {selected && (validationError || validationResult?.message) ? (
+          <Text style={[styles.promoValidationText, validSelected && styles.promoValidationTextSuccess]}>
+            {validationResult?.isValid
+              ? `${validationResult.message ?? 'Đã áp dụng ưu đãi.'} Giảm ${formatFare(validationResult.discountAmount)}`
+              : validationError ?? validationResult?.message}
+          </Text>
+        ) : null}
       </View>
-      {selected && <Ionicons name="checkmark-circle" size={rs(28)} color={palette.primary} />}
+      {(validSelected || noneSelected) && (
+        <Ionicons name="checkmark-circle" size={rs(28)} color={validSelected ? palette.green : palette.primary} />
+      )}
+      {selected && option.code && !validSelected && !validationLoading ? (
+        <Ionicons name="alert-circle" size={rs(28)} color={palette.amber} />
+      ) : null}
     </TouchableOpacity>
   );
+}
+
+function toPaymentOption(method: PassengerPaymentMethod): PaymentOption {
+  const theme = paymentThemeByMethod[method.method];
+
+  return {
+    id: method.id,
+    method: method.method,
+    label: method.title,
+    helper: method.detail,
+    icon: theme.icon,
+    tone: theme.tone,
+    softTone: theme.softTone,
+    status: method.status,
+    isDefault: method.isDefault,
+    linked: method.linked,
+    badge: method.badge ?? (method.isDefault ? 'Mặc định' : undefined),
+  };
+}
+
+function isPaymentOptionReady(option?: PaymentOption) {
+  return Boolean(option && option.status === 'ACTIVE' && option.linked);
+}
+
+function getPaymentStatusLabel(status: PaymentMethodStatus) {
+  if (status === 'COMING_SOON') {
+    return 'Sắp có';
+  }
+
+  if (status === 'DISABLED') {
+    return 'Tạm khóa';
+  }
+
+  return 'Sẵn sàng';
+}
+
+function getVoucherDescription(voucher: PassengerVoucher) {
+  const meta = [
+    voucher.minFare ? `Tối thiểu ${formatFare(voucher.minFare)}` : undefined,
+    voucher.maxDiscount ? `Tối đa ${formatFare(voucher.maxDiscount)}` : undefined,
+    voucher.eligiblePaymentMethods?.length
+      ? `Áp dụng: ${voucher.eligiblePaymentMethods.map(getPaymentMethodLabel).join(', ')}`
+      : undefined,
+  ].filter(Boolean);
+
+  return meta.length ? `${voucher.description} ${meta.join(' • ')}` : voucher.description;
+}
+
+function getVoucherBadge(voucher: PassengerVoucher) {
+  if (voucher.status !== 'AVAILABLE') {
+    return getVoucherStatusLabel(voucher.status);
+  }
+
+  if (voucher.discountType === 'FIXED') {
+    return `-${formatFare(voucher.discountValue)}`;
+  }
+
+  return `-${voucher.discountValue}%`;
+}
+
+function getVoucherStatusLabel(status: VoucherStatus) {
+  if (status === 'COMING_SOON') {
+    return 'Sắp có';
+  }
+
+  if (status === 'EXPIRED') {
+    return 'Hết hạn';
+  }
+
+  if (status === 'USED') {
+    return 'Đã dùng';
+  }
+
+  return 'Dùng được';
+}
+
+function getUnavailableVoucherMessage(status: VoucherStatus) {
+  if (status === 'COMING_SOON') {
+    return 'Ưu đãi này sẽ được bật khi backend thanh toán/voucher sẵn sàng.';
+  }
+
+  if (status === 'EXPIRED') {
+    return 'Ưu đãi này đã hết hạn, vui lòng chọn mã khác.';
+  }
+
+  if (status === 'USED') {
+    return 'Ưu đãi này đã được sử dụng.';
+  }
+
+  return 'Ưu đãi này chưa thể áp dụng.';
+}
+
+function getPaymentMethodLabel(method: PaymentMethod) {
+  if (method === 'MOMO') {
+    return 'MoMo';
+  }
+
+  if (method === 'VNPAY') {
+    return 'VNPay';
+  }
+
+  return 'Tiền mặt';
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -658,6 +1095,9 @@ const styles = StyleSheet.create({
     borderColor: palette.primary,
     backgroundColor: '#faf8ff',
   },
+  paymentOptionCardDisabled: {
+    opacity: 0.62,
+  },
   paymentOptionIcon: {
     width: rs(52),
     height: rs(52),
@@ -679,6 +1119,25 @@ const styles = StyleSheet.create({
     fontSize: rf(16),
     fontWeight: '700',
   },
+  methodBadge: {
+    paddingHorizontal: rs(10),
+    height: rvs(28),
+    borderRadius: rs(14),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primarySoft,
+  },
+  methodBadgeMuted: {
+    backgroundColor: palette.amberSoft,
+  },
+  methodBadgeText: {
+    color: palette.primary,
+    fontSize: rf(13),
+    fontWeight: '900',
+  },
+  methodBadgeTextMuted: {
+    color: palette.amber,
+  },
   promoList: {
     gap: rvs(12),
   },
@@ -698,6 +1157,9 @@ const styles = StyleSheet.create({
     borderColor: palette.primary,
     backgroundColor: palette.primarySoft,
   },
+  promoCardDisabled: {
+    opacity: 0.62,
+  },
   promoIcon: {
     width: rs(52),
     height: rs(52),
@@ -708,6 +1170,9 @@ const styles = StyleSheet.create({
   },
   promoIconSelected: {
     backgroundColor: palette.primary,
+  },
+  promoIconValid: {
+    backgroundColor: palette.green,
   },
   promoCopy: {
     flex: 1,
@@ -740,6 +1205,39 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: rf(16),
     fontWeight: '700',
+  },
+  promoValidationText: {
+    color: palette.amber,
+    fontSize: rf(15),
+    lineHeight: rf(21),
+    fontWeight: '800',
+  },
+  promoValidationTextSuccess: {
+    color: palette.green,
+  },
+  checkoutStateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    padding: rs(16),
+    borderRadius: rs(22),
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: '#e6ddff',
+  },
+  checkoutStateCardError: {
+    backgroundColor: palette.amberSoft,
+    borderColor: '#fde7a1',
+  },
+  checkoutStateText: {
+    flex: 1,
+    color: palette.primary,
+    fontSize: rf(16),
+    lineHeight: rf(22),
+    fontWeight: '800',
+  },
+  checkoutStateTextError: {
+    color: '#9a5b00',
   },
   bookingErrorCard: {
     flexDirection: 'row',
@@ -815,6 +1313,19 @@ const styles = StyleSheet.create({
   fareValue: {
     color: palette.primary,
     fontSize: rf(26),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  originalFareValue: {
+    color: palette.muted,
+    fontSize: rf(17),
+    fontWeight: '800',
+    textDecorationLine: 'line-through',
+    fontVariant: ['tabular-nums'],
+  },
+  discountText: {
+    color: palette.green,
+    fontSize: rf(15),
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
