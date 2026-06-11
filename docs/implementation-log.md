@@ -2306,3 +2306,40 @@
   - Remote endpoint paths `/payment-methods`, `/vouchers`, and `/vouchers/validate` are front-end adapter assumptions until backend contracts exist.
   - Mock voucher data is session-local and not persisted across app reloads.
   - Billing and booking screens still use static arrays until follow-up commits wire them to this API layer.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 2
+
+- Branch: `codex/payment-vouchers`
+- Commit: `bcd3f6a` - Wire billing to payment voucher data
+- Scope: Replaced Billing screen static payment/voucher arrays with API/mock-backed data.
+- Files changed:
+  - `app/(customer)/billing.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Billing screen now loads payment methods via `listPaymentMethods()` and vouchers via `listVouchers({ includeUnavailable: true })`.
+  - Added loading, silent refresh, error/retry, empty state, and action loading UI.
+  - Payment methods now display default/active/coming-soon state from API data.
+  - Pressing an active non-default payment method calls `setDefaultPaymentMethod()`.
+  - Add payment CTA calls `addPaymentMethod({ method: 'CASH' })` and explains MoMo/VNPay are coming soon.
+  - Voucher cards now render API/mock voucher status, code, description, min fare, max discount, and expiry.
+  - Available voucher CTA explains booking promo selection will be connected in the next commit.
+  - Switched Billing safe area wrapper to `react-native-safe-area-context` to match Expo UI guidance.
+  - Rewrote Billing copy with valid UTF-8 Vietnamese strings while preserving the existing visual direction.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for `app/(customer)/billing.tsx`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Stage 13 Commit 2 and cleared the branch to continue with Commit 3.
+- Known risks:
+  - Remote payment/voucher endpoint assumptions remain unverified until backend contracts exist.
+  - Billing can set default payment method, but removal UI is not exposed yet to keep this commit scoped.
+  - Booking promo selection still uses static options until Stage 13 Commit 3.
