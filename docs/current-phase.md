@@ -7,20 +7,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Productize payment and vouchers
 - Phase: Stage 13 - Productize payment and vouchers
 - Branch: `codex/payment-vouchers`
-- Current commit scope: Commit 3 - connect booking promo selector to voucher inventory and validation
+- Current commit scope: Commit 4 - add remove payment method UI in Billing
 - Status: Waiting for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `d9e94fb` - Connect booking vouchers to checkout
-- Implementation log entry: `2026-06-11 - Stage 13 Payment And Vouchers - Commit 3`
+- Commit: `15a9732` - Add billing payment removal UI
+- Implementation log entry: `2026-06-11 - Stage 13 Payment And Vouchers - Commit 4`
 - Review status: CodeRabbit CLI unavailable; lint/typecheck/diff validation passed.
 
 ## Next Checkpoint
 
-- Wait for user review of Commit 3.
-- Commit 4: add remove payment method UI in Billing or close Stage 13 after review.
-- Wait for user review after each Stage 13 commit.
+- Wait for user review of Commit 4.
+- If approved, close Stage 13 and merge/push when requested.
 
 ## Product Readiness Targets
 

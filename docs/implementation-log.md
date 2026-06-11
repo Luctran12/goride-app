@@ -2383,3 +2383,37 @@
   - Backend `POST /bookings` may not accept `voucherCode`, `discountAmount`, or `finalFare` yet; this is documented for Stage 15 smoke testing.
   - Discounted fare is front-end adapter/mock driven until backend payment/voucher contracts are finalized.
   - Billing still has no remove-payment-method UI; add/set-default behavior exists and remove can be exposed in the next small commit if desired.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 4
+
+- Branch: `codex/payment-vouchers`
+- Commit: `15a9732` - Add billing payment removal UI
+- Scope: Added remove-payment-method interaction to the Passenger Billing screen.
+- Files changed:
+  - `app/(customer)/billing.tsx`
+- Behavior implemented:
+  - Imported and wired `removePaymentMethod()` from the payment API adapter.
+  - Added guarded removal flow with confirmation dialog and destructive `Xóa` action.
+  - Prevented cash removal because cash remains the mandatory GoRide fallback payment method.
+  - Reused the existing per-method action loading state while deletion is in progress.
+  - Refreshes Billing data after successful removal and shows success/error alerts.
+  - Added a visible `Xóa` action on non-cash payment method cards without triggering the card's set-default press handler.
+  - Updated the Billing voucher alert copy to say available vouchers can now be selected from the booking checkout screen.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for touched files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 13 Commit 4.
+- Known risks:
+  - Mock mode can remove coming-soon non-cash entries because the adapter treats them as removable inventory items; cash remains protected.
+  - Backend `/payment-methods/{id}` DELETE remains an assumed contract until backend payment-method endpoints are finalized.
+  - Stage 13 should be ready to close after user review unless additional payment/voucher polish is requested.
