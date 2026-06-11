@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosRequestConfig, type RawAxiosRequestHeaders } from 'axios';
 
 import { API_BASE_URL } from '@/lib/config';
+import { reportError } from '@/lib/error-reporting';
 
 export type ApiRequestOptions = Omit<AxiosRequestConfig, 'data' | 'url'> & {
   body?: unknown;
@@ -96,12 +97,16 @@ export async function apiRequest<TResponse>(path: string, options: ApiRequestOpt
 
           return retryResponse.data;
         } catch (retryError) {
-          throw normalizeApiError(retryError);
+          const normalizedRetryError = normalizeApiError(retryError);
+          reportApiError(normalizedRetryError, path, requestConfig.method);
+          throw normalizedRetryError;
         }
       }
     }
 
-    throw normalizeApiError(error);
+    const normalizedError = normalizeApiError(error);
+    reportApiError(normalizedError, path, requestConfig.method);
+    throw normalizedError;
   }
 }
 
@@ -206,4 +211,33 @@ function getStringValue(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function reportApiError(error: Error, path: string, method: AxiosRequestConfig['method']) {
+  if (!shouldReportApiError(error)) {
+    return;
+  }
+
+  void reportError({
+    error,
+    metadata: {
+      code: error instanceof ApiError ? error.code : undefined,
+      method: method?.toUpperCase() ?? 'GET',
+      path,
+      status: error instanceof ApiError ? error.status : undefined,
+    },
+    source: 'api-request',
+  });
+}
+
+function shouldReportApiError(error: Error) {
+  if (!(error instanceof ApiError)) {
+    return true;
+  }
+
+  if (error.code === 'MOCK_API') {
+    return false;
+  }
+
+  return error.status === 0 || Boolean(error.status && error.status >= 500);
 }

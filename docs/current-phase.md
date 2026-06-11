@@ -4,11 +4,11 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Product readiness audit
-- Phase: Post-merge front-end product completion review
-- Branch: `main`
-- Current commit scope: Product readiness audit complete
-- Status: Ready for user review
+- Feature: Remote logging/error reporting
+- Phase: Stage 11.5 - Product hardening before Stage 12
+- Branch: `codex/remote-error-reporting`
+- Current commit scope: Add non-blocking remote error reporting and root app error boundary
+- Status: Implementation in progress
 
 ## Last Completed Checkpoint
 
@@ -18,12 +18,13 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Next Checkpoint
 
-- Wait for user review of the product readiness audit in `docs/frontend-implementation.md`.
-- If approved, push `main` to GitHub.
-- Start the next product stage from `main`, recommended: Stage 12 - finish passenger profile edit UI.
+- Finish Stage 11.5 remote logging/error reporting.
+- Run lint, TypeScript, and diff checks.
+- Commit implementation and wait for user review before starting Stage 12.
 
 ## Product Readiness Targets
 
-- Confirm current passenger and driver MVP coverage after merging reviewed branches.
-- Identify screens/features that still block a product-quality release.
-- Define practical next stages to finish the app as a product.
+- Add remote reporting for unhandled app errors and selected API failures.
+- Keep reporting disabled/no-op when no reporting endpoint is configured.
+- Avoid blocking passenger/driver flows if reporting fails.
+- Preserve user local backend URL changes in `lib/config.ts`.
