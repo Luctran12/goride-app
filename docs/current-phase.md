@@ -6,21 +6,21 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 - Feature: Passenger profile edit UI
 - Phase: Stage 12 - Finish passenger profile edit
-- Branch: `main` ready to branch
-- Current commit scope: Prepare Stage 12 branch from reviewed `main`
-- Status: Stage 11.5 merged; ready to start Stage 12 implementation
+- Branch: `codex/passenger-profile-edit-ui`
+- Current commit scope: Stage 12 closeout check
+- Status: Stage 12 approved and ready to merge back to `main`
 
 ## Last Completed Checkpoint
 
-- Commit: `07c37f0` - Merge remote reporting hardening
-- Implementation log entry: `2026-06-11 - Stage 11.5 Remote Logging/Error Reporting Merge`
-- Review status: User approved Stage 11.5; merge validation passed.
+- Commit: `bb09a0d` - Refresh profile screen on focus
+- Implementation log entry: `2026-06-11 - Stage 12 Passenger Profile Edit UI - Closeout Check`
+- Review status: User approved Commit 2; Stage 12 closeout validation passed.
 
 ## Next Checkpoint
 
-- Create Stage 12 feature branch from `main`.
-- Implement passenger profile edit form in small reviewable commits.
-- Wait for user review after each Stage 12 commit.
+- Merge `codex/passenger-profile-edit-ui` back to `main`.
+- Run post-merge validation on `main`.
+- Start the next product stage from `main` after merge review.
 
 ## Product Readiness Targets
 

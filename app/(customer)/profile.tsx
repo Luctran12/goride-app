@@ -1,6 +1,7 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { logout as logoutAuth } from '@/lib/auth-api';
 import { getMyProfile, type UserProfile } from '@/lib/user-api';
+import { useFocusEffect } from '@react-navigation/native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Href, useRouter } from 'expo-router';
 import React from 'react';
@@ -49,13 +50,20 @@ const menuItems: MenuItemProps[] = [
 export default function ProfileScreen() {
   const router = useRouter();
   const mountedRef = React.useRef(false);
+  const hasLoadedProfileRef = React.useRef(false);
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = React.useState(true);
+  const [profileRefreshing, setProfileRefreshing] = React.useState(false);
   const [profileError, setProfileError] = React.useState<string | null>(null);
   const [loggingOut, setLoggingOut] = React.useState(false);
 
-  const loadProfile = React.useCallback(async () => {
-    setProfileLoading(true);
+  const loadProfile = React.useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (silent) {
+      setProfileRefreshing(true);
+    } else {
+      setProfileLoading(true);
+    }
+
     setProfileError(null);
 
     try {
@@ -70,19 +78,32 @@ export default function ProfileScreen() {
       }
     } finally {
       if (mountedRef.current) {
-        setProfileLoading(false);
+        if (!silent) {
+          setProfileLoading(false);
+        }
+
+        setProfileRefreshing(false);
       }
     }
   }, []);
 
   React.useEffect(() => {
     mountedRef.current = true;
-    void loadProfile();
 
     return () => {
       mountedRef.current = false;
     };
-  }, [loadProfile]);
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const silent = hasLoadedProfileRef.current;
+      hasLoadedProfileRef.current = true;
+      void loadProfile({ silent });
+
+      return undefined;
+    }, [loadProfile]),
+  );
 
   async function handleLogout() {
     if (loggingOut) {
@@ -133,7 +154,7 @@ export default function ProfileScreen() {
               {displayEmail}
             </Text>
             {profileError ? (
-              <TouchableOpacity activeOpacity={0.82} style={styles.profileRetry} onPress={loadProfile}>
+              <TouchableOpacity activeOpacity={0.82} style={styles.profileRetry} onPress={() => void loadProfile()}>
                 <Feather name="alert-circle" size={rs(22)} color={palette.danger} />
                 <Text style={styles.profileRetryText} numberOfLines={1}>
                   Không tải được hồ sơ. Thử lại
@@ -142,6 +163,15 @@ export default function ProfileScreen() {
             ) : null}
           </View>
         </View>
+
+        {profileRefreshing ? (
+          <View style={styles.syncPill}>
+            <ActivityIndicator color={palette.primary} size="small" />
+            <Text style={styles.syncText} selectable>
+              Đang đồng bộ hồ sơ mới nhất...
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.menuCard}>
           {menuItems.map((item, index) => {
@@ -323,6 +353,24 @@ const styles = StyleSheet.create({
     fontSize: rf(18),
     lineHeight: rf(24),
     fontWeight: '700',
+  },
+  syncPill: {
+    alignSelf: 'center',
+    minHeight: rvs(42),
+    borderRadius: rs(22),
+    backgroundColor: palette.primarySoft,
+    paddingHorizontal: rs(18),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(9),
+    marginTop: rvs(-25),
+    marginBottom: rvs(27),
+  },
+  syncText: {
+    color: palette.primary,
+    fontSize: rf(18),
+    lineHeight: rf(24),
+    fontWeight: '800',
   },
   menuCard: {
     marginHorizontal: rs(36),

@@ -1,16 +1,17 @@
 import { rf, rs, rvs } from '@/constants/responsive';
-import { getMyProfile, type UserProfile } from '@/lib/user-api';
+import { getMyProfile, updateMyProfile, type UserProfile, type UserProfileUpdateDraft } from '@/lib/user-api';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
+  type TextInputProps,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -30,6 +31,8 @@ const palette = {
   line: '#ebeaf0',
   danger: '#c91c1c',
   dangerSoft: '#fff0f0',
+  success: '#187a3f',
+  successSoft: '#eaf8ef',
 };
 
 const cardShadow = {
@@ -47,6 +50,12 @@ export default function PersonalScreen() {
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [editing, setEditing] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [formValues, setFormValues] = React.useState<ProfileFormValues>(createProfileFormValues(null));
+  const [fieldErrors, setFieldErrors] = React.useState<ProfileFieldErrors>({});
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   const loadProfile = React.useCallback(async () => {
     setLoading(true);
@@ -57,6 +66,9 @@ export default function PersonalScreen() {
 
       if (mountedRef.current) {
         setProfile(nextProfile);
+        if (!editing) {
+          setFormValues(createProfileFormValues(nextProfile));
+        }
       }
     } catch (profileError) {
       if (mountedRef.current) {
@@ -67,7 +79,7 @@ export default function PersonalScreen() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [editing]);
 
   React.useEffect(() => {
     mountedRef.current = true;
@@ -91,7 +103,70 @@ export default function PersonalScreen() {
   }
 
   function handleEditProfile() {
-    Alert.alert('Chỉnh sửa thông tin', 'Màn cập nhật hồ sơ sẽ dùng PUT /api/users/me ở bước tiếp theo.');
+    if (loading || saving) {
+      return;
+    }
+
+    setFormValues(createProfileFormValues(profile));
+    setFieldErrors({});
+    setSaveError(null);
+    setSuccessMessage(null);
+    setEditing(true);
+  }
+
+  function handleCancelEdit() {
+    if (saving) {
+      return;
+    }
+
+    setFormValues(createProfileFormValues(profile));
+    setFieldErrors({});
+    setSaveError(null);
+    setEditing(false);
+  }
+
+  function updateFormValue(field: keyof ProfileFormValues, value: string) {
+    setFormValues((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+    setSaveError(null);
+    setSuccessMessage(null);
+  }
+
+  async function handleSaveProfile() {
+    if (saving) {
+      return;
+    }
+
+    const validation = validateProfileForm(formValues);
+    setFieldErrors(validation);
+
+    if (Object.values(validation).some(Boolean)) {
+      setSaveError('Vui lòng kiểm tra lại các thông tin được đánh dấu.');
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    setSuccessMessage(null);
+
+    try {
+      const updatedProfile = await updateMyProfile(createUpdateDraft(formValues));
+
+      if (mountedRef.current) {
+        setProfile(updatedProfile);
+        setFormValues(createProfileFormValues(updatedProfile));
+        setEditing(false);
+        setSuccessMessage('Hồ sơ đã được cập nhật thành công.');
+      }
+    } catch (profileError) {
+      if (mountedRef.current) {
+        setSaveError(getErrorMessage(profileError));
+      }
+    } finally {
+      if (mountedRef.current) {
+        setSaving(false);
+      }
+    }
   }
 
   return (
@@ -163,26 +238,170 @@ export default function PersonalScreen() {
           </TouchableOpacity>
         ) : null}
 
-        <View style={styles.detailCard}>
-          <Text style={styles.detailHeading}>Thông tin chi tiết</Text>
-
-          <View style={styles.detailList}>
-            <DetailItem icon="phone" label="Số điện thoại" value={profile?.phone || 'Chưa cập nhật'} />
-            <DetailItem icon="mail" label="Email" value={profile?.email || 'Chưa cập nhật'} />
-            <DetailItem icon="calendar" label="Ngày sinh" value={formatDate(profile?.dateOfBirth)} />
-            <DetailItem icon="user" label="Giới tính" value={formatGender(profile?.gender)} />
+        {successMessage && !editing ? (
+          <View style={styles.successBanner}>
+            <Feather name="check-circle" size={rs(30)} color={palette.success} />
+            <Text style={styles.successText} selectable>
+              {successMessage}
+            </Text>
           </View>
-        </View>
+        ) : null}
+
+        {editing ? (
+          <View style={styles.detailCard}>
+            <Text style={styles.detailHeading}>Chỉnh sửa hồ sơ</Text>
+            <Text style={styles.editHelper} selectable>
+              Cập nhật thông tin hiển thị trong app. Các thay đổi sẽ được lưu qua PUT /api/users/me.
+            </Text>
+
+            <View style={styles.formList}>
+              <ProfileInput
+                error={fieldErrors.fullName}
+                icon="user"
+                label="Họ và tên"
+                onChangeText={(value) => updateFormValue('fullName', value)}
+                placeholder="Nhập họ và tên"
+                value={formValues.fullName}
+              />
+              <ProfileInput
+                error={fieldErrors.phone}
+                icon="phone"
+                keyboardType="phone-pad"
+                label="Số điện thoại"
+                onChangeText={(value) => updateFormValue('phone', value)}
+                placeholder="Nhập số điện thoại"
+                value={formValues.phone}
+              />
+              <ProfileInput
+                autoCapitalize="none"
+                error={fieldErrors.email}
+                icon="mail"
+                keyboardType="email-address"
+                label="Email"
+                onChangeText={(value) => updateFormValue('email', value)}
+                placeholder="Nhập email"
+                value={formValues.email}
+              />
+              <ProfileInput
+                autoCapitalize="none"
+                error={fieldErrors.avatarUrl}
+                icon="image"
+                keyboardType="url"
+                label="Ảnh đại diện URL"
+                onChangeText={(value) => updateFormValue('avatarUrl', value)}
+                placeholder="https://..."
+                value={formValues.avatarUrl}
+              />
+            </View>
+
+            {saveError ? (
+              <View style={styles.saveErrorBox}>
+                <Feather name="alert-circle" size={rs(26)} color={palette.danger} />
+                <Text style={styles.saveErrorText} selectable>
+                  {saveError}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.detailCard}>
+            <Text style={styles.detailHeading}>Thông tin chi tiết</Text>
+
+            <View style={styles.detailList}>
+              <DetailItem icon="phone" label="Số điện thoại" value={profile?.phone || 'Chưa cập nhật'} />
+              <DetailItem icon="mail" label="Email" value={profile?.email || 'Chưa cập nhật'} />
+              <DetailItem icon="calendar" label="Ngày sinh" value={formatDate(profile?.dateOfBirth)} />
+              <DetailItem icon="user" label="Giới tính" value={formatGender(profile?.gender)} />
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, rvs(18)) }]}>
-        <TouchableOpacity activeOpacity={0.88} style={styles.editButton} onPress={handleEditProfile}>
-          <Feather name="edit-2" size={rs(34)} color="#ffffff" />
-          <Text style={styles.editButtonText}>Chỉnh sửa thông tin</Text>
-        </TouchableOpacity>
+        {editing ? (
+          <View style={styles.editActions}>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              disabled={saving}
+              onPress={handleCancelEdit}
+              style={[styles.secondaryButton, saving && styles.disabledButton]}
+            >
+              <Text style={styles.secondaryButtonText}>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              disabled={saving}
+              onPress={handleSaveProfile}
+              style={[styles.saveButton, saving && styles.disabledButton]}
+            >
+              {saving ? <ActivityIndicator color="#ffffff" size="small" /> : <Feather name="check" size={rs(34)} color="#ffffff" />}
+              <Text style={styles.editButtonText}>{saving ? 'Đang lưu' : 'Lưu'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity activeOpacity={0.88} style={styles.editButton} onPress={handleEditProfile}>
+            <Feather name="edit-2" size={rs(34)} color="#ffffff" />
+            <Text style={styles.editButtonText}>Chỉnh sửa thông tin</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
+}
+
+type ProfileFormValues = {
+  avatarUrl: string;
+  email: string;
+  fullName: string;
+  phone: string;
+};
+
+type ProfileFieldErrors = Partial<Record<keyof ProfileFormValues, string>>;
+
+function createProfileFormValues(profile: UserProfile | null): ProfileFormValues {
+  return {
+    avatarUrl: profile?.avatarUrl ?? '',
+    email: profile?.email ?? '',
+    fullName: profile?.fullName ?? '',
+    phone: profile?.phone ?? '',
+  };
+}
+
+function createUpdateDraft(values: ProfileFormValues): UserProfileUpdateDraft {
+  return {
+    avatarUrl: values.avatarUrl,
+    email: values.email,
+    fullName: values.fullName,
+    phone: values.phone,
+  };
+}
+
+function validateProfileForm(values: ProfileFormValues): ProfileFieldErrors {
+  const errors: ProfileFieldErrors = {};
+  const fullName = values.fullName.trim();
+  const phone = values.phone.trim();
+  const email = values.email.trim();
+  const avatarUrl = values.avatarUrl.trim();
+
+  if (!fullName) {
+    errors.fullName = 'Vui lòng nhập họ và tên.';
+  } else if (fullName.length < 2) {
+    errors.fullName = 'Họ và tên cần có ít nhất 2 ký tự.';
+  }
+
+  if (phone && !/^[+\d][\d\s().-]{7,19}$/.test(phone)) {
+    errors.phone = 'Số điện thoại chưa đúng định dạng.';
+  }
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.email = 'Email chưa đúng định dạng.';
+  }
+
+  if (avatarUrl && !/^https?:\/\/\S+$/i.test(avatarUrl)) {
+    errors.avatarUrl = 'URL ảnh cần bắt đầu bằng http:// hoặc https://.';
+  }
+
+  return errors;
 }
 
 function StatCard({
@@ -201,6 +420,52 @@ function StatCard({
         {hasStar ? <Feather name="star" size={rs(21)} color={palette.text} /> : null}
       </View>
       <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ProfileInput({
+  autoCapitalize,
+  error,
+  icon,
+  keyboardType,
+  label,
+  onChangeText,
+  placeholder,
+  value,
+}: {
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  error?: string;
+  icon: keyof typeof Feather.glyphMap;
+  keyboardType?: TextInputProps['keyboardType'];
+  label: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.inputGroup}>
+      <View style={styles.inputLabelRow}>
+        <View style={styles.inputIcon}>
+          <Feather name={icon} size={rs(25)} color={palette.primary} />
+        </View>
+        <Text style={styles.inputLabel}>{label}</Text>
+      </View>
+      <TextInput
+        autoCapitalize={autoCapitalize}
+        autoCorrect={false}
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#9b96a5"
+        style={[styles.textInput, error && styles.textInputError]}
+        value={value}
+      />
+      {error ? (
+        <Text style={styles.fieldErrorText} selectable>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -499,6 +764,23 @@ const styles = StyleSheet.create({
     lineHeight: rf(24),
     fontWeight: '900',
   },
+  successBanner: {
+    marginHorizontal: rs(34),
+    marginBottom: rvs(29),
+    borderRadius: rs(22),
+    backgroundColor: palette.successSoft,
+    padding: rs(18),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+  },
+  successText: {
+    flex: 1,
+    color: palette.success,
+    fontSize: rf(18),
+    lineHeight: rf(25),
+    fontWeight: '800',
+  },
   detailCard: {
     marginHorizontal: rs(34),
     borderRadius: rs(55),
@@ -517,6 +799,77 @@ const styles = StyleSheet.create({
   },
   detailList: {
     gap: rvs(39),
+  },
+  editHelper: {
+    color: palette.muted,
+    fontSize: rf(21),
+    lineHeight: rf(30),
+    fontWeight: '600',
+    marginBottom: rvs(31),
+  },
+  formList: {
+    gap: rvs(25),
+  },
+  inputGroup: {
+    gap: rvs(10),
+  },
+  inputLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+  },
+  inputIcon: {
+    width: rs(43),
+    height: rs(43),
+    borderRadius: rs(22),
+    backgroundColor: palette.iconCircle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputLabel: {
+    color: palette.secondaryText,
+    fontSize: rf(21),
+    lineHeight: rf(28),
+    fontWeight: '800',
+  },
+  textInput: {
+    minHeight: rvs(70),
+    borderRadius: rs(20),
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: '#fbfbfd',
+    color: palette.text,
+    fontSize: rf(23),
+    lineHeight: rf(30),
+    fontWeight: '700',
+    paddingHorizontal: rs(20),
+    paddingVertical: rvs(14),
+  },
+  textInputError: {
+    borderColor: palette.danger,
+    backgroundColor: palette.dangerSoft,
+  },
+  fieldErrorText: {
+    color: palette.danger,
+    fontSize: rf(16),
+    lineHeight: rf(22),
+    fontWeight: '700',
+  },
+  saveErrorBox: {
+    marginTop: rvs(26),
+    borderRadius: rs(20),
+    backgroundColor: palette.dangerSoft,
+    padding: rs(16),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+  },
+  saveErrorText: {
+    flex: 1,
+    color: palette.danger,
+    fontSize: rf(17),
+    lineHeight: rf(24),
+    fontWeight: '800',
   },
   detailItem: {
     minHeight: rvs(74),
@@ -572,6 +925,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 20,
     elevation: 8,
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: rs(18),
+  },
+  secondaryButton: {
+    minHeight: rvs(99),
+    flex: 0.42,
+    borderRadius: rs(50),
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    color: palette.text,
+    fontSize: rf(28),
+    lineHeight: rf(36),
+    fontWeight: '900',
+  },
+  saveButton: {
+    minHeight: rvs(99),
+    flex: 0.58,
+    borderRadius: rs(50),
+    backgroundColor: palette.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rs(14),
+    shadowColor: '#16045f',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  disabledButton: {
+    opacity: 0.62,
   },
   editButtonText: {
     color: '#ffffff',

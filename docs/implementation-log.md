@@ -2139,3 +2139,104 @@
 - Known risks:
   - `main` is still ahead of `origin/main`; push should happen when the user wants GitHub updated.
   - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.
+
+## 2026-06-11 - Stage 12 Passenger Profile Edit UI - Commit 1
+
+- Branch: `codex/passenger-profile-edit-ui`
+- Commit: `c7e2bef` - Add passenger profile edit form
+- Scope: Replaced the Personal screen placeholder edit alert with a real editable profile form.
+- Files changed:
+  - `app/(customer)/personal.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added edit mode for `app/(customer)/personal.tsx`.
+  - Added editable fields for full name, phone, email, and avatar URL.
+  - Added cancel action that restores the latest loaded profile values.
+  - Added save action that calls `updateMyProfile()` and updates the Personal screen state after a successful response.
+  - Added save loading state, duplicate-submit guard, inline field validation, save error state, and success banner.
+  - Avatar pencil button now enters edit mode instead of showing the previous placeholder alert.
+  - Existing profile detail, stats, retry, and footer layout remain preserved outside edit mode.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for `docs/current-phase.md`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell does not have `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 12 Commit 1.
+- Known risks:
+  - Profile screen refresh after returning from Personal is intentionally left for Stage 12 Commit 2 so this commit stays focused.
+  - The backend update contract still assumes `PUT /api/users/me`; if the server expects `PATCH` or a different DTO, `lib/user-api.ts` may need an adapter update.
+  - Avatar is edited by URL only; image picker/upload is not implemented in this commit.
+
+## 2026-06-11 - Stage 12 Passenger Profile Edit UI - Commit 2
+
+- Branch: `codex/passenger-profile-edit-ui`
+- Commit: `bb09a0d` - Refresh profile screen on focus
+- Scope: Refreshed the customer Profile screen when it regains focus after returning from Personal.
+- Files changed:
+  - `app/(customer)/profile.tsx`
+- Behavior implemented:
+  - Added `useFocusEffect()` to reload `getMyProfile()` whenever the Profile screen is focused.
+  - Kept the first load as the existing full loading state.
+  - Added silent refresh for later focus events so returning from Personal updates the profile card without blanking the screen.
+  - Added a small `Đang đồng bộ hồ sơ mới nhất...` sync pill during silent refresh.
+  - Updated the retry CTA to call the new load helper safely after the load function gained options.
+  - Preserved existing profile card, menu, logout, and bottom navigation behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for `app/(customer)/profile.tsx`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but execution was blocked due unacceptable risk from downloading and running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 12 Commit 2.
+- Known risks:
+  - Focus refresh depends on navigation focus events; manual runtime check on device should confirm the Profile screen stays mounted in the expected tab/navigation flow.
+  - Silent refresh updates profile data in-place; if backend latency is high, the previous profile remains visible until the response returns.
+
+## 2026-06-11 - Stage 12 Passenger Profile Edit UI - Closeout Check
+
+- Branch: `codex/passenger-profile-edit-ui`
+- Scope: Reviewed Stage 12 after user approved Commit 2 and prepared the branch for merge.
+- Commits reviewed:
+  - `c7e2bef` - Add passenger profile edit form
+  - `47b3818` - Record passenger profile edit form checkpoint
+  - `bb09a0d` - Refresh profile screen on focus
+  - `f08c95c` - Record profile refresh checkpoint
+- Stage 12 coverage:
+  - `app/(customer)/personal.tsx` now enters edit mode from the edit CTA/avatar pencil.
+  - Personal screen supports editing full name, phone, email, and avatar URL.
+  - Save calls `updateMyProfile()` and updates the Personal screen immediately after success.
+  - Form includes save loading, duplicate-submit guard, cancel restore, field validation, inline save errors, and success banner.
+  - `app/(customer)/profile.tsx` refreshes `getMyProfile()` on focus so returning from Personal syncs the visible profile card.
+  - First Profile load keeps the full loading state; later focus refreshes run silently with a small sync pill.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Stage 12 Commit 2 on 2026-06-11.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and installing the CLI was blocked due third-party unsandboxed script risk.
+- Merge assessment:
+  - Stage 12 acceptance criteria are met for the current product plan.
+  - Branch is ready to merge back to `main`.
+- Known risks:
+  - Runtime device testing should confirm the focus refresh behavior in the exact navigation stack/tab flow.
+  - Avatar editing remains URL-based only; image picker/upload belongs to a later profile media enhancement.
+  - `lib/config.ts` still has the user's uncommitted local backend URL change and should remain preserved unless the user asks to commit or revert it.
