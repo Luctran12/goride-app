@@ -2174,3 +2174,35 @@
   - Profile screen refresh after returning from Personal is intentionally left for Stage 12 Commit 2 so this commit stays focused.
   - The backend update contract still assumes `PUT /api/users/me`; if the server expects `PATCH` or a different DTO, `lib/user-api.ts` may need an adapter update.
   - Avatar is edited by URL only; image picker/upload is not implemented in this commit.
+
+## 2026-06-11 - Stage 12 Passenger Profile Edit UI - Commit 2
+
+- Branch: `codex/passenger-profile-edit-ui`
+- Commit: `bb09a0d` - Refresh profile screen on focus
+- Scope: Refreshed the customer Profile screen when it regains focus after returning from Personal.
+- Files changed:
+  - `app/(customer)/profile.tsx`
+- Behavior implemented:
+  - Added `useFocusEffect()` to reload `getMyProfile()` whenever the Profile screen is focused.
+  - Kept the first load as the existing full loading state.
+  - Added silent refresh for later focus events so returning from Personal updates the profile card without blanking the screen.
+  - Added a small `Đang đồng bộ hồ sơ mới nhất...` sync pill during silent refresh.
+  - Updated the retry CTA to call the new load helper safely after the load function gained options.
+  - Preserved existing profile card, menu, logout, and bottom navigation behavior.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for `app/(customer)/profile.tsx`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but execution was blocked due unacceptable risk from downloading and running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 12 Commit 2.
+- Known risks:
+  - Focus refresh depends on navigation focus events; manual runtime check on device should confirm the Profile screen stays mounted in the expected tab/navigation flow.
+  - Silent refresh updates profile data in-place; if backend latency is high, the previous profile remains visible until the response returns.
