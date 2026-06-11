@@ -2206,3 +2206,37 @@
 - Known risks:
   - Focus refresh depends on navigation focus events; manual runtime check on device should confirm the Profile screen stays mounted in the expected tab/navigation flow.
   - Silent refresh updates profile data in-place; if backend latency is high, the previous profile remains visible until the response returns.
+
+## 2026-06-11 - Stage 12 Passenger Profile Edit UI - Closeout Check
+
+- Branch: `codex/passenger-profile-edit-ui`
+- Scope: Reviewed Stage 12 after user approved Commit 2 and prepared the branch for merge.
+- Commits reviewed:
+  - `c7e2bef` - Add passenger profile edit form
+  - `47b3818` - Record passenger profile edit form checkpoint
+  - `bb09a0d` - Refresh profile screen on focus
+  - `f08c95c` - Record profile refresh checkpoint
+- Stage 12 coverage:
+  - `app/(customer)/personal.tsx` now enters edit mode from the edit CTA/avatar pencil.
+  - Personal screen supports editing full name, phone, email, and avatar URL.
+  - Save calls `updateMyProfile()` and updates the Personal screen immediately after success.
+  - Form includes save loading, duplicate-submit guard, cancel restore, field validation, inline save errors, and success banner.
+  - `app/(customer)/profile.tsx` refreshes `getMyProfile()` on focus so returning from Personal syncs the visible profile card.
+  - First Profile load keeps the full loading state; later focus refreshes run silently with a small sync pill.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed.
+- Review:
+  - User approved Stage 12 Commit 2 on 2026-06-11.
+  - CodeRabbit remains unavailable because `coderabbit` is not installed and installing the CLI was blocked due third-party unsandboxed script risk.
+- Merge assessment:
+  - Stage 12 acceptance criteria are met for the current product plan.
+  - Branch is ready to merge back to `main`.
+- Known risks:
+  - Runtime device testing should confirm the focus refresh behavior in the exact navigation stack/tab flow.
+  - Avatar editing remains URL-based only; image picker/upload belongs to a later profile media enhancement.
+  - `lib/config.ts` still has the user's uncommitted local backend URL change and should remain preserved unless the user asks to commit or revert it.
