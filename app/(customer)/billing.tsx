@@ -3,6 +3,7 @@ import {
   addPaymentMethod,
   listPaymentMethods,
   listVouchers,
+  removePaymentMethod,
   setDefaultPaymentMethod,
 } from '@/lib/payment-api';
 import type { PassengerPaymentMethod, PassengerVoucher, PaymentMethod } from '@/types/ride';
@@ -119,6 +120,10 @@ export default function PaymentScreen() {
   }
 
   async function handlePaymentMethodPress(method: PassengerPaymentMethod) {
+    if (actionMethodId) {
+      return;
+    }
+
     if (method.status !== 'ACTIVE') {
       Alert.alert(method.title, 'Phương thức này đang ở trạng thái coming soon, chưa thể dùng trong bản MVP.');
       return;
@@ -144,13 +149,58 @@ export default function PaymentScreen() {
     }
   }
 
+  function handleRemovePaymentMethod(method: PassengerPaymentMethod) {
+    if (actionMethodId) {
+      return;
+    }
+
+    if (method.method === 'CASH') {
+      Alert.alert('Không thể xóa tiền mặt', 'GoRide luôn giữ tiền mặt làm phương thức thanh toán dự phòng.');
+      return;
+    }
+
+    Alert.alert(
+      'Xóa phương thức thanh toán?',
+      method.isDefault
+        ? `${method.title} đang là phương thức mặc định. Sau khi xóa, GoRide sẽ chuyển về phương thức còn lại nếu có.`
+        : `Bạn có chắc muốn xóa ${method.title} khỏi ví GoRide?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            void removeSelectedPaymentMethod(method);
+          },
+        },
+      ],
+    );
+  }
+
+  async function removeSelectedPaymentMethod(method: PassengerPaymentMethod) {
+    setActionMethodId(method.id);
+    setError(null);
+
+    try {
+      await removePaymentMethod(method.id);
+      await loadBillingData({ silent: true });
+      Alert.alert('Đã xóa phương thức', `${method.title} đã được gỡ khỏi ví GoRide.`);
+    } catch (removeError) {
+      Alert.alert('Không thể xóa phương thức', getErrorMessage(removeError));
+    } finally {
+      if (mountedRef.current) {
+        setActionMethodId(null);
+      }
+    }
+  }
+
   function handleVoucherPress(voucher: PassengerVoucher) {
     if (voucher.status !== 'AVAILABLE') {
       Alert.alert(voucher.code, 'Ưu đãi này chưa thể dùng trong bản MVP hiện tại.');
       return;
     }
 
-    Alert.alert('Ưu đãi khả dụng', `Mã ${voucher.code} sẽ được nối vào luồng đặt xe ở commit tiếp theo.`);
+    Alert.alert('Ưu đãi khả dụng', `Mã ${voucher.code} đã sẵn sàng. Bạn có thể chọn mã này ở màn hình đặt xe.`);
   }
 
   const availableVoucherCount = vouchers.filter((voucher) => voucher.status === 'AVAILABLE').length;
@@ -214,6 +264,7 @@ export default function PaymentScreen() {
                     method={method}
                     loading={actionMethodId === method.id}
                     onPress={() => handlePaymentMethodPress(method)}
+                    onRemove={() => handleRemovePaymentMethod(method)}
                   />
                 ))
               ) : (
@@ -276,11 +327,13 @@ type PaymentMethodProps = {
   loading: boolean;
   method: PassengerPaymentMethod;
   onPress: () => void;
+  onRemove: () => void;
 };
 
-function PaymentMethodCard({ loading, method, onPress }: PaymentMethodProps) {
+function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethodProps) {
   const icon = getPaymentIcon(method.method);
   const status = getPaymentStatusCopy(method);
+  const removable = method.method !== 'CASH';
 
   return (
     <TouchableOpacity activeOpacity={0.84} style={styles.methodCard} onPress={onPress}>
@@ -293,21 +346,38 @@ function PaymentMethodCard({ loading, method, onPress }: PaymentMethodProps) {
         <Text style={[styles.methodDetail, { color: status.color }]} selectable>{status.detail}</Text>
       </View>
 
-      {loading ? (
-        <ActivityIndicator color={palette.primary} size="small" />
-      ) : method.isDefault ? (
-        <View style={styles.defaultPill}>
-          <Text style={styles.defaultText}>Mặc định</Text>
-        </View>
-      ) : method.status === 'ACTIVE' ? (
-        <View style={styles.actionPill}>
-          <Text style={styles.actionPillText}>Đặt mặc định</Text>
-        </View>
-      ) : (
-        <View style={styles.comingSoonPill}>
-          <Text style={styles.comingSoonText}>Coming soon</Text>
-        </View>
-      )}
+      <View style={styles.methodActions}>
+        {loading ? (
+          <ActivityIndicator color={palette.primary} size="small" />
+        ) : method.isDefault ? (
+          <View style={styles.defaultPill}>
+            <Text style={styles.defaultText}>Mặc định</Text>
+          </View>
+        ) : method.status === 'ACTIVE' ? (
+          <View style={styles.actionPill}>
+            <Text style={styles.actionPillText}>Đặt mặc định</Text>
+          </View>
+        ) : (
+          <View style={styles.comingSoonPill}>
+            <Text style={styles.comingSoonText}>Coming soon</Text>
+          </View>
+        )}
+
+        {removable ? (
+          <TouchableOpacity
+            activeOpacity={0.82}
+            disabled={loading}
+            style={[styles.removeMethodButton, loading && styles.removeMethodButtonDisabled]}
+            onPress={(event) => {
+              event.stopPropagation();
+              onRemove();
+            }}
+          >
+            <Feather name="trash-2" size={rs(20)} color={palette.danger} />
+            <Text style={styles.removeMethodText}>Xóa</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -576,12 +646,17 @@ const styles = StyleSheet.create({
     lineHeight: rf(31),
     fontWeight: '600',
   },
+  methodActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: rvs(10),
+    marginLeft: rs(12),
+  },
   defaultPill: {
     borderRadius: rs(7),
     backgroundColor: palette.primarySoft,
     paddingHorizontal: rs(16),
     paddingVertical: rvs(10),
-    marginLeft: rs(12),
   },
   defaultText: {
     color: palette.primary,
@@ -594,7 +669,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2f8ee',
     paddingHorizontal: rs(14),
     paddingVertical: rvs(9),
-    marginLeft: rs(12),
   },
   actionPillText: {
     color: palette.green,
@@ -607,13 +681,31 @@ const styles = StyleSheet.create({
     backgroundColor: palette.amberSoft,
     paddingHorizontal: rs(14),
     paddingVertical: rvs(9),
-    marginLeft: rs(12),
   },
   comingSoonText: {
     color: palette.amber,
     fontSize: rf(18),
     lineHeight: rf(25),
     fontWeight: '800',
+  },
+  removeMethodButton: {
+    minHeight: rvs(40),
+    borderRadius: rs(13),
+    paddingHorizontal: rs(13),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rs(6),
+    backgroundColor: palette.dangerSoft,
+  },
+  removeMethodButtonDisabled: {
+    opacity: 0.55,
+  },
+  removeMethodText: {
+    color: palette.danger,
+    fontSize: rf(16),
+    lineHeight: rf(22),
+    fontWeight: '900',
   },
   addMethod: {
     minHeight: rvs(103),
