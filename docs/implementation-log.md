@@ -2268,3 +2268,41 @@
   - `main` is ahead of `origin/main`; push should happen when the user wants GitHub updated.
   - Runtime device testing should still verify the Personal -> Profile refresh behavior.
   - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 1
+
+- Branch: `codex/payment-vouchers`
+- Commit: `3dddb06` - Add payment voucher API layer
+- Scope: Added shared contracts plus API/mock adapters for passenger payment methods and vouchers.
+- Files changed:
+  - `types/ride.ts`
+  - `lib/payment-api.ts`
+  - `lib/mock-payment-api.ts`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added shared types for passenger payment methods, payment method drafts, voucher records, voucher list filters, and voucher validation results.
+  - Added `lib/payment-api.ts` with API functions for listing/adding/removing/defaulting payment methods and listing/validating vouchers.
+  - Added `lib/mock-payment-api.ts` with mock payment method inventory and voucher inventory for local demo mode.
+  - Kept cash payment as the only active MVP method.
+  - Marked MoMo/VNPay as `COMING_SOON` in mock data so future UI can show them without pretending they are fully linked.
+  - Added voucher validation rules for minimum fare, eligible payment method, status, percent/fixed discount, max discount, final fare, and invalid-code messaging.
+  - Recorded the endpoint assumption in `docs/changes-in-implementation.md` because TDD/API docs do not yet define `/payment-methods` or `/vouchers` contracts.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for touched docs/types files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 13 Commit 1.
+- Known risks:
+  - Remote endpoint paths `/payment-methods`, `/vouchers`, and `/vouchers/validate` are front-end adapter assumptions until backend contracts exist.
+  - Mock voucher data is session-local and not persisted across app reloads.
+  - Billing and booking screens still use static arrays until follow-up commits wire them to this API layer.

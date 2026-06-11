@@ -8,18 +8,17 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Phase: Stage 13 - Productize payment and vouchers
 - Branch: `codex/payment-vouchers`
 - Current commit scope: Commit 1 - add payment/voucher API and mock data layer
-- Status: Implementation in progress
+- Status: Waiting for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `adad6b5` - Merge passenger profile edit UI
-- Implementation log entry: `2026-06-11 - Stage 12 Passenger Profile Edit UI Merge`
-- Review status: User approved Stage 12; post-merge validation passed.
+- Commit: `3dddb06` - Add payment voucher API layer
+- Implementation log entry: `2026-06-11 - Stage 13 Payment And Vouchers - Commit 1`
+- Review status: CodeRabbit CLI unavailable; lint/typecheck/diff validation passed.
 
 ## Next Checkpoint
 
-- Create Stage 13 feature branch from `main`.
-- Commit 1: create shared payment/voucher types plus API/mock adapters.
+- Wait for user review of Commit 1.
 - Commit 2: wire Billing screen to API/mock data.
 - Commit 3: connect booking promo selector to voucher inventory and validation.
 - Wait for user review after each Stage 13 commit.
