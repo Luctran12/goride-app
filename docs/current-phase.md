@@ -4,27 +4,27 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Passenger profile edit UI
-- Phase: Stage 12 - Finish passenger profile edit
-- Branch: `codex/passenger-profile-edit-ui`
-- Current commit scope: Stage 12 closeout check
-- Status: Stage 12 approved and ready to merge back to `main`
+- Feature: Productize payment and vouchers
+- Phase: Stage 13 - Productize payment and vouchers
+- Branch: `main` ready to branch
+- Current commit scope: Prepare Stage 13 branch from reviewed `main`
+- Status: Stage 12 merged; ready to start Stage 13 implementation
 
 ## Last Completed Checkpoint
 
-- Commit: `bb09a0d` - Refresh profile screen on focus
-- Implementation log entry: `2026-06-11 - Stage 12 Passenger Profile Edit UI - Closeout Check`
-- Review status: User approved Commit 2; Stage 12 closeout validation passed.
+- Commit: `adad6b5` - Merge passenger profile edit UI
+- Implementation log entry: `2026-06-11 - Stage 12 Passenger Profile Edit UI Merge`
+- Review status: User approved Stage 12; post-merge validation passed.
 
 ## Next Checkpoint
 
-- Merge `codex/passenger-profile-edit-ui` back to `main`.
-- Run post-merge validation on `main`.
-- Start the next product stage from `main` after merge review.
+- Create Stage 13 feature branch from `main`.
+- Productize billing/payment methods and vouchers in small reviewable commits.
+- Wait for user review after each Stage 13 commit.
 
 ## Product Readiness Targets
 
-- Wire `app/(customer)/personal.tsx` into `updateMyProfile()`.
-- Add edit/save/cancel UI for full name, phone, email, and avatar URL.
-- Add validation, inline errors, loading state, and success state.
-- Refresh profile display after save in the same app session.
+- Replace static billing/payment method data with API/mock-backed data.
+- Add add/set default/remove payment method MVP behavior where feasible.
+- Connect booking promo selector to voucher inventory.
+- Keep MoMo/VNPay clearly marked as coming soon unless backend payment redirect/callback is ready.

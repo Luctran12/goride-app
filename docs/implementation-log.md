@@ -2240,3 +2240,31 @@
   - Runtime device testing should confirm the focus refresh behavior in the exact navigation stack/tab flow.
   - Avatar editing remains URL-based only; image picker/upload belongs to a later profile media enhancement.
   - `lib/config.ts` still has the user's uncommitted local backend URL change and should remain preserved unless the user asks to commit or revert it.
+
+## 2026-06-11 - Stage 12 Passenger Profile Edit UI Merge
+
+- Branch: `main`
+- Merge commit: `adad6b5` - Merge passenger profile edit UI
+- Scope: Merged the reviewed Stage 12 passenger profile edit UI branch back into `main`.
+- Files changed by merge:
+  - `app/(customer)/personal.tsx`
+  - `app/(customer)/profile.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior merged:
+  - Personal profile edit mode is now on `main`.
+  - `updateMyProfile()` is now wired to the Personal screen save action.
+  - Profile screen focus refresh is now on `main` so returning from Personal syncs the visible profile card.
+  - Stage 12 documentation and closeout notes are now on `main`.
+- Validation after merge:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - User approved Stage 12 Commit 2 on 2026-06-11 before merge.
+  - CodeRabbit remained unavailable during Stage 12 because the CLI is not installed and installer execution was blocked due third-party unsandboxed script risk.
+- Known risks:
+  - `main` is ahead of `origin/main`; push should happen when the user wants GitHub updated.
+  - Runtime device testing should still verify the Personal -> Profile refresh behavior.
+  - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.
