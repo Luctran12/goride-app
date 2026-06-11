@@ -6,9 +6,9 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 - Feature: Passenger profile edit UI
 - Phase: Stage 12 - Finish passenger profile edit
-- Branch: `main` ready to branch
-- Current commit scope: Prepare Stage 12 branch from reviewed `main`
-- Status: Stage 11.5 merged; ready to start Stage 12 implementation
+- Branch: `codex/passenger-profile-edit-ui`
+- Current commit scope: Commit 1 - add editable personal profile form
+- Status: Implementation in progress
 
 ## Last Completed Checkpoint
 
@@ -19,7 +19,8 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 ## Next Checkpoint
 
 - Create Stage 12 feature branch from `main`.
-- Implement passenger profile edit form in small reviewable commits.
+- Commit 1: implement personal profile edit/save/cancel UI.
+- Commit 2: refresh Profile screen after returning from Personal and polish state sync if needed.
 - Wait for user review after each Stage 12 commit.
 
 ## Product Readiness Targets
