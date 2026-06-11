@@ -248,7 +248,7 @@ export default function DriverActivityScreen() {
         <DriverNavItem icon="home-variant-outline" label="Home" onPress={() => router.push('/(driver)')} />
         <DriverNavItem icon="cash-multiple" label="Earnings" onPress={() => router.push('/(driver)/earnings')} />
         <DriverNavItem icon="history" label="Activity" active />
-        <DriverNavItem icon="account-outline" label="Account" />
+        <DriverNavItem icon="account-outline" label="Account" onPress={() => router.push('./account')} />
       </View>
     </SafeAreaView>
   );

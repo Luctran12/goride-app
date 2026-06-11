@@ -4,21 +4,21 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Driver Activity screen
-- Phase: Driver UI polish - activity history dashboard
+- Feature: Driver Account/Profile screen
+- Phase: Driver UI polish - account profile dashboard
 - Branch: `codex/driver-screen`
-- Current commit scope: Add `app/(driver)/activity.tsx`, register the route, and link the driver Home/Earnings bottom navigation to it.
-- Status: Implemented locally; lint, TypeScript, and diff validation passed on 2026-06-11; awaiting user review before commit.
+- Current commit scope: Add `app/(driver)/account.tsx`, register the route, and link the driver Home/Earnings/Activity bottom navigation to it.
+- Status: Implemented locally; lint, TypeScript, and whitespace validation passed on 2026-06-11; awaiting user review before commit.
 
 ## Last Completed Checkpoint
 
 - Commit: Not committed yet.
 - Implementation log entry: Not written yet because this change has not been committed.
-- Review status: Driver Activity lint, TypeScript, and diff validation passed on 2026-06-11. Expo web visual check remains blocked by the existing `react-native-maps` native-only import path in the driver Home route.
+- Review status: Driver Account/Profile lint, TypeScript, and whitespace validation passed on 2026-06-11. Expo web visual check remains blocked by the existing `react-native-maps` native-only import path in the driver Home route.
 
 ## Next Checkpoint
 
-- User reviews the Driver Activity screen UI.
+- User reviews the Driver Account/Profile screen UI.
 - If approved, create a focused commit and then write the required implementation-log entry with commit hash, files changed, validation, review findings, and known risks.
 
 ## Driver Home Dashboard Targets
@@ -39,3 +39,9 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Match the provided compact activity reference with the GoRide Driver header, period segmented control, trip summary counters, recent activity cards, status pills, route points, rating display, and active Activity bottom navigation.
 - Keep the screen backend-ready with local structured activity datasets until `GET /drivers/me/trips` is wired for driver trip history and income.
 - Preserve existing driver Home and Earnings behavior while adding Activity navigation.
+
+## Driver Account/Profile Screen Targets
+
+- Match the provided compact account reference with the driver profile header, approval status, identity card, rating/total-trip counters, vehicle details, document approval rows, logout action, and active Account bottom navigation.
+- Keep the screen backend-ready with local structured driver profile data until driver profile retrieval is wired.
+- Preserve existing driver Home, Earnings, and Activity behavior while adding Account navigation.

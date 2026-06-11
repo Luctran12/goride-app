@@ -175,7 +175,7 @@ export default function DriverEarningsScreen() {
         <DriverNavItem icon="home-variant-outline" label="Home" onPress={() => router.push('/(driver)')} />
         <DriverNavItem icon="cash-multiple" label="Earnings" active />
         <DriverNavItem icon="history" label="Activity" onPress={() => router.push('./activity')} />
-        <DriverNavItem icon="account-outline" label="Account" />
+        <DriverNavItem icon="account-outline" label="Account" onPress={() => router.push('./account')} />
       </View>
     </SafeAreaView>
   );

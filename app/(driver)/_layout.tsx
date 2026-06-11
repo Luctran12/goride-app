@@ -7,6 +7,7 @@ export default function DriverLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="earnings" />
       <Stack.Screen name="activity" />
+      <Stack.Screen name="account" />
     </Stack>
   );
 }
