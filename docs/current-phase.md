@@ -6,21 +6,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 - Feature: Productize payment and vouchers
 - Phase: Stage 13 - Productize payment and vouchers
-- Branch: `main` ready to branch
-- Current commit scope: Prepare Stage 13 branch from reviewed `main`
-- Status: Stage 12 merged; ready to start Stage 13 implementation
+- Branch: `codex/payment-vouchers`
+- Current commit scope: Commit 4 - add remove payment method UI in Billing
+- Status: User approved Commit 4; Stage 13 ready to merge
 
 ## Last Completed Checkpoint
 
-- Commit: `adad6b5` - Merge passenger profile edit UI
-- Implementation log entry: `2026-06-11 - Stage 12 Passenger Profile Edit UI Merge`
-- Review status: User approved Stage 12; post-merge validation passed.
+- Commit: `15a9732` - Add billing payment removal UI
+- Implementation log entry: `2026-06-11 - Stage 13 Payment And Vouchers - Commit 4`
+- Review status: User approved Commit 4; CodeRabbit CLI unavailable; lint/typecheck/diff validation passed.
 
 ## Next Checkpoint
 
-- Create Stage 13 feature branch from `main`.
-- Productize billing/payment methods and vouchers in small reviewable commits.
-- Wait for user review after each Stage 13 commit.
+- Merge `codex/payment-vouchers` into `main` and push when requested.
+- After Stage 13 merge, start Stage 14 - Driver product shell.
 
 ## Product Readiness Targets
 

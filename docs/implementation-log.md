@@ -2268,3 +2268,152 @@
   - `main` is ahead of `origin/main`; push should happen when the user wants GitHub updated.
   - Runtime device testing should still verify the Personal -> Profile refresh behavior.
   - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 1
+
+- Branch: `codex/payment-vouchers`
+- Commit: `3dddb06` - Add payment voucher API layer
+- Scope: Added shared contracts plus API/mock adapters for passenger payment methods and vouchers.
+- Files changed:
+  - `types/ride.ts`
+  - `lib/payment-api.ts`
+  - `lib/mock-payment-api.ts`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added shared types for passenger payment methods, payment method drafts, voucher records, voucher list filters, and voucher validation results.
+  - Added `lib/payment-api.ts` with API functions for listing/adding/removing/defaulting payment methods and listing/validating vouchers.
+  - Added `lib/mock-payment-api.ts` with mock payment method inventory and voucher inventory for local demo mode.
+  - Kept cash payment as the only active MVP method.
+  - Marked MoMo/VNPay as `COMING_SOON` in mock data so future UI can show them without pretending they are fully linked.
+  - Added voucher validation rules for minimum fare, eligible payment method, status, percent/fixed discount, max discount, final fare, and invalid-code messaging.
+  - Recorded the endpoint assumption in `docs/changes-in-implementation.md` because TDD/API docs do not yet define `/payment-methods` or `/vouchers` contracts.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for touched docs/types files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 13 Commit 1.
+- Known risks:
+  - Remote endpoint paths `/payment-methods`, `/vouchers`, and `/vouchers/validate` are front-end adapter assumptions until backend contracts exist.
+  - Mock voucher data is session-local and not persisted across app reloads.
+  - Billing and booking screens still use static arrays until follow-up commits wire them to this API layer.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 2
+
+- Branch: `codex/payment-vouchers`
+- Commit: `bcd3f6a` - Wire billing to payment voucher data
+- Scope: Replaced Billing screen static payment/voucher arrays with API/mock-backed data.
+- Files changed:
+  - `app/(customer)/billing.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Billing screen now loads payment methods via `listPaymentMethods()` and vouchers via `listVouchers({ includeUnavailable: true })`.
+  - Added loading, silent refresh, error/retry, empty state, and action loading UI.
+  - Payment methods now display default/active/coming-soon state from API data.
+  - Pressing an active non-default payment method calls `setDefaultPaymentMethod()`.
+  - Add payment CTA calls `addPaymentMethod({ method: 'CASH' })` and explains MoMo/VNPay are coming soon.
+  - Voucher cards now render API/mock voucher status, code, description, min fare, max discount, and expiry.
+  - Available voucher CTA explains booking promo selection will be connected in the next commit.
+  - Switched Billing safe area wrapper to `react-native-safe-area-context` to match Expo UI guidance.
+  - Rewrote Billing copy with valid UTF-8 Vietnamese strings while preserving the existing visual direction.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for `app/(customer)/billing.tsx`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Stage 13 Commit 2 and cleared the branch to continue with Commit 3.
+- Known risks:
+  - Remote payment/voucher endpoint assumptions remain unverified until backend contracts exist.
+  - Billing can set default payment method, but removal UI is not exposed yet to keep this commit scoped.
+  - Booking promo selection still uses static options until Stage 13 Commit 3.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 3
+
+- Branch: `codex/payment-vouchers`
+- Commit: `d9e94fb` - Connect booking vouchers to checkout
+- Scope: Connected the Passenger select-vehicle checkout screen to payment-method and voucher inventory data.
+- Files changed:
+  - `app/(customer)/booking/select-vehicle.tsx`
+  - `types/ride.ts`
+  - `lib/ride-api.ts`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Replaced hardcoded checkout payment/promo options with `listPaymentMethods()` and `listVouchers({ includeUnavailable: true })`.
+  - Kept cash as the active default payment method and showed MoMo/VNPay as coming-soon/disabled when the adapter marks them unavailable.
+  - Added checkout loading/error state so booking can continue with the cash fallback if payment/voucher inventory fails.
+  - Added voucher validation through `validateVoucher({ code, fare, paymentMethod })` when the user selects a voucher.
+  - Blocks booking while a selected voucher is loading or invalid, and asks the user to remove/change the voucher.
+  - Shows voucher validation feedback inline, including discount amount when the voucher is valid.
+  - Shows original fare, discount amount, and final fare in the footer when a voucher is applied.
+  - Passes the selected promo code, original fare, and discount amount forward to `waiting-driver`.
+  - Extended `BookingDraft` and `createBooking()` with optional `voucherCode`, `discountAmount`, and `finalFare`.
+  - Recorded the booking payload extension in `docs/changes-in-implementation.md` because the TDD does not define voucher fields on `POST /bookings`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after fixing the validation-effect null narrowing.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for touched files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Stage 13 Commit 3 and cleared the branch to continue with Commit 4.
+- Known risks:
+  - Backend `POST /bookings` may not accept `voucherCode`, `discountAmount`, or `finalFare` yet; this is documented for Stage 15 smoke testing.
+  - Discounted fare is front-end adapter/mock driven until backend payment/voucher contracts are finalized.
+  - Billing still has no remove-payment-method UI; add/set-default behavior exists and remove can be exposed in the next small commit if desired.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 4
+
+- Branch: `codex/payment-vouchers`
+- Commit: `15a9732` - Add billing payment removal UI
+- Scope: Added remove-payment-method interaction to the Passenger Billing screen.
+- Files changed:
+  - `app/(customer)/billing.tsx`
+- Behavior implemented:
+  - Imported and wired `removePaymentMethod()` from the payment API adapter.
+  - Added guarded removal flow with confirmation dialog and destructive `Xóa` action.
+  - Prevented cash removal because cash remains the mandatory GoRide fallback payment method.
+  - Reused the existing per-method action loading state while deletion is in progress.
+  - Refreshes Billing data after successful removal and shows success/error alerts.
+  - Added a visible `Xóa` action on non-cash payment method cards without triggering the card's set-default press handler.
+  - Updated the Billing voucher alert copy to say available vouchers can now be selected from the booking checkout screen.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for touched files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - User approved Stage 13 Commit 4. Stage 13 is ready to merge after the user requests it.
+- Known risks:
+  - Mock mode can remove coming-soon non-cash entries because the adapter treats them as removable inventory items; cash remains protected.
+  - Backend `/payment-methods/{id}` DELETE remains an assumed contract until backend payment-method endpoints are finalized.
+  - Stage 13 should be ready to close after user review unless additional payment/voucher polish is requested.

@@ -61,3 +61,23 @@ Each entry should include:
 - Implemented behavior: Default development backend origin changed from `http://192.168.1.8:8080` to `http://10.255.253.75:8080` in `lib/config.ts` while keeping env override behavior intact.
 - Reason for change: User requested keeping their local URL update for runtime testing.
 - Impact: Local/dev fallback points to the user's current backend host. Production or shared environments should still prefer `EXPO_PUBLIC_API_BASE_URL`.
+
+## 2026-06-11 - Payment Methods And Voucher Front-end Adapter
+
+- Date: 2026-06-11
+- Branch: `codex/payment-vouchers`
+- Feature: Stage 13 - Productize payment and vouchers
+- TDD expectation: Payment module MVP records trip payments and supports `CASH`, with MoMo/VNPay designed as future providers. The current TDD/API docs do not define passenger payment-method inventory or voucher endpoints.
+- Implemented behavior: Added front-end types and API adapters for `/payment-methods`, `/vouchers`, and `/vouchers/validate`, with mock fallback data and coming-soon status for MoMo/VNPay.
+- Reason for change: Stage 13 needs Billing and booking promo screens to consume a real data source instead of hardcoded arrays while backend voucher/payment-method contracts are not yet present.
+- Impact: Front-end can productize Billing and promo selection now. Backend later needs to expose matching endpoints or the adapter paths/DTOs must be adjusted.
+
+## 2026-06-11 - Booking Voucher Payload Extension
+
+- Date: 2026-06-11
+- Branch: `codex/payment-vouchers`
+- Feature: Stage 13 - Productize payment and vouchers
+- TDD expectation: `POST /bookings` sends pickup, dropoff, vehicle type, payment method, pricing config, and estimated fare. The TDD does not define voucher fields in the booking payload.
+- Implemented behavior: `BookingDraft` and `createBooking()` now support optional `voucherCode`, `discountAmount`, and `finalFare` fields after the booking screen validates a voucher.
+- Reason for change: The passenger booking screen needs the selected voucher and discounted fare to survive the transition from promo validation to booking creation instead of being only visual state.
+- Impact: Mock mode can demo discounted booking totals immediately. Backend integration must either accept these optional fields or return a contract mismatch that will be addressed during Stage 15 smoke testing.
