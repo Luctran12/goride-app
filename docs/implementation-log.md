@@ -2071,3 +2071,43 @@
 - Known risks:
   - `main` is ahead of `origin/main`; push should happen after the user approves the audit document.
   - Product audit is based on static code inspection plus lint/typecheck; manual runtime testing on Android/iOS is still required.
+
+## 2026-06-11 - Stage 11.5 Remote Logging/Error Reporting
+
+- Branch: `codex/remote-error-reporting`
+- Commit: `e3da561` - Add remote error reporting
+- Scope: Added a pre-Stage 12 product hardening commit for non-blocking remote logging/error reporting.
+- Files changed:
+  - `app/_layout.tsx`
+  - `components/app-error-boundary.tsx`
+  - `lib/api.ts`
+  - `lib/error-reporting.ts`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added `lib/error-reporting.ts`, a lightweight reporting client controlled by `EXPO_PUBLIC_ERROR_REPORTING_URL`.
+  - Reporting is disabled/no-op when the endpoint env var is missing.
+  - Reports include app name/version/build, platform, source, level, fatal flag, message, stack, sanitized metadata, and timestamp.
+  - Reporting uses a direct `fetch()` POST instead of `apiRequest()` so reporting failures cannot recursively trigger API reporting.
+  - Installed a React Native global error handler through `ErrorUtils` while preserving the previous global handler.
+  - Added `AppErrorBoundary` around the root layout to catch render-time errors, show a friendly retry UI, and submit a non-fatal report.
+  - Added selective API failure reporting from `apiRequest()` for network failures and 5xx errors only.
+  - Avoided reporting validation/login/client 4xx responses and skipped the mock-mode `MOCK_API` path to reduce noise and avoid sensitive data.
+  - Preserved the user's uncommitted local backend URL change in `lib/config.ts`; it was not staged in the implementation commit.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for touched files before staging.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but the escalation request was rejected.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 11.5 before starting Stage 12.
+- Known risks:
+  - The reporting endpoint contract is intentionally generic and controlled by `EXPO_PUBLIC_ERROR_REPORTING_URL`; backend/logging service must accept the JSON payload shape or provide a small adapter later.
+  - Reports are fire-and-forget; there is no offline queue, retry persistence, or batching yet.
+  - Runtime delivery to a real reporting endpoint has not been smoke-tested because no endpoint URL was configured in this session.
