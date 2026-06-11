@@ -8,19 +8,19 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Phase: Stage 11.5 - Product hardening before Stage 12
 - Branch: `codex/remote-error-reporting`
 - Current commit scope: Add non-blocking remote error reporting and root app error boundary
-- Status: Implementation in progress
+- Status: Waiting for user review before Stage 12
 
 ## Last Completed Checkpoint
 
-- Commit: `c9863ed` - Merge driver screen phase
-- Implementation log entry: `2026-06-10 - Product Readiness Audit After Profile And Driver Merges`
-- Review status: `codex/passenger-profile-edit` and `codex/driver-screen` merged into `main`; full validation passed.
+- Commit: `e3da561` - Add remote error reporting
+- Implementation log entry: `2026-06-11 - Stage 11.5 Remote Logging/Error Reporting`
+- Review status: CodeRabbit CLI unavailable; install request rejected; lint/typecheck/diff validation passed.
 
 ## Next Checkpoint
 
-- Finish Stage 11.5 remote logging/error reporting.
-- Run lint, TypeScript, and diff checks.
-- Commit implementation and wait for user review before starting Stage 12.
+- Wait for user review of `e3da561`.
+- If approved, merge Stage 11.5 as appropriate.
+- Start Stage 12 - finish passenger profile edit UI.
 
 ## Product Readiness Targets
 
