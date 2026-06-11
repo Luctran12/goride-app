@@ -2111,3 +2111,31 @@
   - The reporting endpoint contract is intentionally generic and controlled by `EXPO_PUBLIC_ERROR_REPORTING_URL`; backend/logging service must accept the JSON payload shape or provide a small adapter later.
   - Reports are fire-and-forget; there is no offline queue, retry persistence, or batching yet.
   - Runtime delivery to a real reporting endpoint has not been smoke-tested because no endpoint URL was configured in this session.
+
+## 2026-06-11 - Stage 11.5 Remote Logging/Error Reporting Merge
+
+- Branch: `main`
+- Merge commit: `07c37f0` - Merge remote reporting hardening
+- Scope: Merged the reviewed Stage 11.5 remote logging/error reporting branch back into `main`.
+- Files changed by merge:
+  - `app/_layout.tsx`
+  - `components/app-error-boundary.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+  - `lib/api.ts`
+  - `lib/error-reporting.ts`
+- Behavior merged:
+  - Root app error boundary and global error handler are now part of `main`.
+  - API network/5xx reporting is now part of `main`.
+  - Remote reporting remains no-op unless `EXPO_PUBLIC_ERROR_REPORTING_URL` is configured.
+- Validation after merge:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- Review:
+  - User approved Stage 11.5 on 2026-06-11 before merge.
+  - CodeRabbit remained unavailable during the feature branch review because the CLI is not installed and install escalation was rejected.
+- Known risks:
+  - `main` is still ahead of `origin/main`; push should happen when the user wants GitHub updated.
+  - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.
