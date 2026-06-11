@@ -2343,3 +2343,43 @@
   - Remote payment/voucher endpoint assumptions remain unverified until backend contracts exist.
   - Billing can set default payment method, but removal UI is not exposed yet to keep this commit scoped.
   - Booking promo selection still uses static options until Stage 13 Commit 3.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Commit 3
+
+- Branch: `codex/payment-vouchers`
+- Commit: `d9e94fb` - Connect booking vouchers to checkout
+- Scope: Connected the Passenger select-vehicle checkout screen to payment-method and voucher inventory data.
+- Files changed:
+  - `app/(customer)/booking/select-vehicle.tsx`
+  - `types/ride.ts`
+  - `lib/ride-api.ts`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Replaced hardcoded checkout payment/promo options with `listPaymentMethods()` and `listVouchers({ includeUnavailable: true })`.
+  - Kept cash as the active default payment method and showed MoMo/VNPay as coming-soon/disabled when the adapter marks them unavailable.
+  - Added checkout loading/error state so booking can continue with the cash fallback if payment/voucher inventory fails.
+  - Added voucher validation through `validateVoucher({ code, fare, paymentMethod })` when the user selects a voucher.
+  - Blocks booking while a selected voucher is loading or invalid, and asks the user to remove/change the voucher.
+  - Shows voucher validation feedback inline, including discount amount when the voucher is valid.
+  - Shows original fare, discount amount, and final fare in the footer when a voucher is applied.
+  - Passes the selected promo code, original fare, and discount amount forward to `waiting-driver`.
+  - Extended `BookingDraft` and `createBooking()` with optional `voucherCode`, `discountAmount`, and `finalFare`.
+  - Recorded the booking payload extension in `docs/changes-in-implementation.md` because the TDD does not define voucher fields on `POST /bookings`.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 errors and 0 warnings after fixing the validation-effect null narrowing.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for touched files.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 13 Commit 3.
+- Known risks:
+  - Backend `POST /bookings` may not accept `voucherCode`, `discountAmount`, or `finalFare` yet; this is documented for Stage 15 smoke testing.
+  - Discounted fare is front-end adapter/mock driven until backend payment/voucher contracts are finalized.
+  - Billing still has no remove-payment-method UI; add/set-default behavior exists and remove can be exposed in the next small commit if desired.
