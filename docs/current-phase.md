@@ -6,9 +6,9 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 - Feature: Productize payment and vouchers
 - Phase: Stage 13 - Productize payment and vouchers
-- Branch: `main` ready to branch
-- Current commit scope: Prepare Stage 13 branch from reviewed `main`
-- Status: Stage 12 merged; ready to start Stage 13 implementation
+- Branch: `codex/payment-vouchers`
+- Current commit scope: Commit 1 - add payment/voucher API and mock data layer
+- Status: Implementation in progress
 
 ## Last Completed Checkpoint
 
@@ -19,7 +19,9 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 ## Next Checkpoint
 
 - Create Stage 13 feature branch from `main`.
-- Productize billing/payment methods and vouchers in small reviewable commits.
+- Commit 1: create shared payment/voucher types plus API/mock adapters.
+- Commit 2: wire Billing screen to API/mock data.
+- Commit 3: connect booking promo selector to voucher inventory and validation.
 - Wait for user review after each Stage 13 commit.
 
 ## Product Readiness Targets

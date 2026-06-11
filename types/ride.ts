@@ -13,6 +13,61 @@ export type VehicleType = 'MOTORBIKE' | 'CAR_4_SEAT' | 'CAR_7_SEAT';
 
 export type PaymentMethod = 'CASH' | 'MOMO' | 'VNPAY';
 
+export type PaymentMethodStatus = 'ACTIVE' | 'COMING_SOON' | 'DISABLED';
+
+export type PassengerPaymentMethod = {
+  id: string;
+  method: PaymentMethod;
+  title: string;
+  detail: string;
+  status: PaymentMethodStatus;
+  isDefault: boolean;
+  linked: boolean;
+  badge?: string;
+};
+
+export type PaymentMethodDraft = {
+  method: PaymentMethod;
+  title?: string;
+};
+
+export type VoucherStatus = 'AVAILABLE' | 'USED' | 'EXPIRED' | 'COMING_SOON';
+
+export type VoucherDiscountType = 'PERCENT' | 'FIXED';
+
+export type PassengerVoucher = {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  discountType: VoucherDiscountType;
+  discountValue: number;
+  status: VoucherStatus;
+  expiresAt?: string;
+  maxDiscount?: number;
+  minFare?: number;
+  eligiblePaymentMethods?: PaymentMethod[];
+};
+
+export type VoucherListParams = {
+  includeUnavailable?: boolean;
+  paymentMethod?: PaymentMethod;
+};
+
+export type VoucherValidationRequest = {
+  code: string;
+  fare: number;
+  paymentMethod?: PaymentMethod;
+};
+
+export type VoucherValidationResult = {
+  isValid: boolean;
+  discountAmount: number;
+  finalFare: number;
+  message?: string;
+  voucher?: PassengerVoucher;
+};
+
 export type TripStatus =
   | 'SEARCHING'
   | 'ACCEPTED'
