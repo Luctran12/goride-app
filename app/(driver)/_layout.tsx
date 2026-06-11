@@ -6,6 +6,7 @@ export default function DriverLayout() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#eaf7ef' } }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="earnings" />
+      <Stack.Screen name="activity" />
     </Stack>
   );
 }
