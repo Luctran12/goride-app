@@ -2378,7 +2378,7 @@
   - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
   - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
 - User review:
-  - Awaiting user review for Stage 13 Commit 3.
+  - User approved Stage 13 Commit 3 and cleared the branch to continue with Commit 4.
 - Known risks:
   - Backend `POST /bookings` may not accept `voucherCode`, `discountAmount`, or `finalFare` yet; this is documented for Stage 15 smoke testing.
   - Discounted fare is front-end adapter/mock driven until backend payment/voucher contracts are finalized.
@@ -2412,7 +2412,7 @@
   - The CodeRabbit installer was not retried because prior execution was blocked due unacceptable risk from running an unverified third-party script with unsandboxed local side effects.
   - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
 - User review:
-  - Awaiting user review for Stage 13 Commit 4.
+  - User approved Stage 13 Commit 4. Stage 13 is ready to merge after the user requests it.
 - Known risks:
   - Mock mode can remove coming-soon non-cash entries because the adapter treats them as removable inventory items; cash remains protected.
   - Backend `/payment-methods/{id}` DELETE remains an assumed contract until backend payment-method endpoints are finalized.
