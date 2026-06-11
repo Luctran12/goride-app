@@ -2139,3 +2139,38 @@
 - Known risks:
   - `main` is still ahead of `origin/main`; push should happen when the user wants GitHub updated.
   - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.
+
+## 2026-06-11 - Stage 12 Passenger Profile Edit UI - Commit 1
+
+- Branch: `codex/passenger-profile-edit-ui`
+- Commit: `c7e2bef` - Add passenger profile edit form
+- Scope: Replaced the Personal screen placeholder edit alert with a real editable profile form.
+- Files changed:
+  - `app/(customer)/personal.tsx`
+  - `docs/current-phase.md`
+- Behavior implemented:
+  - Added edit mode for `app/(customer)/personal.tsx`.
+  - Added editable fields for full name, phone, email, and avatar URL.
+  - Added cancel action that restores the latest loaded profile values.
+  - Added save action that calls `updateMyProfile()` and updates the Personal screen state after a successful response.
+  - Added save loading state, duplicate-submit guard, inline field validation, save error state, and success banner.
+  - Avatar pencil button now enters edit mode instead of showing the previous placeholder alert.
+  - Existing profile detail, stats, retry, and footer layout remain preserved outside edit mode.
+- Validation:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+  - Ran `git diff --check`.
+  - Result: passed. Git reported line-ending normalization warnings for `docs/current-phase.md`.
+- Review:
+  - Attempted CodeRabbit review skill.
+  - `coderabbit --version` failed because the CLI is not installed.
+  - Attempted the required install command `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`, but this Windows shell does not have `sh`, so install failed with `The term 'sh' is not recognized`.
+  - No CodeRabbit issues are available for this commit. Per CodeRabbit skill rules, no manual review result is being substituted as a CodeRabbit result.
+- User review:
+  - Awaiting user review for Stage 12 Commit 1.
+- Known risks:
+  - Profile screen refresh after returning from Personal is intentionally left for Stage 12 Commit 2 so this commit stays focused.
+  - The backend update contract still assumes `PUT /api/users/me`; if the server expects `PATCH` or a different DTO, `lib/user-api.ts` may need an adapter update.
+  - Avatar is edited by URL only; image picker/upload is not implemented in this commit.

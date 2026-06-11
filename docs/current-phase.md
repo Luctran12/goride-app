@@ -8,18 +8,17 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Phase: Stage 12 - Finish passenger profile edit
 - Branch: `codex/passenger-profile-edit-ui`
 - Current commit scope: Commit 1 - add editable personal profile form
-- Status: Implementation in progress
+- Status: Waiting for user review
 
 ## Last Completed Checkpoint
 
-- Commit: `07c37f0` - Merge remote reporting hardening
-- Implementation log entry: `2026-06-11 - Stage 11.5 Remote Logging/Error Reporting Merge`
-- Review status: User approved Stage 11.5; merge validation passed.
+- Commit: `c7e2bef` - Add passenger profile edit form
+- Implementation log entry: `2026-06-11 - Stage 12 Passenger Profile Edit UI - Commit 1`
+- Review status: CodeRabbit CLI unavailable; installer failed on Windows because `sh` is not available; lint/typecheck/diff validation passed.
 
 ## Next Checkpoint
 
-- Create Stage 12 feature branch from `main`.
-- Commit 1: implement personal profile edit/save/cancel UI.
+- Wait for user review of Commit 1.
 - Commit 2: refresh Profile screen after returning from Personal and polish state sync if needed.
 - Wait for user review after each Stage 12 commit.
 
