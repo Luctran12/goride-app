@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -67,6 +68,7 @@ const ACTIVE_TRIP_STEPS: { label: string; status: TripStatus }[] = [
 ];
 
 export default function DriverScreen() {
+  const router = useRouter();
   const { height } = useWindowDimensions();
   const [isOnline, setIsOnline] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);
@@ -486,7 +488,7 @@ export default function DriverScreen() {
 
         <View style={styles.quickActionGrid}>
           <QuickActionTile icon="map-outline" label="Bản đồ" />
-          <QuickActionTile icon="wallet-outline" label="Ví tiền" />
+          <QuickActionTile icon="wallet-outline" label="Ví tiền" onPress={() => router.push('/(driver)/earnings')} />
           <QuickActionTile icon="fire" label="Vùng nóng" />
           <QuickActionTile icon="headset" label="Hỗ trợ" />
         </View>
@@ -710,9 +712,9 @@ export default function DriverScreen() {
 
       <View style={styles.bottomNav}>
         <DriverNavItem icon="home-variant" label="Home" active />
-        <DriverNavItem icon="cash-multiple" label="Earnings" />
-        <DriverNavItem icon="history" label="Activity" />
-        <DriverNavItem icon="account-outline" label="Account" />
+        <DriverNavItem icon="cash-multiple" label="Earnings" onPress={() => router.push('/(driver)/earnings')} />
+        <DriverNavItem icon="history" label="Activity" onPress={() => router.push('./activity')} />
+        <DriverNavItem icon="account-outline" label="Account" onPress={() => router.push('./account')} />
       </View>
     </SafeAreaView>
   );
@@ -753,9 +755,21 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function QuickActionTile({ icon, label }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string }) {
+function QuickActionTile({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  onPress?: () => void;
+}) {
   return (
-    <Pressable accessibilityRole="button" style={({ pressed }) => [styles.quickActionTile, pressed ? styles.pressedButton : null]}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.quickActionTile, pressed ? styles.pressedButton : null]}
+    >
       <View style={styles.quickActionIcon}>
         <MaterialCommunityIcons name={icon} size={rs(30)} color={palette.blueInk} />
       </View>
@@ -832,13 +846,19 @@ function DriverNavItem({
   icon,
   label,
   active = false,
+  onPress,
 }: {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
   active?: boolean;
+  onPress?: () => void;
 }) {
   return (
-    <Pressable accessibilityRole="button" style={({ pressed }) => [styles.navItem, active ? styles.navItemActive : null, pressed ? styles.pressedButton : null]}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.navItem, active ? styles.navItemActive : null, pressed ? styles.pressedButton : null]}
+    >
       <MaterialCommunityIcons name={icon} size={rs(30)} color={active ? palette.greenDark : palette.muted} />
       <Text style={[styles.navLabel, active ? styles.navLabelActive : null]}>{label}</Text>
     </Pressable>
