@@ -2417,3 +2417,35 @@
   - Mock mode can remove coming-soon non-cash entries because the adapter treats them as removable inventory items; cash remains protected.
   - Backend `/payment-methods/{id}` DELETE remains an assumed contract until backend payment-method endpoints are finalized.
   - Stage 13 should be ready to close after user review unless additional payment/voucher polish is requested.
+
+## 2026-06-11 - Stage 13 Payment And Vouchers - Merge
+
+- Branch merged: `codex/payment-vouchers` -> `main`
+- Merge commit: `3dc92ff` - Merge payment vouchers stage
+- Scope: Closed Stage 13 after user approval and merged the payment/voucher productization work into `main`.
+- Files included from Stage 13:
+  - `types/ride.ts`
+  - `lib/payment-api.ts`
+  - `lib/mock-payment-api.ts`
+  - `lib/ride-api.ts`
+  - `app/(customer)/billing.tsx`
+  - `app/(customer)/booking/select-vehicle.tsx`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+  - `docs/changes-in-implementation.md`
+- Behavior now on `main`:
+  - Billing loads payment methods and vouchers from API/mock adapters.
+  - Billing supports add, set default, and remove payment method MVP behavior.
+  - Booking checkout reads voucher inventory, validates voucher codes, and shows discounted fare.
+  - MoMo/VNPay remain clearly marked as coming soon unless backend payment support is ready.
+- Validation after merge:
+  - Ran `cmd /c npm run lint`.
+  - Result: passed with 0 reported lint errors.
+  - Ran `cmd /c npx tsc --noEmit --pretty false`.
+  - Result: passed with no TypeScript errors.
+- User review:
+  - User approved Stage 13 Commit 4 before merge.
+- Known risks:
+  - Payment-method and voucher endpoint paths remain front-end adapter assumptions until backend contracts exist.
+  - Booking voucher payload extension remains documented in `docs/changes-in-implementation.md`.
+  - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.

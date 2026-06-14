@@ -4,26 +4,28 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Productize payment and vouchers
-- Phase: Stage 13 - Productize payment and vouchers
-- Branch: `codex/payment-vouchers`
-- Current commit scope: Commit 4 - add remove payment method UI in Billing
-- Status: User approved Commit 4; Stage 13 ready to merge
+- Feature: Driver product shell
+- Phase: Stage 14 - Driver product shell
+- Branch: `main` merged; next branch `codex/driver-product-shell`
+- Current commit scope: Stage 14 setup - create feature branch from main
+- Status: Stage 13 merged into main; preparing Stage 14
 
 ## Last Completed Checkpoint
 
-- Commit: `15a9732` - Add billing payment removal UI
-- Implementation log entry: `2026-06-11 - Stage 13 Payment And Vouchers - Commit 4`
-- Review status: User approved Commit 4; CodeRabbit CLI unavailable; lint/typecheck/diff validation passed.
+- Commit: `3dc92ff` - Merge payment vouchers stage
+- Implementation log entry: `2026-06-11 - Stage 13 Payment And Vouchers - Merge`
+- Review status: User approved Stage 13; lint/typecheck validation passed after merge.
 
 ## Next Checkpoint
 
-- Merge `codex/payment-vouchers` into `main` and push when requested.
-- After Stage 13 merge, start Stage 14 - Driver product shell.
+- Push `main` to GitHub.
+- Create branch `codex/driver-product-shell` from `main`.
+- Stage 14 Commit 1: inspect existing driver routes and add the first driver product shell slice.
 
 ## Product Readiness Targets
 
-- Replace static billing/payment method data with API/mock-backed data.
-- Add add/set default/remove payment method MVP behavior where feasible.
-- Connect booking promo selector to voucher inventory.
-- Keep MoMo/VNPay clearly marked as coming soon unless backend payment redirect/callback is ready.
+- Add driver auth guard or driver login flow.
+- Add driver profile/account screen.
+- Add driver earnings screen.
+- Add driver activity/history screen.
+- Connect driver bottom nav placeholders to real routes.
