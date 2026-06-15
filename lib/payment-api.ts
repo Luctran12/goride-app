@@ -94,9 +94,12 @@ export function listVouchers(params: VoucherListParams = {}) {
     return mockListVouchers(params);
   }
 
-  return apiRequest<ApiListEnvelope<PassengerVoucher>>(`/vouchers${buildVoucherQuery(params)}`).then(
-    normalizeListResponse,
-  );
+  return apiRequest<ApiListEnvelope<PassengerVoucher>>(`/vouchers${buildVoucherQuery(params)}`)
+    .then(normalizeListResponse)
+    .catch((err) => {
+      console.warn('Backend vouchers API failed or not supported:', err);
+      return [];
+    });
 }
 
 export function validateVoucher(request: VoucherValidationRequest) {
