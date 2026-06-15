@@ -11,7 +11,9 @@ import {
 import type {
   PassengerPaymentMethod,
   PassengerVoucher,
+  PaymentMethod,
   PaymentMethodDraft,
+  PaymentMethodStatus,
   VoucherListParams,
   VoucherValidationRequest,
   VoucherValidationResult,
@@ -27,10 +29,37 @@ type ApiResponse<TData> = {
 
 type ApiListEnvelope<TItem> = ApiResponse<TItem[] | { items?: TItem[]; content?: TItem[] }> | TItem[];
 
+type BackendPaymentMethod = {
+  method: PaymentMethod;
+  provider: string;
+  displayName: string;
+  enabled: boolean;
+  checkoutRequired: boolean;
+  sandbox: boolean;
+  providerConfigured: boolean;
+  providerRegistered: boolean;
+};
+
 export function listPaymentMethods() {
-  return USE_MOCK_API
-    ? mockListPaymentMethods()
-    : apiRequest<ApiListEnvelope<PassengerPaymentMethod>>('/payment-methods').then(normalizeListResponse);
+  if (USE_MOCK_API) {
+    return mockListPaymentMethods();
+  }
+
+  return apiRequest<ApiResponse<BackendPaymentMethod[]>>('/payments/methods')
+    .then((response) => {
+      const methods = response.data ?? [];
+      return methods.map((item) => ({
+        id: item.method.toLowerCase(),
+        method: item.method,
+        title: item.displayName,
+        detail: item.method === 'CASH'
+          ? 'Thanh toán trực tiếp cho tài xế'
+          : (item.enabled ? 'Thanh toán qua ứng dụng' : 'Sắp hỗ trợ liên kết ví'),
+        status: (item.enabled ? 'ACTIVE' : 'COMING_SOON') as PaymentMethodStatus,
+        isDefault: item.method === 'CASH',
+        linked: item.method === 'CASH' || item.enabled,
+      }));
+    });
 }
 
 export function addPaymentMethod(draft: PaymentMethodDraft) {
