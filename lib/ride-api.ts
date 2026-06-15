@@ -147,6 +147,14 @@ export function submitTripRating(draft: TripRatingDraft) {
       });
 }
 
+export function confirmCashPayment(tripId: number) {
+  return USE_MOCK_API
+    ? Promise.resolve({ tripId, status: 'COMPLETED', amount: 45000, paidAt: new Date().toISOString() })
+    : apiRequest<{ tripId: number; status: string; amount: number; paidAt: string }>(`/drivers/trips/${tripId}/payment-confirm`, {
+        method: 'PATCH',
+      });
+}
+
 function normalizeTripHistoryPage(
   response: ApiListResponse<TripDetail> | TripDetail[],
   page: number,

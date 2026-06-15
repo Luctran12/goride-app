@@ -32,7 +32,7 @@ import {
 import { ApiError } from '@/lib/api';
 import { initializeAuthSession } from '@/lib/auth-api';
 import { getDriverProfile, sendHeartbeatRest, type DriverProfileResponse } from '@/lib/driver-api';
-import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
+import { confirmCashPayment, respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_HEARTBEAT_INTERVAL_MS = 20000;
@@ -85,6 +85,7 @@ export default function DriverScreen() {
   } | null>(null);
   const [respondingAction, setRespondingAction] = useState<DriverAction | null>(null);
   const [updatingTripStatus, setUpdatingTripStatus] = useState<TripStatus | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [lastDriverLocationSentAt, setLastDriverLocationSentAt] = useState<string | null>(null);
   const [driverTrackingMessage, setDriverTrackingMessage] = useState('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
@@ -392,6 +393,22 @@ export default function DriverScreen() {
     setDriverTrackingMessage('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
     setStatusMessage('Bạn đang online. GoRide tiếp tục nghe cuốc mới.');
   }, []);
+
+  const handleConfirmPaymentAndReady = useCallback(async () => {
+    if (!requestResponse) {
+      return;
+    }
+
+    setConfirmingPayment(true);
+    try {
+      await confirmCashPayment(requestResponse.tripId);
+      resetCompletedTrip();
+    } catch (error: unknown) {
+      Alert.alert('Lỗi xác nhận thanh toán', getErrorMessage(error, 'Không thể xác nhận thanh toán tiền mặt lúc này.'));
+    } finally {
+      setConfirmingPayment(false);
+    }
+  }, [requestResponse, resetCompletedTrip]);
 
   const sendDriverGpsPing = useCallback(async (tripId: number) => {
     if (driverGpsPingInFlightRef.current) {
@@ -707,16 +724,29 @@ export default function DriverScreen() {
                   ) : (
                     <View style={styles.completedTripStack}>
                       <View style={styles.completedTripBox}>
-                        <MaterialCommunityIcons name="flag-checkered" size={rs(30)} color={palette.green} />
-                        <Text style={styles.completedTripText}>Chuyến đã hoàn thành. Bạn có thể quay lại trạng thái nhận cuốc mới.</Text>
+                        <MaterialCommunityIcons name="cash-register" size={rs(30)} color={palette.green} />
+                        <Text style={styles.completedTripText}>
+                          Hãy thu {incomingRequest ? formatFare(incomingRequest.estimatedFare) : 'tiền'} tiền mặt của khách. Xác nhận sau khi đã nhận đủ.
+                        </Text>
                       </View>
                       <Pressable
                         accessibilityRole="button"
-                        onPress={resetCompletedTrip}
-                        style={({ pressed }) => [styles.readyButton, pressed ? styles.pressedButton : null]}
+                        disabled={confirmingPayment}
+                        onPress={handleConfirmPaymentAndReady}
+                        style={({ pressed }) => [
+                          styles.readyButton,
+                          pressed && !confirmingPayment ? styles.pressedButton : null,
+                          confirmingPayment ? styles.disabledButton : null,
+                        ]}
                       >
-                        <MaterialCommunityIcons name="radar" size={rs(28)} color={palette.card} />
-                        <Text style={styles.readyButtonText}>Sẵn sàng nhận cuốc mới</Text>
+                        {confirmingPayment ? (
+                          <ActivityIndicator color={palette.card} />
+                        ) : (
+                          <MaterialCommunityIcons name="check-decagram" size={rs(28)} color={palette.card} />
+                        )}
+                        <Text style={styles.readyButtonText}>
+                          {confirmingPayment ? 'Đang xác nhận...' : 'Đã nhận tiền mặt & Sẵn sàng'}
+                        </Text>
                       </Pressable>
                     </View>
                   )}
