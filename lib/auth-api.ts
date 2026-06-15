@@ -58,8 +58,8 @@ export function subscribeAuthSession(listener: AuthSessionListener) {
   };
 }
 
-export async function login(payload: LoginRequest) {
-  const session = USE_MOCK_AUTH_API ? await mockLogin(payload) : await requestAuth('/auth/login', payload);
+export async function login(payload: LoginRequest, roles?: AuthRole[]) {
+  const session = USE_MOCK_AUTH_API ? await mockLogin(payload, roles) : await requestAuth('/auth/login', payload);
   await saveAuthSession(session);
 
   return session;
@@ -69,6 +69,17 @@ export async function registerPassenger(payload: Omit<RegisterRequest, 'roles'>)
   const request: RegisterRequest = {
     ...payload,
     roles: ['PASSENGER'],
+  };
+  const session = USE_MOCK_AUTH_API ? await mockRegister(request) : await requestAuth('/auth/register', request);
+  await saveAuthSession(session);
+
+  return session;
+}
+
+export async function registerDriver(payload: Omit<RegisterRequest, 'roles'>) {
+  const request: RegisterRequest = {
+    ...payload,
+    roles: ['DRIVER'],
   };
   const session = USE_MOCK_AUTH_API ? await mockRegister(request) : await requestAuth('/auth/register', request);
   await saveAuthSession(session);
@@ -315,12 +326,12 @@ async function deleteStoredValue(key: string) {
   await SecureStore.deleteItemAsync(key);
 }
 
-async function mockLogin(payload: LoginRequest): Promise<AuthSession> {
+async function mockLogin(payload: LoginRequest, roles?: AuthRole[]): Promise<AuthSession> {
   if (!payload.phone.trim() || !payload.password.trim()) {
     throw new ApiError('Phone and password are required');
   }
 
-  return createMockAuthSession();
+  return createMockAuthSession(roles);
 }
 
 async function mockRegister(payload: RegisterRequest): Promise<AuthSession> {
@@ -328,14 +339,15 @@ async function mockRegister(payload: RegisterRequest): Promise<AuthSession> {
     throw new ApiError('Full name, phone, and password are required');
   }
 
-  return createMockAuthSession();
+  return createMockAuthSession(payload.roles);
 }
 
-function createMockAuthSession(): AuthSession {
+function createMockAuthSession(roles?: AuthRole[]): AuthSession {
+  const finalRoles = roles ?? ['PASSENGER'];
   return {
     accessToken: `mock-access-token-${Date.now()}`,
     refreshToken: `mock-refresh-token-${Date.now()}`,
-    roles: ['PASSENGER'],
-    userId: 1,
+    roles: finalRoles,
+    userId: finalRoles.includes('DRIVER') ? 5 : 1,
   };
 }

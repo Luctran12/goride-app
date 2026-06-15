@@ -42,7 +42,7 @@ export default function LoginChoiceScreen() {
       </Pressable>
 
       <Pressable
-        onPress={() => router.push('/(driver)')}
+        onPress={() => router.push('/(driver)/login' as any)}
         style={({ pressed }) => [styles.roleButton, styles.driverButton, pressed && styles.pressed]}
       >
         <Text style={styles.roleTitle}>Vao voi vai tro Driver</Text>

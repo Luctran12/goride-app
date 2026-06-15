@@ -2484,3 +2484,27 @@
   - App reads local backend endpoint from `.env` instead of falling back to Mock adapters.
   - Active phase updated to Stage 15 in documentation.
 
+## 2026-06-15 - Stage 15 Driver Authentication Implementation
+
+- Branch: `main`
+- Commit: Add driver login and register flow
+- Scope: Added full login/register flow for drivers, including role-based auth guard and logout integration.
+- Files changed/added:
+  - `lib/auth-api.ts`
+  - `components/auth/driver-auth-screen.tsx`
+  - `app/(driver)/login.tsx`
+  - `app/(driver)/register.tsx`
+  - `app/(driver)/_layout.tsx`
+  - `app/(driver)/account.tsx`
+  - `app/index.tsx`
+- Behavior implemented:
+  - Role chooses redirects driver role button to `/(driver)/login`.
+  - Added `registerDriver()` and updated `login()` to accept a list of roles for session mapping.
+  - Developed driver-specific auth screen with green branding.
+  - Set up `Stack.Protected` driver auth guard in `_layout.tsx` requiring `DRIVER` role.
+  - Integrated "Đăng xuất" button in Account screen to call API `logout()` and clear sessions.
+- Validation:
+  - Ran `cmd /c npm run lint` and `cmd /c npx tsc --noEmit`.
+  - Results: passed with no errors.
+
+

@@ -2,6 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
+
+import { logout } from '@/lib/auth-api';
 import {
   Pressable,
   ScrollView,
@@ -121,7 +123,18 @@ export default function DriverAccountScreen() {
           ))}
         </View>
 
-        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.logoutButton, pressed ? styles.pressedButton : null]}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={async () => {
+            try {
+              await logout();
+              router.replace('/');
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          }}
+          style={({ pressed }) => [styles.logoutButton, pressed ? styles.pressedButton : null]}
+        >
           <MaterialCommunityIcons name="logout" size={rs(24)} color={palette.danger} />
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </Pressable>
