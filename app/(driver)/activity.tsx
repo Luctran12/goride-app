@@ -3,7 +3,9 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -14,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { listBookings } from '@/lib/ride-api';
+import type { TripDetail } from '@/types/ride';
 
 const palette = {
   background: '#eaf7ef',
@@ -62,122 +66,115 @@ const periodOptions: { key: ActivityPeriod; label: string }[] = [
   { key: 'month', label: '30 ngày' },
 ];
 
-const activityByPeriod: Record<ActivityPeriod, ActivityDataset> = {
-  today: {
-    totalTrips: 12,
-    completedTrips: 10,
-    cancelledTrips: 2,
-    trips: [
-      {
-        id: 'trip-1920',
-        time: '19:20',
-        fare: 48000,
-        status: 'completed',
-        statusLabel: 'Hoàn thành',
-        pickup: '123 Nguyễn Huệ, Q.1',
-        dropoff: 'Bitexco Financial Tower, Quận 1',
-        rating: 4.8,
-      },
-      {
-        id: 'trip-1745',
-        time: '17:45',
-        fare: 125000,
-        status: 'completed',
-        statusLabel: 'Hoàn thành',
-        pickup: 'Landmark 81, Bình Thạnh',
-        dropoff: 'Sân bay Tân Sơn Nhất',
-      },
-      {
-        id: 'trip-1510',
-        time: '15:10',
-        fare: 0,
-        originalFare: 35000,
-        status: 'cancelled',
-        statusLabel: 'Khách hủy',
-        pickup: 'Chợ Bến Thành',
-        dropoff: 'Phố đi bộ Bùi Viện',
-      },
-    ],
-  },
-  week: {
-    totalTrips: 58,
-    completedTrips: 51,
-    cancelledTrips: 7,
-    trips: [
-      {
-        id: 'trip-week-1',
-        time: 'Hôm qua',
-        fare: 96000,
-        status: 'completed',
-        statusLabel: 'Hoàn thành',
-        pickup: 'Vạn Hạnh Mall, Quận 10',
-        dropoff: 'Nhà hát Thành phố, Quận 1',
-        rating: 4.9,
-      },
-      {
-        id: 'trip-week-2',
-        time: 'Thứ 3',
-        fare: 72000,
-        status: 'completed',
-        statusLabel: 'Hoàn thành',
-        pickup: 'Cầu Thủ Thiêm 2',
-        dropoff: 'Saigon Centre, Quận 1',
-      },
-      {
-        id: 'trip-week-3',
-        time: 'Thứ 2',
-        fare: 0,
-        originalFare: 52000,
-        status: 'cancelled',
-        statusLabel: 'Khách hủy',
-        pickup: 'Aeon Mall Tân Phú',
-        dropoff: 'Etown Cộng Hòa',
-      },
-    ],
-  },
-  month: {
-    totalTrips: 210,
-    completedTrips: 190,
-    cancelledTrips: 20,
-    trips: [
-      {
-        id: 'trip-month-1',
-        time: '10/06',
-        fare: 138000,
-        status: 'completed',
-        statusLabel: 'Hoàn thành',
-        pickup: 'Ga Sài Gòn',
-        dropoff: 'Khu đô thị Sala',
-        rating: 5,
-      },
-      {
-        id: 'trip-month-2',
-        time: '09/06',
-        fare: 64000,
-        status: 'completed',
-        statusLabel: 'Hoàn thành',
-        pickup: 'Đại học Bách Khoa',
-        dropoff: 'Hồ Con Rùa',
-      },
-      {
-        id: 'trip-month-3',
-        time: '08/06',
-        fare: 0,
-        originalFare: 47000,
-        status: 'cancelled',
-        statusLabel: 'Khách hủy',
-        pickup: 'Công viên Tao Đàn',
-        dropoff: 'Crescent Mall',
-      },
-    ],
-  },
-};
-
 export default function DriverActivityScreen() {
   const router = useRouter();
   const { height } = useWindowDimensions();
   const [selectedPeriod, setSelectedPeriod] = React.useState<ActivityPeriod>('today');
-  const dataset = activityByPeriod[selectedPeriod];
+  const [trips, setTrips] = React.useState<TripDetail[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const loadActivity = React.useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      const data = await listBookings(1, 100);
+      setTrips(data.items || []);
+    } catch (err) {
+      console.warn('Load activity history error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadActivity();
+  }, [loadActivity]);
+
+  const activityData = React.useMemo(() => {
+    const now = new Date();
+    
+    const parseTripDate = (reqAt?: string) => {
+      return reqAt ? new Date(reqAt) : new Date();
+    };
+
+    const isToday = (date: Date) => {
+      return (
+        date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear()
+      );
+    };
+
+    const isWithinDays = (date: Date, days: number) => {
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      return diffDays <= days;
+    };
+
+    const mapToDriverActivity = (trip: TripDetail): DriverActivity => {
+      const reqDate = parseTripDate(trip.requestedAt);
+      
+      let timeStr = '';
+      if (isToday(reqDate)) {
+        const hh = String(reqDate.getHours()).padStart(2, '0');
+        const mm = String(reqDate.getMinutes()).padStart(2, '0');
+        timeStr = `${hh}:${mm}`;
+      } else if (isWithinDays(reqDate, 7)) {
+        const diffMs = now.getTime() - reqDate.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          timeStr = 'Hôm qua';
+        } else {
+          const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+          timeStr = dayNames[reqDate.getDay()];
+        }
+      } else {
+        const dd = String(reqDate.getDate()).padStart(2, '0');
+        const mm = String(reqDate.getMonth() + 1).padStart(2, '0');
+        timeStr = `${dd}/${mm}`;
+      }
+
+      const completed = trip.status === 'COMPLETED';
+
+      return {
+        id: String(trip.tripId),
+        time: timeStr,
+        fare: trip.finalFare ?? trip.estimatedFare,
+        originalFare: trip.status === 'CANCELLED' ? trip.estimatedFare : undefined,
+        status: completed ? 'completed' : 'cancelled',
+        statusLabel: completed ? 'Hoàn thành' : (trip.status === 'CANCELLED' ? 'Khách hủy' : 'Hủy chuyến'),
+        pickup: trip.pickup.address || 'Điểm đón',
+        dropoff: trip.dropoff.address || 'Điểm đến',
+        rating: trip.passengerRating?.score,
+      };
+    };
+
+    const filterAndSummarize = (filterFn: (date: Date) => boolean): ActivityDataset => {
+      const filteredTrips = trips.filter((trip) => filterFn(parseTripDate(trip.requestedAt)));
+      const completed = filteredTrips.filter((t) => t.status === 'COMPLETED');
+      const cancelled = filteredTrips.filter((t) => t.status === 'CANCELLED' || t.status === 'NO_DRIVER');
+
+      return {
+        totalTrips: filteredTrips.length,
+        completedTrips: completed.length,
+        cancelledTrips: cancelled.length,
+        trips: filteredTrips.map(mapToDriverActivity),
+      };
+    };
+
+    return {
+      today: filterAndSummarize(isToday),
+      week: filterAndSummarize((date) => isWithinDays(date, 7)),
+      month: filterAndSummarize((date) => isWithinDays(date, 30)),
+    };
+  }, [trips]);
+
+  const dataset = activityData[selectedPeriod];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -187,6 +184,9 @@ export default function DriverActivityScreen() {
         contentContainerStyle={[styles.container, { minHeight: height }]}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => loadActivity(true)} tintColor={palette.green} />
+        }
       >
         <View style={styles.header}>
           <Pressable
@@ -231,17 +231,32 @@ export default function DriverActivityScreen() {
           })}
         </View>
 
-        <View style={styles.statsRow}>
-          <SummaryCard label="Tổng chuyến" value={dataset.totalTrips} tone="blue" />
-          <SummaryCard label="Hoàn thành" value={dataset.completedTrips} tone="green" featured />
-          <SummaryCard label="Đã hủy" value={dataset.cancelledTrips} tone="danger" />
-        </View>
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: rvs(200) }}>
+            <ActivityIndicator size="large" color={palette.green} />
+          </View>
+        ) : (
+          <>
+            <View style={styles.statsRow}>
+              <SummaryCard label="Tổng chuyến" value={dataset.totalTrips} tone="blue" />
+              <SummaryCard label="Hoàn thành" value={dataset.completedTrips} tone="green" featured />
+              <SummaryCard label="Đã hủy" value={dataset.cancelledTrips} tone="danger" />
+            </View>
 
-        <View style={styles.tripList}>
-          {dataset.trips.map((trip) => (
-            <ActivityTripCard key={trip.id} trip={trip} />
-          ))}
-        </View>
+            <View style={styles.tripList}>
+              {dataset.trips.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons name="history" size={rs(48)} color={palette.muted} />
+                  <Text style={styles.emptyStateText}>Không có hoạt động nào trong khoảng thời gian này</Text>
+                </View>
+              ) : (
+                dataset.trips.map((trip) => (
+                  <ActivityTripCard key={trip.id} trip={trip} />
+                ))
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.bottomNav}>
@@ -726,5 +741,17 @@ const styles = StyleSheet.create({
   pressedButton: {
     transform: [{ scale: 0.98 }],
     opacity: 0.9,
+  },
+  emptyState: {
+    paddingVertical: rvs(40),
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rvs(10),
+  },
+  emptyStateText: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

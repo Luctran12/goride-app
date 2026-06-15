@@ -29,11 +29,13 @@ import {
   subscribeRealtimeConnection,
   type RealtimeSubscription,
 } from '@/lib/realtime';
+import { ApiError } from '@/lib/api';
+import { initializeAuthSession } from '@/lib/auth-api';
+import { getDriverProfile, sendHeartbeatRest, type DriverProfileResponse } from '@/lib/driver-api';
 import { respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
-const DRIVER_ID = 5;
-const DRIVER_HEARTBEAT_INTERVAL_MS = 10000;
+const DRIVER_HEARTBEAT_INTERVAL_MS = 20000;
 const DRIVER_LOCATION_INTERVAL_MS = 5000;
 const DRIVER_LOCATION_TIMEOUT_MS = 4500;
 const DRIVER_MAP_DELTA = 0.01;
@@ -95,6 +97,41 @@ export default function DriverScreen() {
   const driverLocationRef = useRef<LocationPoint | null>(null);
   const driverGpsPingInFlightRef = useRef(false);
 
+  const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const driverIdRef = useRef<number>(5);
+
+  const fetchProfile = useCallback(() => {
+    getDriverProfile()
+      .then((profile) => {
+        setDriverProfile(profile);
+        setLoadingProfile(false);
+      })
+      .catch((error) => {
+        if (error instanceof ApiError && error.status === 404) {
+          router.replace('/(driver)/onboarding' as any);
+        } else {
+          Alert.alert('Lỗi tải hồ sơ', error.message || 'Không thể tải thông tin hồ sơ tài xế.');
+          setLoadingProfile(false);
+        }
+      });
+  }, [router]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    initializeAuthSession().then((session) => {
+      if (isCurrent && session) {
+        driverIdRef.current = session.userId;
+      }
+    });
+
+    fetchProfile();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [fetchProfile]);
+
   const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
   const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
   const todayTripCount = requestResponse?.status === 'COMPLETED' ? 13 : 12;
@@ -128,26 +165,57 @@ export default function DriverScreen() {
     disconnectRealtime();
   }, []);
 
+  const goOffline = useCallback(async () => {
+    setToggleLoading(true);
+
+    try {
+      const lat = driverLocationRef.current?.lat ?? 10.7769;
+      const lng = driverLocationRef.current?.lng ?? 106.7009;
+      const response = await setDriverOnline(false, lat, lng);
+      stopOnlineServices();
+      setIsOnline(false);
+      setIncomingRequest(null);
+      setRequestResponse(null);
+      setRespondingAction(null);
+      setUpdatingTripStatus(null);
+      setLastDriverLocationSentAt(null);
+      setDriverTrackingMessage('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
+      setRealtimeMode('offline');
+      setStatusMessage(response.message);
+    } catch (error: unknown) {
+      Alert.alert('Không thể tắt online', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+    } finally {
+      setToggleLoading(false);
+    }
+  }, [stopOnlineServices]);
+
   const startHeartbeat = useCallback(() => {
     if (heartbeatTimerRef.current) {
       clearInterval(heartbeatTimerRef.current);
     }
 
     const sendHeartbeat = () => {
-      const heartbeat = sendDriverHeartbeat(DRIVER_ID);
+      const lat = driverLocationRef.current?.lat ?? 10.7769;
+      const lng = driverLocationRef.current?.lng ?? 106.7009;
 
-      if (heartbeat.sent) {
-        setLastHeartbeatAt(heartbeat.sentAt);
-        return;
-      }
+      sendHeartbeatRest(lat, lng)
+        .then((res) => {
+          setLastHeartbeatAt(res.heartbeatAt);
+          if (res.online === false) {
+            void goOffline();
+          }
+        })
+        .catch((err) => {
+          console.warn('Heartbeat REST error:', err);
+          setLastHeartbeatAt(null);
+        });
 
-      setRealtimeMode('fallback');
-      setStatusMessage('Realtime chưa sẵn sàng để gửi heartbeat. GoRide sẽ tiếp tục thử lại theo chu kỳ.');
+      sendDriverHeartbeat(driverIdRef.current);
     };
 
     sendHeartbeat();
     heartbeatTimerRef.current = setInterval(sendHeartbeat, DRIVER_HEARTBEAT_INTERVAL_MS);
-  }, []);
+  }, [goOffline]);
 
   const startRealtime = useCallback(async () => {
     let remoteConnectionOpened = false;
@@ -186,7 +254,7 @@ export default function DriverScreen() {
     try {
       const connection = await connectRealtime();
       setRealtimeMode(connection.mode);
-      requestSubscriptionRef.current = subscribeDriverRequests(DRIVER_ID, (request) => {
+      requestSubscriptionRef.current = subscribeDriverRequests(driverIdRef.current, (request) => {
         setIncomingRequest(request);
         setRequestResponse(null);
         setStatusMessage('Có cuốc mới đang chờ bạn phản hồi.');
@@ -223,7 +291,7 @@ export default function DriverScreen() {
         );
       }
 
-      const response = await setDriverOnline(true);
+      const response = await setDriverOnline(true, nextLocation.lat, nextLocation.lng);
       setDriverLocation(nextLocation);
       setIsOnline(true);
       setStatusMessage(response.message);
@@ -238,34 +306,16 @@ export default function DriverScreen() {
     }
   }, [startRealtime, stopOnlineServices]);
 
-  const goOffline = useCallback(async () => {
-    setToggleLoading(true);
-
-    try {
-      const response = await setDriverOnline(false);
-      stopOnlineServices();
-      setIsOnline(false);
-      setIncomingRequest(null);
-      setRequestResponse(null);
-      setRespondingAction(null);
-      setUpdatingTripStatus(null);
-      setLastDriverLocationSentAt(null);
-      setDriverTrackingMessage('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
-      setRealtimeMode('offline');
-      setStatusMessage(response.message);
-    } catch (error: unknown) {
-      Alert.alert('Không thể tắt online', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
-    } finally {
-      setToggleLoading(false);
-    }
-  }, [stopOnlineServices]);
-
   const handleToggleOnline = (value: boolean) => {
     if (toggleLoading) {
       return;
     }
 
     if (value) {
+      if (!driverProfile || driverProfile.approvalStatus !== 'APPROVED') {
+        Alert.alert('Không thể hoạt động', 'Hồ sơ tài xế của bạn chưa được duyệt hoặc chưa hoàn tất.');
+        return;
+      }
       void goOnline();
     } else {
       void goOffline();
@@ -366,7 +416,7 @@ export default function DriverScreen() {
     setDriverLocation(nextLocation);
     const publishResult = sendDriverLocation({
       tripId,
-      driverId: DRIVER_ID,
+      driverId: driverIdRef.current,
       lat: nextLocation.lat,
       lng: nextLocation.lng,
       updatedAt: sentAt,
@@ -416,6 +466,17 @@ export default function DriverScreen() {
     };
   }, [activeTripId, requestResponse?.status, sendDriverGpsPing]);
 
+  if (loadingProfile) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={palette.green} />
+        <Text style={{ marginTop: rvs(10), color: palette.muted, fontSize: rf(16), fontWeight: '700' }}>
+          Đang tải thông tin tài xế...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
@@ -437,6 +498,26 @@ export default function DriverScreen() {
             {latestNotification ? <View style={styles.bellDot} /> : null}
           </Pressable>
         </View>
+
+        {!loadingProfile && driverProfile && driverProfile.approvalStatus !== 'APPROVED' ? (
+          <View style={[styles.warningCard, driverProfile.approvalStatus === 'REJECTED' && styles.dangerCard]}>
+            <MaterialCommunityIcons
+              name={driverProfile.approvalStatus === 'PENDING' ? 'clock-outline' : 'alert-circle-outline'}
+              size={rs(24)}
+              color={driverProfile.approvalStatus === 'PENDING' ? palette.amber : palette.danger}
+            />
+            <View style={styles.warningCopy}>
+              <Text style={styles.warningTitle}>
+                {driverProfile.approvalStatus === 'PENDING' ? 'Hồ sơ đang chờ duyệt' : 'Hồ sơ bị từ chối'}
+              </Text>
+              <Text style={styles.warningText}>
+                {driverProfile.approvalStatus === 'PENDING'
+                  ? 'Ban quản trị đang xem xét hồ sơ của bạn. Bạn chưa thể bật online nhận chuyến lúc này.'
+                  : 'Hồ sơ đăng ký tài xế không được chấp nhận. Vui lòng liên hệ bộ phận hỗ trợ.'}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>
@@ -1100,6 +1181,36 @@ function isTripStepCompleted(currentStatus: TripStatus, stepStatus: TripStatus) 
 }
 
 const styles = StyleSheet.create({
+  warningCard: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fef3c7',
+    borderWidth: 1,
+    borderRadius: rs(16),
+    padding: rs(18),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+    marginBottom: rvs(8),
+  },
+  dangerCard: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fee2e2',
+  },
+  warningCopy: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  warningTitle: {
+    fontSize: rf(16),
+    fontWeight: '800',
+    color: '#08110d',
+  },
+  warningText: {
+    fontSize: rf(14),
+    fontWeight: '600',
+    color: '#637069',
+    lineHeight: rf(18),
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#f7faf8',

@@ -1,10 +1,15 @@
+import { logout } from '@/lib/auth-api';
+import { USE_MOCK_API } from '@/lib/config';
+import { getDriverProfile, type DriverProfileResponse } from '@/lib/driver-api';
+import { setMockDriverApproved } from '@/lib/mock-driver-api';
+import { getMyProfile, type UserProfile } from '@/lib/user-api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React from 'react';
-
-import { logout } from '@/lib/auth-api';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StatusBar,
@@ -35,26 +40,60 @@ const palette = {
   dangerSoft: '#fff0f0',
 };
 
-const driverProfile = {
-  name: 'Trần Minh Khoa',
-  phone: '0901234567',
-  rating: 4.8,
-  totalTrips: 248,
-  avatarUrl: 'https://i.pravatar.cc/160?img=12',
-  vehicle: {
-    type: 'Xe máy',
-    model: 'Honda Air Blade',
-    plate: '59A1-123.45',
-  },
-  documents: [
-    { id: 'license', title: 'GPLX', updatedAt: '12/05/2023', status: 'Đã duyệt' },
-    { id: 'identity', title: 'CCCD', updatedAt: '10/05/2023', status: 'Đã duyệt' },
-  ],
-};
-
 export default function DriverAccountScreen() {
   const router = useRouter();
   const { height } = useWindowDimensions();
+
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
+    try {
+      const uProfile = await getMyProfile();
+      setUserProfile(uProfile);
+
+      const dProfile = await getDriverProfile();
+      setDriverProfile(dProfile);
+    } catch (err) {
+      console.warn('Load account data error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  async function handleQuickApprove() {
+    setMockDriverApproved(true);
+    Alert.alert('Thành công', 'Đã duyệt hồ sơ tài xế (Demo). Bạn có thể quay lại dashboard và bật online.');
+    loadData();
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={palette.green} />
+      </SafeAreaView>
+    );
+  }
+
+  const documents = [
+    {
+      id: 'license',
+      title: `GPLX (${driverProfile?.licenseNumber ?? 'Chưa rõ'})`,
+      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? 'Chưa rõ',
+      status: driverProfile?.approvalStatus === 'APPROVED' ? 'Đã duyệt' : driverProfile?.approvalStatus === 'PENDING' ? 'Chờ duyệt' : 'Bị từ chối'
+    },
+    {
+      id: 'identity',
+      title: `CCCD (${driverProfile?.idCardNumber ?? 'Chưa rõ'})`,
+      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? 'Chưa rõ',
+      status: driverProfile?.approvalStatus === 'APPROVED' ? 'Đã duyệt' : driverProfile?.approvalStatus === 'PENDING' ? 'Chờ duyệt' : 'Bị từ chối'
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -67,7 +106,7 @@ export default function DriverAccountScreen() {
       >
         <View style={styles.header}>
           <View style={styles.headerTitleWrap}>
-            <Image source={{ uri: driverProfile.avatarUrl }} style={styles.headerAvatar} contentFit="cover" />
+            <Image source={{ uri: userProfile?.avatarUrl ?? 'https://i.pravatar.cc/160?img=12' }} style={styles.headerAvatar} contentFit="cover" />
             <Text style={styles.headerTitle}>Tài khoản</Text>
           </View>
 
@@ -78,23 +117,44 @@ export default function DriverAccountScreen() {
 
         <View style={styles.approvalCard}>
           <View style={styles.approvalTitleRow}>
-            <MaterialCommunityIcons name="check-decagram" size={rs(24)} color={palette.green} />
-            <Text style={styles.approvalTitle}>Hồ sơ đã được duyệt</Text>
+            <MaterialCommunityIcons
+              name={driverProfile?.approvalStatus === 'APPROVED' ? 'check-decagram' : driverProfile?.approvalStatus === 'PENDING' ? 'clock-outline' : 'alert-circle-outline'}
+              size={rs(24)}
+              color={driverProfile?.approvalStatus === 'APPROVED' ? palette.green : driverProfile?.approvalStatus === 'PENDING' ? palette.amber : palette.danger}
+            />
+            <Text style={[styles.approvalTitle, driverProfile?.approvalStatus === 'PENDING' && { color: palette.amber }, driverProfile?.approvalStatus === 'REJECTED' && { color: palette.danger }]}>
+              {driverProfile?.approvalStatus === 'APPROVED' ? 'Hồ sơ đã được duyệt' : driverProfile?.approvalStatus === 'PENDING' ? 'Hồ sơ đang chờ duyệt' : 'Hồ sơ bị từ chối'}
+            </Text>
           </View>
-          <Text style={styles.approvalText}>Bạn có thể bật online để nhận cuốc ngay bây giờ.</Text>
+          <Text style={styles.approvalText}>
+            {driverProfile?.approvalStatus === 'APPROVED'
+              ? 'Bạn có thể bật online để nhận cuốc ngay bây giờ.'
+              : driverProfile?.approvalStatus === 'PENDING'
+              ? 'Hồ sơ của bạn đang được kiểm duyệt. Vui lòng chờ phê duyệt.'
+              : 'Hồ sơ của bạn bị từ chối. Vui lòng liên hệ hỗ trợ.'}
+          </Text>
+          {USE_MOCK_API && driverProfile?.approvalStatus === 'PENDING' ? (
+            <Pressable
+              onPress={handleQuickApprove}
+              style={({ pressed }) => [styles.quickApproveButton, pressed && styles.pressedButton]}
+            >
+              <MaterialCommunityIcons name="check-decagram" size={rs(20)} color="#ffffff" />
+              <Text style={styles.quickApproveText}>Duyệt hồ sơ nhanh (Demo)</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.profileCard}>
-          <Image source={{ uri: driverProfile.avatarUrl }} style={styles.profileAvatar} contentFit="cover" />
+          <Image source={{ uri: userProfile?.avatarUrl ?? 'https://i.pravatar.cc/160?img=12' }} style={styles.profileAvatar} contentFit="cover" />
           <View style={styles.profileCopy}>
-            <Text selectable style={styles.profileName}>{driverProfile.name}</Text>
-            <Text selectable style={styles.profilePhone}>{driverProfile.phone}</Text>
+            <Text selectable style={styles.profileName}>{userProfile?.fullName ?? 'Chưa cập nhật'}</Text>
+            <Text selectable style={styles.profilePhone}>{userProfile?.phone ?? 'Chưa cập nhật'}</Text>
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          <StatCard value={driverProfile.rating.toFixed(1)} label="Đánh giá" showStar />
-          <StatCard value={driverProfile.totalTrips.toString()} label="Tổng cuốc" />
+          <StatCard value={(userProfile?.averageRating ?? 5.0).toFixed(1)} label="Đánh giá" showStar />
+          <StatCard value={(userProfile?.tripCount ?? userProfile?.totalTrips ?? 0).toString()} label="Tổng cuốc" />
         </View>
 
         <View style={styles.infoCard}>
@@ -102,9 +162,9 @@ export default function DriverAccountScreen() {
             <MaterialCommunityIcons name="motorbike" size={rs(25)} color={palette.blueInk} />
             <Text style={styles.sectionTitle}>Thông tin phương tiện</Text>
           </View>
-          <InfoRow label="Loại xe" value={driverProfile.vehicle.type} />
-          <InfoRow label="Dòng xe" value={driverProfile.vehicle.model} />
-          <InfoRow label="Biển số" value={driverProfile.vehicle.plate} badge />
+          <InfoRow label="Loại xe" value={driverProfile?.vehicleType === 'MOTORBIKE' ? 'Xe máy' : driverProfile?.vehicleType === 'CAR_4_SEAT' ? 'Ô tô 4 chỗ' : driverProfile?.vehicleType === 'CAR_7_SEAT' ? 'Ô tô 7 chỗ' : 'Chưa rõ'} />
+          <InfoRow label="Dòng xe" value={`${driverProfile?.vehicleBrand ?? ''} ${driverProfile?.vehicleModel ?? 'Chưa rõ'}`} />
+          <InfoRow label="Biển số" value={driverProfile?.vehiclePlate ?? 'Chưa rõ'} badge />
         </View>
 
         <View style={styles.infoCard}>
@@ -112,7 +172,7 @@ export default function DriverAccountScreen() {
             <MaterialCommunityIcons name="file-document-outline" size={rs(25)} color={palette.blueInk} />
             <Text style={styles.sectionTitle}>Giấy tờ tùy thân</Text>
           </View>
-          {driverProfile.documents.map((document, index) => (
+          {documents.map((document, index) => (
             <DocumentRow
               key={document.id}
               title={document.title}
@@ -226,6 +286,22 @@ function DriverNavItem({
 }
 
 const styles = StyleSheet.create({
+  quickApproveButton: {
+    marginTop: rvs(10),
+    minHeight: rvs(38),
+    backgroundColor: palette.green,
+    borderRadius: rs(8),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rs(6),
+    paddingHorizontal: rs(12),
+  },
+  quickApproveText: {
+    color: '#ffffff',
+    fontSize: rf(14),
+    fontWeight: '800',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: palette.background,

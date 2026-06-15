@@ -203,7 +203,7 @@ export function subscribeNotifications(handler: Handler<WsNotification>): Realti
 
 export function subscribeDriverRequests(driverId: number, handler: Handler<DriverTripRequest>): RealtimeSubscription {
   if (!USE_MOCK_REALTIME) {
-    return subscribeRemote(`/topic/driver/${driverId}/request`, (message) => {
+    return subscribeRemote('/user/queue/trip-requests', (message) => {
       const request = normalizeDriverTripRequest(parseJsonMessage(message));
 
       if (request) {

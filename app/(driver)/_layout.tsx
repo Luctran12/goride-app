@@ -52,6 +52,7 @@ export default function DriverLayout() {
         <Stack.Screen name="earnings" />
         <Stack.Screen name="activity" />
         <Stack.Screen name="account" />
+        <Stack.Screen name="onboarding" />
       </Stack.Protected>
     </Stack>
   );

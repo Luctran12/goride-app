@@ -103,12 +103,16 @@ export function getDriverLocation(tripId: number) {
     : apiRequest<DriverLocationUpdate>(`/tracking/trips/${tripId}/driver-location`);
 }
 
-export function setDriverOnline(isOnline: boolean) {
+export function setDriverOnline(isOnline: boolean, lat?: number, lng?: number) {
   return USE_MOCK_API
     ? mockSetDriverOnline(isOnline)
-    : apiRequest<{ isOnline: boolean; message: string }>('/drivers/me/status', {
+    : apiRequest<{ online: boolean; message: string }>('/drivers/me/status', {
         method: 'PATCH',
-        body: { isOnline },
+        body: {
+          online: isOnline,
+          lat: lat ?? 10.7769,
+          lng: lng ?? 106.7009,
+        },
       });
 }
 
