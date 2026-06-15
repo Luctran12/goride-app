@@ -2449,3 +2449,38 @@
   - Payment-method and voucher endpoint paths remain front-end adapter assumptions until backend contracts exist.
   - Booking voucher payload extension remains documented in `docs/changes-in-implementation.md`.
   - The user's local `lib/config.ts` backend URL change and generated `outputs/` Excel files remain uncommitted by design.
+
+## 2026-06-14 - Stage 14 Driver Product Shell - Merge
+
+- Branch merged: user's branch containing driver screens -> `main`
+- Merge commit: `8c4570d` - merge driver screens
+- Scope: Integrated driver secondary screens (Account, Earnings, Activity) and connected bottom navigation and quick actions in the dashboard.
+- Files changed/added:
+  - `app/(driver)/_layout.tsx`
+  - `app/(driver)/account.tsx`
+  - `app/(driver)/activity.tsx`
+  - `app/(driver)/earnings.tsx`
+  - `app/(driver)/index.tsx`
+- Behavior merged:
+  - Driver dashboard Home tab links to new sub-screens.
+  - Driver Account screen displays stats, vehicle info, and documents.
+  - Driver Earnings screen displays summary, collected cash, fees, and recent trips.
+  - Driver Activity screen displays weekly/monthly trip filters.
+  - Static mockup details are present across these screens.
+- Validation:
+  - Ran `cmd /c npm run lint` and `cmd /c npx tsc --noEmit`.
+  - Results: passed with 0 errors.
+
+## 2026-06-14 - Stage 15 Backend Integration Smoke Test - Setup
+
+- Branch: `main`
+- Setup commit: Stage 15 setup (local config only)
+- Scope: Configured local environment variables in `.env` to connect directly to the user's backend IP and disabled mock modes (`USE_MOCK_API=false`, `USE_MOCK_AUTH_API=false`).
+- Files created/modified:
+  - `.env`
+  - `docs/current-phase.md`
+  - `docs/implementation-log.md`
+- Behavior implemented:
+  - App reads local backend endpoint from `.env` instead of falling back to Mock adapters.
+  - Active phase updated to Stage 15 in documentation.
+

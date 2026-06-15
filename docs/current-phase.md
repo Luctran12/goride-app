@@ -4,28 +4,25 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 
 ## Active Work
 
-- Feature: Driver product shell
-- Phase: Stage 14 - Driver product shell
-- Branch: `main` merged; next branch `codex/driver-product-shell`
-- Current commit scope: Stage 14 setup - create feature branch from main
-- Status: Stage 13 merged into main; preparing Stage 14
+- Feature: Backend integration smoke test
+- Phase: Stage 15 - Backend integration smoke test
+- Branch: `main`
+- Current commit scope: Stage 15 setup - configure .env and transition to real backend integration
+- Status: Stage 14 merged into main; starting Stage 15 smoke tests
 
 ## Last Completed Checkpoint
 
-- Commit: `3dc92ff` - Merge payment vouchers stage
-- Implementation log entry: `2026-06-11 - Stage 13 Payment And Vouchers - Merge`
-- Review status: User approved Stage 13; lint/typecheck validation passed after merge.
+- Commit: `8c4570d` - merge driver screens
+- Implementation log entry: `2026-06-14 - Stage 14 Driver Product Shell - Merge`
+- Review status: User merged driver screens branch and selected Stage 15 backend smoke testing.
 
 ## Next Checkpoint
 
-- Push `main` to GitHub.
-- Create branch `codex/driver-product-shell` from `main`.
-- Stage 14 Commit 1: inspect existing driver routes and add the first driver product shell slice.
+- Verify login/register for passenger under USE_MOCK_API=false.
+- Verify online toggle, WebSocket connection, and heartbeat for driver under USE_MOCK_API=false.
+- Document any schema mismatch in changes-in-implementation.md.
 
 ## Product Readiness Targets
 
-- Add driver auth guard or driver login flow.
-- Add driver profile/account screen.
-- Add driver earnings screen.
-- Add driver activity/history screen.
-- Connect driver bottom nav placeholders to real routes.
+- Connect passenger app flows (auth, estimate, booking, tracking) to backend REST/WS APIs.
+- Connect driver app flows (online status, trip requests, status updates, GPS tracking) to backend REST/WS APIs.
