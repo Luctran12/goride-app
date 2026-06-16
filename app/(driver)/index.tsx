@@ -34,7 +34,7 @@ import {
 import { ApiError } from '@/lib/api';
 import { initializeAuthSession } from '@/lib/auth-api';
 import { getDriverProfile, sendHeartbeatRest, type DriverProfileResponse } from '@/lib/driver-api';
-import { confirmCashPayment, respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
+import { confirmCashPayment, getTrip, respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_HEARTBEAT_INTERVAL_MS = 20000;
@@ -262,6 +262,33 @@ export default function DriverScreen() {
         setIncomingRequest(request);
         setRequestResponse(null);
         setStatusMessage('Có cuốc mới đang chờ bạn phản hồi.');
+
+        // Fetch full trip details from REST API to populate missing info (like address, passenger details)
+        getTrip(request.tripId)
+          .then((detail) => {
+            setIncomingRequest((current) => {
+              if (current?.tripId !== request.tripId) {
+                return current;
+              }
+              return {
+                tripId: detail.tripId,
+                passenger: detail.passenger ? {
+                  id: detail.passenger.id,
+                  fullName: detail.passenger.fullName,
+                  phone: detail.passenger.phone,
+                  avatarUrl: detail.passenger.avatarUrl,
+                } : current.passenger,
+                pickup: detail.pickup ?? current.pickup,
+                dropoff: detail.dropoff ?? current.dropoff,
+                estimatedFare: detail.estimatedFare ?? current.estimatedFare,
+                estimatedDistance: detail.estimatedDistance ?? current.estimatedDistance,
+                estimatedDuration: detail.estimatedDuration ?? current.estimatedDuration,
+              };
+            });
+          })
+          .catch((err) => {
+            console.warn('[Driver] Failed to fetch full trip details:', err);
+          });
       });
       notificationSubscriptionRef.current = subscribeNotifications((notification) => {
         setLatestNotification(notification);

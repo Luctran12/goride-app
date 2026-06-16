@@ -502,6 +502,7 @@ function normalizeNotification(payload: unknown): WsNotification | undefined {
 }
 
 function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undefined {
+  console.warn('[Realtime WS] Received raw driver trip request:', JSON.stringify(payload, null, 2));
   const record = asRecord(payload);
 
   // The payload may be wrapped in an envelope: { data: { ... } }
