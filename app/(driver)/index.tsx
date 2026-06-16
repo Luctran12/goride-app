@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StatusBar,
@@ -17,6 +18,7 @@ import MapView, { Marker, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { USE_MOCK_REALTIME } from '@/lib/config';
 import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission } from '@/lib/location-service';
 import {
   connectRealtime,
@@ -282,14 +284,38 @@ export default function DriverScreen() {
           nextLocation = await getCurrentLocationPoint({ timeoutMs: 10000 });
           setLocationMessage('Đã lấy GPS hiện tại để sẵn sàng nhận cuốc.');
         } catch (error: unknown) {
-          setLocationMessage(getErrorMessage(error, 'GPS quá lâu, tạm dùng vị trí demo để nhận cuốc.'));
+          setLocationMessage(getErrorMessage(error, 'GPS quá lâu, tạm dùng vị trí gần nhất.'));
         }
-      } else {
-        setLocationMessage(
-          permission.status === 'gps-disabled'
-            ? 'GPS đang tắt. Tạm dùng vị trí demo, hãy bật GPS trước khi nhận cuốc thật.'
-            : 'Chưa cấp quyền vị trí. Tạm dùng vị trí demo cho luồng mock.',
+      } else if (permission.status === 'gps-disabled') {
+        setToggleLoading(false);
+        Alert.alert(
+          'GPS đang tắt',
+          'Vui lòng bật GPS (Dịch vụ vị trí) để GoRide có thể xác định vị trí của bạn và nhận cuốc.',
+          [
+            { text: 'Mở Cài đặt', onPress: () => void Linking.openSettings() },
+            { text: 'Để sau', style: 'cancel' },
+          ],
         );
+        return;
+      } else {
+        // Permission denied
+        setToggleLoading(false);
+        if (permission.canAskAgain === false) {
+          Alert.alert(
+            'Cần quyền truy cập vị trí',
+            'Bạn đã từ chối quyền vị trí trước đó. Vui lòng vào Cài đặt > Ứng dụng > GoRide > Quyền và bật quyền Vị trí.',
+            [
+              { text: 'Mở Cài đặt', onPress: () => void Linking.openSettings() },
+              { text: 'Để sau', style: 'cancel' },
+            ],
+          );
+        } else {
+          Alert.alert(
+            'Cần quyền truy cập vị trí',
+            'GoRide cần quyền truy cập vị trí để xác định điểm đứng của bạn và gửi cho khách hàng. Vui lòng cấp quyền khi được hỏi.',
+          );
+        }
+        return;
       }
 
       const response = await setDriverOnline(true, nextLocation.lat, nextLocation.lng);
@@ -634,7 +660,9 @@ export default function DriverScreen() {
             <View style={styles.sectionCopy}>
               <Text style={styles.sectionTitle}>Yêu cầu cuốc xe</Text>
               <Text style={styles.sectionSubtitle}>
-                {isOnline ? 'Mock realtime sẽ đẩy cuốc demo sau vài giây.' : 'Bạn cần online để nhận request.'}
+                {isOnline
+                  ? (USE_MOCK_REALTIME ? 'Mock realtime sẽ đẩy cuốc demo sau vài giây.' : 'Đang chờ cuốc từ server thời gian thực...')
+                  : 'Bạn cần online để nhận request.'}
               </Text>
             </View>
           </View>
