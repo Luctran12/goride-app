@@ -108,6 +108,7 @@ export default function DriverScreen() {
     getDriverProfile()
       .then((profile) => {
         setDriverProfile(profile);
+        driverIdRef.current = profile.id;
         setLoadingProfile(false);
       })
       .catch((error) => {
@@ -124,7 +125,7 @@ export default function DriverScreen() {
     let isCurrent = true;
     initializeAuthSession().then((session) => {
       if (isCurrent && session) {
-        driverIdRef.current = session.userId;
+        // Auth session initialized, profile load will assign real driver ID
       }
     });
 

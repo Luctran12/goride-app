@@ -4,7 +4,7 @@ import SockJS from 'sockjs-client';
 import { getAccessToken } from '@/lib/api';
 import { USE_MOCK_REALTIME, WS_URL } from '@/lib/config';
 import { mockGetDriverLocation, mockUpdateTripStatus } from '@/lib/mock-ride-api';
-import type { DriverLocationUpdate, DriverTripRequest, TripStatus, WsNotification } from '@/types/ride';
+import type { DriverLocationUpdate, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 export type TripStatusMessage = {
   tripId: number;
@@ -523,12 +523,13 @@ function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undef
     avatarUrl: typeof rawPassenger?.avatarUrl === 'string' ? rawPassenger.avatarUrl : undefined,
   };
 
-  // Backend may use different field names for locations
-  const rawPickup = asRecord(inner?.pickup) ?? asRecord(inner?.pickupLocation);
-  const pickup = normalizeLocationPoint(rawPickup, 'Điểm đón');
-
-  const rawDropoff = asRecord(inner?.dropoff) ?? asRecord(inner?.dropoffLocation) ?? asRecord(inner?.destination);
-  const dropoff = normalizeLocationPoint(rawDropoff, 'Điểm đến');
+  // Backend may use nested or flat structures for locations
+  const pickup = extractLocation(inner, 'pickup', 'Điểm đón');
+  
+  let dropoff = extractLocation(inner, 'dropoff', 'Điểm đến');
+  if (dropoff.address === 'Điểm đến' && (inner?.destination || inner?.destinationAddress)) {
+    dropoff = extractLocation(inner, 'destination', 'Điểm đến');
+  }
 
   return {
     tripId,
@@ -538,6 +539,47 @@ function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undef
     estimatedFare: toFiniteNumber(inner?.estimatedFare) ?? 0,
     estimatedDistance: toFiniteNumber(inner?.estimatedDistance) ?? toFiniteNumber(inner?.estimatedDistanceKm) ?? toFiniteNumber(inner?.distanceKm),
     estimatedDuration: toFiniteNumber(inner?.estimatedDuration) ?? toFiniteNumber(inner?.estimatedDurationMin) ?? toFiniteNumber(inner?.durationMinutes),
+  };
+}
+
+function extractLocation(
+  inner: Record<string, unknown> | undefined,
+  prefix: 'pickup' | 'dropoff' | 'destination',
+  fallbackLabel: string
+): LocationPoint {
+  const nested = asRecord(inner?.[prefix]) ?? asRecord(inner?.[`${prefix}Location`]);
+
+  let lat = toFiniteNumber(nested?.lat) ?? toFiniteNumber(nested?.latitude);
+  let lng = toFiniteNumber(nested?.lng) ?? toFiniteNumber(nested?.longitude);
+
+  if (lat === undefined || lng === undefined) {
+    const coords = nested?.coordinates ?? asRecord(inner?.[`${prefix}Location`])?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      lng = toFiniteNumber(coords[0]);
+      lat = toFiniteNumber(coords[1]);
+    }
+  }
+
+  if (lat === undefined) {
+    lat = toFiniteNumber(inner?.[`${prefix}Lat`]) ?? toFiniteNumber(inner?.[`${prefix}Latitude`]) ?? 0;
+  }
+  if (lng === undefined) {
+    lng = toFiniteNumber(inner?.[`${prefix}Lng`]) ?? toFiniteNumber(inner?.[`${prefix}Longitude`]) ?? 0;
+  }
+
+  let address = typeof nested?.address === 'string' ? nested.address : undefined;
+  if (!address) {
+    address = typeof inner?.[`${prefix}Address`] === 'string' ? (inner?.[`${prefix}Address`] as string) : undefined;
+  }
+  if (!address) {
+    address = typeof nested?.label === 'string' ? nested.label : fallbackLabel;
+  }
+
+  return {
+    lat,
+    lng,
+    address,
+    label: fallbackLabel,
   };
 }
 
