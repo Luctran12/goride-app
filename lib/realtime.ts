@@ -503,15 +503,50 @@ function normalizeNotification(payload: unknown): WsNotification | undefined {
 
 function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undefined {
   const record = asRecord(payload);
-  const tripId = toFiniteNumber(record?.tripId);
+
+  // The payload may be wrapped in an envelope: { data: { ... } }
+  const inner = asRecord(record?.data) ?? record;
+  const tripId = toFiniteNumber(inner?.tripId) ?? toFiniteNumber(inner?.id);
 
   if (typeof tripId !== 'number') {
     return undefined;
   }
 
+  // Backend may send passenger info under 'passenger', 'customer', or 'user'
+  const rawPassenger = asRecord(inner?.passenger) ?? asRecord(inner?.customer) ?? asRecord(inner?.user);
+  const passenger = {
+    id: toFiniteNumber(rawPassenger?.id) ?? 0,
+    fullName: typeof rawPassenger?.fullName === 'string' ? rawPassenger.fullName
+      : typeof rawPassenger?.name === 'string' ? rawPassenger.name
+      : 'Khách hàng',
+    phone: typeof rawPassenger?.phone === 'string' ? rawPassenger.phone : undefined,
+    avatarUrl: typeof rawPassenger?.avatarUrl === 'string' ? rawPassenger.avatarUrl : undefined,
+  };
+
+  // Backend may use different field names for locations
+  const rawPickup = asRecord(inner?.pickup) ?? asRecord(inner?.pickupLocation);
+  const pickup = normalizeLocationPoint(rawPickup, 'Điểm đón');
+
+  const rawDropoff = asRecord(inner?.dropoff) ?? asRecord(inner?.dropoffLocation) ?? asRecord(inner?.destination);
+  const dropoff = normalizeLocationPoint(rawDropoff, 'Điểm đến');
+
   return {
-    ...(record as DriverTripRequest),
     tripId,
+    passenger,
+    pickup,
+    dropoff,
+    estimatedFare: toFiniteNumber(inner?.estimatedFare) ?? 0,
+    estimatedDistance: toFiniteNumber(inner?.estimatedDistance) ?? toFiniteNumber(inner?.estimatedDistanceKm) ?? toFiniteNumber(inner?.distanceKm),
+    estimatedDuration: toFiniteNumber(inner?.estimatedDuration) ?? toFiniteNumber(inner?.estimatedDurationMin) ?? toFiniteNumber(inner?.durationMinutes),
+  };
+}
+
+function normalizeLocationPoint(raw: Record<string, unknown> | undefined, fallbackLabel: string) {
+  return {
+    lat: toFiniteNumber(raw?.lat) ?? toFiniteNumber(raw?.latitude) ?? 0,
+    lng: toFiniteNumber(raw?.lng) ?? toFiniteNumber(raw?.longitude) ?? 0,
+    address: typeof raw?.address === 'string' ? raw.address : fallbackLabel,
+    label: typeof raw?.label === 'string' ? raw.label : fallbackLabel,
   };
 }
 

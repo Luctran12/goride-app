@@ -672,15 +672,15 @@ export default function DriverScreen() {
               <View style={styles.incomingTopRow}>
                 <View>
                   <Text style={styles.incomingLabel}>Cuốc #{incomingRequest.tripId}</Text>
-                  <Text style={styles.passengerName}>{incomingRequest.passenger.fullName}</Text>
+                  <Text style={styles.passengerName}>{incomingRequest.passenger?.fullName ?? 'Khách hàng'}</Text>
                 </View>
                 <View style={styles.fareBadge}>
                   <Text style={styles.fareText}>{formatFare(incomingRequest.estimatedFare)}</Text>
                 </View>
               </View>
 
-              <RouteLine label="Đón" address={incomingRequest.pickup.address} color={palette.green} />
-              <RouteLine label="Đến" address={incomingRequest.dropoff.address} color={palette.danger} />
+              <RouteLine label="Đón" address={incomingRequest.pickup?.address ?? 'Điểm đón'} color={palette.green} />
+              <RouteLine label="Đến" address={incomingRequest.dropoff?.address ?? 'Điểm đến'} color={palette.danger} />
 
               <View style={styles.requestMetaRow}>
                 <Text style={styles.requestMetaText}>{formatDistance(incomingRequest.estimatedDistance)}</Text>
@@ -1026,7 +1026,7 @@ function getListeningCopy(
     return {
       icon: 'bell-ring-outline',
       title: 'Cuốc mới đang chờ',
-      text: `${request.passenger.fullName} - ${formatFare(request.estimatedFare)} - phản hồi để giữ tỷ lệ nhận cuốc.`,
+      text: `${request.passenger?.fullName ?? 'Khách hàng'} - ${formatFare(request.estimatedFare)} - phản hồi để giữ tỷ lệ nhận cuốc.`,
     };
   }
 
