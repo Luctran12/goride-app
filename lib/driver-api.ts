@@ -23,20 +23,54 @@ export type DriverProfileResponse = DriverProfileDraft & {
   updatedAt: string;
 };
 
-export function getDriverProfile() {
-  return USE_MOCK_API ? mockGetDriverProfile() : apiRequest<DriverProfileResponse>('/drivers/me/profile');
+// Backend wraps responses in { success, data, message, timestamp } envelope
+type ApiEnvelope<T> = {
+  success?: boolean;
+  data?: T;
+  message?: string;
+  timestamp?: string;
+};
+
+function unwrapEnvelope<T>(response: ApiEnvelope<T> | T): T {
+  if (
+    response &&
+    typeof response === 'object' &&
+    'data' in response &&
+    (response as ApiEnvelope<T>).data !== undefined
+  ) {
+    return (response as ApiEnvelope<T>).data as T;
+  }
+  return response as T;
 }
 
-export function createDriverProfile(draft: DriverProfileDraft) {
-  return USE_MOCK_API ? mockCreateDriverProfile(draft) : apiRequest<DriverProfileResponse>('/drivers/me/profile', {
+export function getDriverProfile(): Promise<DriverProfileResponse> {
+  if (USE_MOCK_API) {
+    return mockGetDriverProfile();
+  }
+
+  return apiRequest<ApiEnvelope<DriverProfileResponse>>('/drivers/me/profile').then(unwrapEnvelope);
+}
+
+export function createDriverProfile(draft: DriverProfileDraft): Promise<DriverProfileResponse> {
+  if (USE_MOCK_API) {
+    return mockCreateDriverProfile(draft);
+  }
+
+  return apiRequest<ApiEnvelope<DriverProfileResponse>>('/drivers/me/profile', {
     method: 'POST',
     body: draft,
-  });
+  }).then(unwrapEnvelope);
 }
 
 export function sendHeartbeatRest(lat: number, lng: number) {
-  return USE_MOCK_API ? mockSendHeartbeat(lat, lng) : apiRequest<{ online: boolean; heartbeatAt: string; expiresAt: string }>('/drivers/me/heartbeat', {
+  if (USE_MOCK_API) {
+    return mockSendHeartbeat(lat, lng);
+  }
+
+  type HeartbeatResponse = { online: boolean; heartbeatAt: string; expiresAt: string };
+
+  return apiRequest<ApiEnvelope<HeartbeatResponse>>('/drivers/me/heartbeat', {
     method: 'POST',
     body: { lat, lng },
-  });
+  }).then(unwrapEnvelope);
 }
