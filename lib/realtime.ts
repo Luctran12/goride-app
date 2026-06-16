@@ -538,8 +538,28 @@ function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undef
     pickup,
     dropoff,
     estimatedFare: toFiniteNumber(inner?.estimatedFare) ?? 0,
-    estimatedDistance: toFiniteNumber(inner?.estimatedDistance) ?? toFiniteNumber(inner?.estimatedDistanceKm) ?? toFiniteNumber(inner?.distanceKm),
-    estimatedDuration: toFiniteNumber(inner?.estimatedDuration) ?? toFiniteNumber(inner?.estimatedDurationMin) ?? toFiniteNumber(inner?.durationMinutes),
+    estimatedDistance: (() => {
+      const dist = toFiniteNumber(inner?.estimatedDistance) ?? toFiniteNumber(inner?.estimatedDistanceKm) ?? toFiniteNumber(inner?.distanceKm) ?? 0;
+      if (dist === 0) {
+        const meters = toFiniteNumber(inner?.distanceMeters);
+        if (meters && meters > 0) {
+          return meters / 1000;
+        }
+      }
+      return dist;
+    })(),
+    estimatedDuration: (() => {
+      const dur = toFiniteNumber(inner?.estimatedDuration) ?? toFiniteNumber(inner?.estimatedDurationMin) ?? toFiniteNumber(inner?.durationMinutes) ?? 0;
+      if (dur === 0) {
+        const dist = toFiniteNumber(inner?.estimatedDistance) ?? toFiniteNumber(inner?.estimatedDistanceKm) ?? toFiniteNumber(inner?.distanceKm) ?? 0;
+        const meters = toFiniteNumber(inner?.distanceMeters);
+        const km = dist > 0 ? dist : (meters && meters > 0 ? meters / 1000 : 0);
+        if (km > 0) {
+          return Math.round(km * 2.5); // Ước tính 2.5 phút mỗi km
+        }
+      }
+      return dur;
+    })(),
   };
 }
 

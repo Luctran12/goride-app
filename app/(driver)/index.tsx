@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
 import { USE_MOCK_REALTIME } from '@/lib/config';
-import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission } from '@/lib/location-service';
+import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission, reverseGeocode } from '@/lib/location-service';
 import {
   connectRealtime,
   disconnectRealtime,
@@ -286,8 +286,29 @@ export default function DriverScreen() {
               };
             });
           })
-          .catch((err) => {
+          .catch(async (err) => {
             console.warn('[Driver] Failed to fetch full trip details:', err);
+            
+            // Fallback: If 403/Forbidden (permission error before accepting), perform reverse geocoding on coordinates!
+            if (request.pickup.lat && request.pickup.lng) {
+              try {
+                const pickupAddress = await reverseGeocode({ lat: request.pickup.lat, lng: request.pickup.lng });
+                const dropoffAddress = await reverseGeocode({ lat: request.dropoff.lat, lng: request.dropoff.lng });
+                
+                setIncomingRequest((current) => {
+                  if (current?.tripId !== request.tripId) {
+                    return current;
+                  }
+                  return {
+                    ...current,
+                    pickup: { ...current.pickup, address: pickupAddress },
+                    dropoff: { ...current.dropoff, address: dropoffAddress },
+                  };
+                });
+              } catch (geoErr) {
+                console.warn('[Driver] Geocoding failed:', geoErr);
+              }
+            }
           });
       });
       notificationSubscriptionRef.current = subscribeNotifications((notification) => {
@@ -395,6 +416,35 @@ export default function DriverScreen() {
         if (action === 'ACCEPT') {
           setStatusMessage('Bạn đã nhận cuốc. Chuẩn bị di chuyển đến điểm đón.');
           setDriverTrackingMessage('Đang khởi động GPS cuốc để gửi vị trí cho khách.');
+
+          // Now that trip is ACCEPTED, driver has permission to fetch full trip details!
+          // This retrieves passenger name and phone number.
+          void getTrip(incomingRequest.tripId)
+            .then((detail) => {
+              setIncomingRequest((current) => {
+                if (current?.tripId !== incomingRequest.tripId) {
+                  return current;
+                }
+                return {
+                  tripId: detail.tripId,
+                  passenger: detail.passenger ? {
+                    id: detail.passenger.id,
+                    fullName: detail.passenger.fullName,
+                    phone: detail.passenger.phone,
+                    avatarUrl: detail.passenger.avatarUrl,
+                  } : current.passenger,
+                  pickup: detail.pickup ?? current.pickup,
+                  dropoff: detail.dropoff ?? current.dropoff,
+                  estimatedFare: detail.estimatedFare ?? current.estimatedFare,
+                  estimatedDistance: detail.estimatedDistance ?? current.estimatedDistance,
+                  estimatedDuration: detail.estimatedDuration ?? current.estimatedDuration,
+                };
+              });
+            })
+            .catch((err) => {
+              console.warn('[Driver] Failed to fetch trip details after accept:', err);
+            });
+
           return;
         }
 
