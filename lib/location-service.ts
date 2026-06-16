@@ -227,3 +227,46 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
 }
 
+export type RoutePath = {
+  coordinates: { latitude: number; longitude: number }[];
+  distanceMeters: number;
+  durationSeconds: number;
+};
+
+export async function fetchRoute(origin: Coordinates, destination: Coordinates): Promise<RoutePath> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`OSRM API error: ${response.status}`);
+    }
+    const data = await response.json();
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+      throw new Error('No route found');
+    }
+
+    const route = data.routes[0];
+    const coords = route.geometry.coordinates.map((coord: [number, number]) => ({
+      latitude: coord[1],
+      longitude: coord[0],
+    }));
+
+    return {
+      coordinates: coords,
+      distanceMeters: route.distance,
+      durationSeconds: route.duration,
+    };
+  } catch (error) {
+    console.warn('[LocationService] Failed to fetch route:', error);
+    // Fallback to direct line
+    return {
+      coordinates: [
+        { latitude: origin.lat, longitude: origin.lng },
+        { latitude: destination.lat, longitude: destination.lng },
+      ],
+      distanceMeters: 0,
+      durationSeconds: 0,
+    };
+  }
+}
+

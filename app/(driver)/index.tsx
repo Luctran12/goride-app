@@ -14,12 +14,12 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import MapView, { Marker, type Region } from 'react-native-maps';
+import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
 import { USE_MOCK_REALTIME } from '@/lib/config';
-import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission, reverseGeocode } from '@/lib/location-service';
+import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission, reverseGeocode, fetchRoute } from '@/lib/location-service';
 import {
   connectRealtime,
   disconnectRealtime,
@@ -92,6 +92,7 @@ export default function DriverScreen() {
   const [driverTrackingMessage, setDriverTrackingMessage] = useState('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
+  const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const notificationSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const connectionSubscriptionRef = useRef<RealtimeSubscription | null>(null);
@@ -587,6 +588,65 @@ export default function DriverScreen() {
     };
   }, [activeTripId, requestResponse?.status, sendDriverGpsPing]);
 
+  useEffect(() => {
+    if (!incomingRequest) {
+      setRouteCoordinates([]);
+      return;
+    }
+
+    const tripId = incomingRequest.tripId;
+    const status = requestResponse?.status;
+
+    // 1. Nếu chưa ACCEPT (đang rung chuông): vẽ lộ trình từ pickup đến dropoff
+    if (!requestResponse || requestResponse.tripId !== tripId) {
+      if (incomingRequest.pickup?.lat && incomingRequest.dropoff?.lat) {
+        void fetchRoute(
+          { lat: incomingRequest.pickup.lat, lng: incomingRequest.pickup.lng },
+          { lat: incomingRequest.dropoff.lat, lng: incomingRequest.dropoff.lng }
+        )
+          .then((res) => {
+            setRouteCoordinates(res.coordinates);
+          })
+          .catch(() => setRouteCoordinates([]));
+      }
+      return;
+    }
+
+    // 2. Nếu đã ACCEPTED hoặc ARRIVED: vẽ lộ trình từ vị trí tài xế hiện tại đến điểm đón
+    if (status === 'ACCEPTED' || status === 'ARRIVED') {
+      const start = driverLocationRef.current ?? getDefaultLocationPoint();
+      if (start?.lat && incomingRequest.pickup?.lat) {
+        void fetchRoute(
+          { lat: start.lat, lng: start.lng },
+          { lat: incomingRequest.pickup.lat, lng: incomingRequest.pickup.lng }
+        )
+          .then((res) => {
+            setRouteCoordinates(res.coordinates);
+          })
+          .catch(() => setRouteCoordinates([]));
+      }
+      return;
+    }
+
+    // 3. Nếu đang IN_PROGRESS: vẽ lộ trình từ vị trí tài xế đến điểm trả khách
+    if (status === 'IN_PROGRESS') {
+      const start = driverLocationRef.current ?? getDefaultLocationPoint();
+      if (start?.lat && incomingRequest.dropoff?.lat) {
+        void fetchRoute(
+          { lat: start.lat, lng: start.lng },
+          { lat: incomingRequest.dropoff.lat, lng: incomingRequest.dropoff.lng }
+        )
+          .then((res) => {
+            setRouteCoordinates(res.coordinates);
+          })
+          .catch(() => setRouteCoordinates([]));
+      }
+      return;
+    }
+
+    setRouteCoordinates([]);
+  }, [incomingRequest?.tripId, requestResponse?.status, incomingRequest?.pickup?.lat, incomingRequest?.dropoff?.lat]);
+
   if (loadingProfile) {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -670,6 +730,61 @@ export default function DriverScreen() {
               <View style={styles.requestMetaRow}>
                 <Text style={styles.requestMetaText}>{formatDistance(incomingRequest.estimatedDistance)}</Text>
                 <Text style={styles.requestMetaText}>{formatDuration(incomingRequest.estimatedDuration)}</Text>
+              </View>
+
+              {/* Routing Map Preview */}
+              <View style={styles.routingMapFrame}>
+                <MapView
+                  style={StyleSheet.absoluteFill}
+                  initialRegion={getTripMapRegion(incomingRequest, driverLocation, requestResponse?.status ?? null)}
+                  region={getTripMapRegion(incomingRequest, driverLocation, requestResponse?.status ?? null)}
+                  loadingEnabled
+                  pitchEnabled={false}
+                  rotateEnabled={false}
+                  zoomControlEnabled={true}
+                >
+                  {(requestResponse?.status === 'ACCEPTED' || requestResponse?.status === 'ARRIVED' || !requestResponse) && (
+                    <Marker
+                      coordinate={{ latitude: incomingRequest.pickup.lat, longitude: incomingRequest.pickup.lng }}
+                      title="Điểm đón"
+                      description={incomingRequest.pickup.address}
+                      pinColor="green"
+                    />
+                  )}
+
+                  {(requestResponse?.status === 'IN_PROGRESS' || !requestResponse) && (
+                    <Marker
+                      coordinate={{ latitude: incomingRequest.dropoff.lat, longitude: incomingRequest.dropoff.lng }}
+                      title="Điểm đến"
+                      description={incomingRequest.dropoff.address}
+                    />
+                  )}
+
+                  {requestResponse && driverLocation && (
+                    <Marker
+                      coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
+                      title="Vị trí của bạn"
+                      anchor={{ x: 0.5, y: 0.5 }}
+                    >
+                      <View style={styles.driverMapPin}>
+                        <View style={styles.driverMapPinHalo} />
+                        <View style={styles.driverMapPinBubble}>
+                          <MaterialCommunityIcons name="navigation-variant" size={rs(18)} color={palette.card} />
+                        </View>
+                      </View>
+                    </Marker>
+                  )}
+
+                  {routeCoordinates.length > 0 && (
+                    <Polyline
+                      coordinates={routeCoordinates}
+                      strokeColor={palette.blue}
+                      strokeWidth={5}
+                      lineCap="round"
+                      lineJoin="round"
+                    />
+                  )}
+                </MapView>
               </View>
 
               {requestResponse?.tripId === incomingRequest.tripId ? (
@@ -1172,6 +1287,46 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function formatCoordinates(location: LocationPoint) {
   return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
+}
+
+function getTripMapRegion(
+  request: DriverTripRequest,
+  driverLoc: LocationPoint | null,
+  status: TripStatus | null
+): Region {
+  let lat = request.pickup.lat;
+  let lng = request.pickup.lng;
+
+  let latDelta = 0.015;
+  let lngDelta = 0.015;
+
+  if (status === 'IN_PROGRESS') {
+    lat = request.dropoff.lat;
+    lng = request.dropoff.lng;
+  }
+
+  if (driverLoc && status && (status === 'ACCEPTED' || status === 'ARRIVED' || status === 'IN_PROGRESS')) {
+    const destLat = status === 'IN_PROGRESS' ? request.dropoff.lat : request.pickup.lat;
+    const destLng = status === 'IN_PROGRESS' ? request.dropoff.lng : request.pickup.lng;
+
+    lat = (driverLoc.lat + destLat) / 2;
+    lng = (driverLoc.lng + destLng) / 2;
+
+    latDelta = Math.max(Math.abs(driverLoc.lat - destLat) * 1.5, 0.008);
+    lngDelta = Math.max(Math.abs(driverLoc.lng - destLng) * 1.5, 0.008);
+  } else {
+    lat = (request.pickup.lat + request.dropoff.lat) / 2;
+    lng = (request.pickup.lng + request.dropoff.lng) / 2;
+    latDelta = Math.max(Math.abs(request.pickup.lat - request.dropoff.lat) * 1.5, 0.01);
+    lngDelta = Math.max(Math.abs(request.pickup.lng - request.dropoff.lng) * 1.5, 0.01);
+  }
+
+  return {
+    latitude: lat,
+    longitude: lng,
+    latitudeDelta: Math.min(latDelta, 0.08),
+    longitudeDelta: Math.min(lngDelta, 0.08),
+  };
 }
 
 function formatTrackingTime(value: string | null) {
@@ -2068,5 +2223,44 @@ const styles = StyleSheet.create({
   },
   navLabelActive: {
     color: palette.greenDark,
+  },
+  routingMapFrame: {
+    height: rvs(220),
+    borderRadius: rs(20),
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: palette.line,
+    marginTop: rvs(12),
+    marginBottom: rvs(8),
+    backgroundColor: '#eef3f0',
+  },
+  driverMapPin: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: rs(40),
+    height: rs(40),
+  },
+  driverMapPinHalo: {
+    position: 'absolute',
+    width: rs(32),
+    height: rs(32),
+    borderRadius: rs(16),
+    backgroundColor: palette.blueSoft,
+    opacity: 0.6,
+  },
+  driverMapPinBubble: {
+    width: rs(24),
+    height: rs(24),
+    borderRadius: rs(12),
+    backgroundColor: palette.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: palette.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
