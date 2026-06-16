@@ -640,112 +640,19 @@ export default function DriverScreen() {
           </View>
         ) : null}
 
-        <View style={styles.heroCard}>
-          <View style={styles.heroTopRow}>
-            <View style={[styles.statusPill, isOnline ? styles.statusPillOnline : styles.statusPillOffline]}>
-              <View style={[styles.statusDot, { backgroundColor: isOnline ? palette.green : palette.muted }]} />
-              <Text style={[styles.statusPillText, isOnline ? styles.statusTextOnline : styles.statusTextOffline]}>
-                {isOnline ? 'Đang online' : 'Đang offline'}
-              </Text>
+        {/* NẾU CÓ CUỐC XE: Hiển thị yêu cầu cuốc xe mới lên trên cùng */}
+        {incomingRequest ? (
+          <View style={styles.requestCard}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIcon, styles.requestIcon]}>
+                <MaterialCommunityIcons name="bell-ring-outline" size={rs(34)} color={palette.blue} />
+              </View>
+              <View style={styles.sectionCopy}>
+                <Text style={styles.sectionTitle}>Yêu cầu cuốc xe mới</Text>
+                <Text style={styles.sectionSubtitle}>Có yêu cầu chuyến đi đang chờ bạn phản hồi</Text>
+              </View>
             </View>
-            <Switch
-              value={isOnline}
-              onValueChange={handleToggleOnline}
-              disabled={toggleLoading}
-              trackColor={{ false: '#314038', true: palette.greenSoft }}
-              thumbColor={isOnline ? palette.green : '#f4f7f5'}
-            />
-          </View>
 
-          <Text style={styles.title}>{isOnline ? 'Sẵn sàng nhận cuốc' : 'Bật online để bắt đầu'}</Text>
-          <Text style={styles.subtitle}>{statusMessage}</Text>
-
-          <View style={styles.heroMetricRow}>
-            <MetricTile icon="access-point" label="Kênh" value={realtimeCopy.label} tone={realtimeCopy.tone} />
-            <MetricTile icon="heart-pulse" label="Heartbeat" value={formatTrackingTime(lastHeartbeatAt)} tone="green" />
-          </View>
-
-          {toggleLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={palette.green} />
-              <Text style={styles.loadingText}>Đang cập nhật trạng thái tài xế...</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={[styles.listeningCard, incomingRequest ? styles.listeningCardHot : null, !isOnline ? styles.listeningCardIdle : null]}>
-          <View style={styles.listeningIcon}>
-            <MaterialCommunityIcons name={listeningCopy.icon} size={rs(34)} color={palette.blue} />
-          </View>
-          <View style={styles.listeningCopy}>
-            <Text style={styles.listeningTitle}>{listeningCopy.title}</Text>
-            <Text style={styles.listeningText}>{listeningCopy.text}</Text>
-          </View>
-        </View>
-
-        <View style={styles.statGrid}>
-          <StatCard label="THU NHẬP HÔM NAY" value={formatFare(todayEarnings)} />
-          <StatCard label="CHUYẾN ĐI" value={String(todayTripCount)} />
-        </View>
-
-        <View style={styles.quickActionGrid}>
-          <QuickActionTile icon="map-outline" label="Bản đồ" />
-          <QuickActionTile icon="wallet-outline" label="Ví tiền" onPress={() => router.push('/(driver)/earnings')} />
-          <QuickActionTile icon="fire" label="Vùng nóng" />
-          <QuickActionTile icon="headset" label="Hỗ trợ" />
-        </View>
-
-        <DriverMapPreview location={driverLocation} />
-
-        <View style={styles.locationCard}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIcon}>
-              <MaterialCommunityIcons name="crosshairs-gps" size={rs(34)} color={palette.green} />
-            </View>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>Vị trí tài xế</Text>
-              <Text style={styles.sectionSubtitle}>{locationMessage ?? 'GoRide sẽ lấy GPS khi bạn bật online.'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.locationBox}>
-            <Text style={styles.locationLabel}>Điểm đứng hiện tại</Text>
-            <Text style={styles.locationValue} selectable>
-              {driverLocation?.address ?? 'Chưa có vị trí'}
-            </Text>
-            <Text style={styles.locationCoords} selectable>
-              {driverLocation ? formatCoordinates(driverLocation) : 'GPS chưa được gửi'}
-            </Text>
-          </View>
-
-          <View style={styles.trackingBox}>
-            <View style={styles.trackingIcon}>
-              <MaterialCommunityIcons name="map-marker-path" size={rs(30)} color={palette.blue} />
-            </View>
-            <View style={styles.trackingCopy}>
-              <Text style={styles.trackingLabel}>GPS cuốc xe</Text>
-              <Text style={styles.trackingText}>{driverTrackingMessage}</Text>
-              <Text style={styles.trackingTime}>Lần gửi cuối: {formatTrackingTime(lastDriverLocationSentAt)}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.requestCard}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, styles.requestIcon]}>
-              <MaterialCommunityIcons name="bell-ring-outline" size={rs(34)} color={palette.blue} />
-            </View>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>Yêu cầu cuốc xe</Text>
-              <Text style={styles.sectionSubtitle}>
-                {isOnline
-                  ? (USE_MOCK_REALTIME ? 'Mock realtime sẽ đẩy cuốc demo sau vài giây.' : 'Đang chờ cuốc từ server thời gian thực...')
-                  : 'Bạn cần online để nhận request.'}
-              </Text>
-            </View>
-          </View>
-
-          {incomingRequest ? (
             <View style={styles.incomingBox}>
               <View style={styles.incomingTopRow}>
                 <View>
@@ -903,7 +810,59 @@ export default function DriverScreen() {
                 </View>
               )}
             </View>
-          ) : (
+          </View>
+        ) : null}
+
+        <View style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <View style={[styles.statusPill, isOnline ? styles.statusPillOnline : styles.statusPillOffline]}>
+              <View style={[styles.statusDot, { backgroundColor: isOnline ? palette.green : palette.muted }]} />
+              <Text style={[styles.statusPillText, isOnline ? styles.statusTextOnline : styles.statusTextOffline]}>
+                {isOnline ? 'Đang online' : 'Đang offline'}
+              </Text>
+            </View>
+            <Switch
+              value={isOnline}
+              onValueChange={handleToggleOnline}
+              disabled={toggleLoading}
+              trackColor={{ false: '#314038', true: palette.greenSoft }}
+              thumbColor={isOnline ? palette.green : '#f4f7f5'}
+            />
+          </View>
+
+          <Text style={styles.title}>{isOnline ? 'Sẵn sàng nhận cuốc' : 'Bật online để bắt đầu'}</Text>
+          <Text style={styles.subtitle}>{statusMessage}</Text>
+
+          <View style={styles.heroMetricRow}>
+            <MetricTile icon="access-point" label="Kênh" value={realtimeCopy.label} tone={realtimeCopy.tone} />
+            <MetricTile icon="heart-pulse" label="Heartbeat" value={formatTrackingTime(lastHeartbeatAt)} tone="green" />
+          </View>
+
+          {toggleLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={palette.green} />
+              <Text style={styles.loadingText}>Đang cập nhật trạng thái tài xế...</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* NẾU KHÔNG CÓ CUỐC XE: Hiển thị box yêu cầu cuốc xe rỗng ở đây */}
+        {!incomingRequest ? (
+          <View style={styles.requestCard}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIcon, styles.requestIcon]}>
+                <MaterialCommunityIcons name="bell-ring-outline" size={rs(34)} color={palette.blue} />
+              </View>
+              <View style={styles.sectionCopy}>
+                <Text style={styles.sectionTitle}>Yêu cầu cuốc xe</Text>
+                <Text style={styles.sectionSubtitle}>
+                  {isOnline
+                    ? (USE_MOCK_REALTIME ? 'Mock realtime sẽ đẩy cuốc demo sau vài giây.' : 'Đang chờ cuốc từ server thời gian thực...')
+                    : 'Bạn cần online để nhận request.'}
+                </Text>
+              </View>
+            </View>
+
             <View style={styles.emptyRequestBox}>
               <MaterialCommunityIcons name={isOnline ? 'radar' : 'power-plug-off-outline'} size={rs(66)} color={palette.muted} />
               <Text style={styles.emptyTitle}>{isOnline ? 'Đang nghe cuốc mới' : 'Chưa online'}</Text>
@@ -913,7 +872,55 @@ export default function DriverScreen() {
                   : 'Bật công tắc online để mở heartbeat và kênh request của tài xế.'}
               </Text>
             </View>
-          )}
+          </View>
+        ) : null}
+
+        <View style={[styles.listeningCard, incomingRequest ? styles.listeningCardHot : null, !isOnline ? styles.listeningCardIdle : null]}>
+          <View style={styles.listeningIcon}>
+            <MaterialCommunityIcons name={listeningCopy.icon} size={rs(34)} color={palette.blue} />
+          </View>
+          <View style={styles.listeningCopy}>
+            <Text style={styles.listeningTitle}>{listeningCopy.title}</Text>
+            <Text style={styles.listeningText}>{listeningCopy.text}</Text>
+          </View>
+        </View>
+
+        <View style={styles.statGrid}>
+          <StatCard label="THU NHẬP HÔM NAY" value={formatFare(todayEarnings)} />
+          <StatCard label="CHUYẾN ĐI" value={String(todayTripCount)} />
+        </View>
+
+        <View style={styles.locationCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIcon}>
+              <MaterialCommunityIcons name="crosshairs-gps" size={rs(34)} color={palette.green} />
+            </View>
+            <View style={styles.sectionCopy}>
+              <Text style={styles.sectionTitle}>Vị trí tài xế</Text>
+              <Text style={styles.sectionSubtitle}>{locationMessage ?? 'GoRide sẽ lấy GPS khi bạn bật online.'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.locationBox}>
+            <Text style={styles.locationLabel}>Điểm đứng hiện tại</Text>
+            <Text style={styles.locationValue} selectable>
+              {driverLocation?.address ?? 'Chưa có vị trí'}
+            </Text>
+            <Text style={styles.locationCoords} selectable>
+              {driverLocation ? formatCoordinates(driverLocation) : 'GPS chưa được gửi'}
+            </Text>
+          </View>
+
+          <View style={styles.trackingBox}>
+            <View style={styles.trackingIcon}>
+              <MaterialCommunityIcons name="map-marker-path" size={rs(30)} color={palette.blue} />
+            </View>
+            <View style={styles.trackingCopy}>
+              <Text style={styles.trackingLabel}>GPS cuốc xe</Text>
+              <Text style={styles.trackingText}>{driverTrackingMessage}</Text>
+              <Text style={styles.trackingTime}>Lần gửi cuối: {formatTrackingTime(lastDriverLocationSentAt)}</Text>
+            </View>
+          </View>
         </View>
 
         {latestNotification ? (
