@@ -97,6 +97,8 @@ export default function DriverScreen() {
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [totalExpiryTime, setTotalExpiryTime] = useState<number>(30);
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const notificationSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const connectionSubscriptionRef = useRef<RealtimeSubscription | null>(null);
@@ -143,6 +145,9 @@ export default function DriverScreen() {
 
   const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
   const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
+  const progressPercent = timeLeft !== null && totalExpiryTime > 0
+    ? (timeLeft / totalExpiryTime) * 100
+    : 100;
   const todayTripCount = requestResponse?.status === 'COMPLETED' ? 13 : 12;
   const todayEarnings =
     450000 + (requestResponse?.status === 'COMPLETED' && incomingRequest ? Math.round(incomingRequest.estimatedFare) : 0);
@@ -629,6 +634,44 @@ export default function DriverScreen() {
     return () => clearInterval(intervalId);
   }, [activeTripId, resetCompletedTrip]);
 
+  // Countdown timer for incoming trip requests
+  useEffect(() => {
+    if (!incomingRequest || requestResponse) {
+      setTimeLeft(null);
+      return;
+    }
+
+    let initialSeconds = 30;
+    if (incomingRequest.expiresAt) {
+      const msLeft = new Date(incomingRequest.expiresAt).getTime() - Date.now();
+      initialSeconds = Math.max(0, Math.round(msLeft / 1000));
+    }
+
+    // If request already expired, dismiss immediately
+    if (initialSeconds <= 0) {
+      setIncomingRequest(null);
+      setStatusMessage('Yêu cầu cuốc xe đã hết hạn phản hồi.');
+      return;
+    }
+
+    setTimeLeft(initialSeconds);
+    setTotalExpiryTime(initialSeconds);
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          setIncomingRequest(null);
+          setStatusMessage('Yêu cầu cuốc xe đã hết hạn phản hồi.');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [incomingRequest, requestResponse]);
+
   useEffect(() => {
     if (!incomingRequest) {
       setRouteCoordinates([]);
@@ -764,6 +807,18 @@ export default function DriverScreen() {
                   <Text style={styles.fareText}>{formatFare(incomingRequest.estimatedFare)}</Text>
                 </View>
               </View>
+
+              {timeLeft !== null && (
+                <View style={styles.timerContainer}>
+                  <View style={styles.timerRow}>
+                    <MaterialCommunityIcons name="timer-sand" size={rs(16)} color={palette.amber} />
+                    <Text style={styles.timerText}>Tự động trôi sau {timeLeft} giây</Text>
+                  </View>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+                  </View>
+                </View>
+              )}
 
               <RouteLine label="Đón" address={incomingRequest.pickup?.address ?? 'Điểm đón'} color={palette.green} />
               <RouteLine label="Đến" address={incomingRequest.dropoff?.address ?? 'Điểm đến'} color={palette.danger} />
@@ -1990,6 +2045,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#dce7ff',
     gap: rvs(18),
+  },
+  timerContainer: {
+    marginVertical: rvs(4),
+    backgroundColor: '#fffbeb',
+    borderRadius: rs(8),
+    padding: rs(10),
+    borderColor: '#fef3c7',
+    borderWidth: 1,
+  },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    marginBottom: rvs(6),
+  },
+  timerText: {
+    fontSize: rf(14),
+    fontWeight: '700',
+    color: palette.amber,
+  },
+  progressBarBg: {
+    height: rvs(6),
+    backgroundColor: '#fef3c7',
+    borderRadius: rs(3),
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: palette.amber,
+    borderRadius: rs(3),
   },
   incomingTopRow: {
     flexDirection: 'row',

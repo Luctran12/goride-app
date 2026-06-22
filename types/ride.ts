@@ -180,6 +180,7 @@ export type DriverTripRequest = {
   estimatedFare: number;
   estimatedDistance?: number;
   estimatedDuration?: number;
+  expiresAt?: string;
 };
 
 export type DriverLocationUpdate = {

@@ -560,6 +560,7 @@ function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undef
       }
       return dur;
     })(),
+    expiresAt: typeof inner?.expiresAt === 'string' ? inner.expiresAt : undefined,
   };
 }
 
