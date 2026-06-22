@@ -14,6 +14,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -713,6 +715,52 @@ export default function DriverScreen() {
 
     return () => clearInterval(timer);
   }, [incomingRequest, requestResponse]);
+
+  // Play sound & vibration when a new trip request arrives
+  useEffect(() => {
+    if (!incomingRequest || requestResponse) {
+      return;
+    }
+
+    // Play haptic feedback immediately
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    // Play notification sound
+    let soundObj: Audio.Sound | null = null;
+    const loadAndPlaySound = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          playThroughEarpieceAndroid: false,
+        });
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav' },
+          { shouldPlay: true, isLooping: true, volume: 1.0 }
+        );
+        soundObj = sound;
+      } catch (err) {
+        console.warn('[Driver] Failed to play notification sound:', err);
+      }
+    };
+
+    void loadAndPlaySound();
+
+    // Trigger haptic pulse every 2 seconds while ringing
+    const hapticInterval = setInterval(() => {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }, 2000);
+
+    return () => {
+      clearInterval(hapticInterval);
+      if (soundObj) {
+        soundObj.stopAsync()
+          .then(() => soundObj?.unloadAsync())
+          .catch((err) => console.warn('[Driver] Failed to cleanup sound:', err));
+      }
+    };
+  }, [incomingRequest?.tripId, requestResponse]);
 
   useEffect(() => {
     if (!incomingRequest) {
