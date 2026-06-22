@@ -508,6 +508,48 @@ export default function DriverScreen() {
     [requestResponse, updatingTripStatus],
   );
 
+  const handleCallPassenger = useCallback(() => {
+    if (!incomingRequest?.passenger?.phone) {
+      Alert.alert('Không tìm thấy số điện thoại', 'Số điện thoại của khách hàng chưa được cập nhật.');
+      return;
+    }
+
+    const telUrl = `tel:${incomingRequest.passenger.phone}`;
+    Linking.canOpenURL(telUrl)
+      .then((supported) => {
+        if (supported) {
+          void Linking.openURL(telUrl);
+        } else {
+          Alert.alert('Không thể gọi điện', 'Thiết bị của bạn không hỗ trợ tính năng cuộc gọi điện thoại.');
+        }
+      })
+      .catch((err) => {
+        console.warn('[Driver] Failed to place call:', err);
+      });
+  }, [incomingRequest]);
+
+  const handleOpenNavigation = useCallback(() => {
+    if (!incomingRequest || !requestResponse) return;
+    
+    const isHeadingToPickup = requestResponse.status === 'ACCEPTED' || requestResponse.status === 'ARRIVED';
+    const destination = isHeadingToPickup ? incomingRequest.pickup : incomingRequest.dropoff;
+    
+    if (destination.lat && destination.lng) {
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lng}`;
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          if (supported) {
+            void Linking.openURL(url);
+          } else {
+            Alert.alert('Không thể mở bản đồ', 'Thiết bị của bạn không hỗ trợ liên kết này.');
+          }
+        })
+        .catch((err) => {
+          console.warn('[Driver] Failed to open maps:', err);
+        });
+    }
+  }, [incomingRequest, requestResponse]);
+
   const resetCompletedTrip = useCallback(() => {
     setIncomingRequest(null);
     setRequestResponse(null);
@@ -911,6 +953,35 @@ export default function DriverScreen() {
                         </Text>
                       </View>
                     ))}
+                  </View>
+
+                  {/* UTILITY BUTTONS: Call passenger & Open navigation */}
+                  <View style={styles.tripUtilityRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleCallPassenger}
+                      style={({ pressed }) => [
+                        styles.utilityButton,
+                        styles.callButton,
+                        pressed ? styles.pressedButton : null,
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="phone" size={rs(20)} color={palette.green} />
+                      <Text style={[styles.utilityButtonText, styles.callButtonText]}>Gọi khách</Text>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleOpenNavigation}
+                      style={({ pressed }) => [
+                        styles.utilityButton,
+                        styles.navButton,
+                        pressed ? styles.pressedButton : null,
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="google-maps" size={rs(20)} color={palette.blue} />
+                      <Text style={[styles.utilityButtonText, styles.navButtonText]}>Chỉ đường</Text>
+                    </Pressable>
                   </View>
 
                   {getNextDriverStatus(requestResponse.status) ? (
@@ -2226,6 +2297,39 @@ const styles = StyleSheet.create({
   },
   tripProgressLabelActive: {
     color: palette.greenDark,
+  },
+  tripUtilityRow: {
+    flexDirection: 'row',
+    gap: rs(12),
+    marginVertical: rvs(8),
+  },
+  utilityButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: rvs(10),
+    borderRadius: rs(10),
+    borderWidth: 1,
+    gap: rs(8),
+  },
+  callButton: {
+    backgroundColor: palette.greenSoft,
+    borderColor: '#b2f2d9',
+  },
+  navButton: {
+    backgroundColor: palette.blueSoft,
+    borderColor: '#cce0ff',
+  },
+  utilityButtonText: {
+    fontSize: rf(14),
+    fontWeight: '700',
+  },
+  callButtonText: {
+    color: palette.green,
+  },
+  navButtonText: {
+    color: palette.blue,
   },
   statusButton: {
     minHeight: rvs(62),
