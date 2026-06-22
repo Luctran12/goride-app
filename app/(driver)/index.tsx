@@ -85,6 +85,10 @@ export default function DriverScreen() {
     status: TripStatus;
     tripId: number;
   } | null>(null);
+  const requestResponseRef = useRef(requestResponse);
+  useEffect(() => {
+    requestResponseRef.current = requestResponse;
+  }, [requestResponse]);
   const [respondingAction, setRespondingAction] = useState<DriverAction | null>(null);
   const [updatingTripStatus, setUpdatingTripStatus] = useState<TripStatus | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
@@ -314,6 +318,16 @@ export default function DriverScreen() {
       });
       notificationSubscriptionRef.current = subscribeNotifications((notification) => {
         setLatestNotification(notification);
+        if (notification.type === 'TRIP_CANCELLED') {
+          const notificationTripId = notification.data?.tripId ? Number(notification.data.tripId) : null;
+          if (notificationTripId && requestResponseRef.current?.tripId === notificationTripId) {
+            Alert.alert(
+              'Chuyến xe đã bị hủy',
+              'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
+            );
+            resetCompletedTripRef.current();
+          }
+        }
       });
       startHeartbeat();
     } catch (error: unknown) {
@@ -499,6 +513,11 @@ export default function DriverScreen() {
     setStatusMessage('Bạn đang online. GoRide tiếp tục nghe cuốc mới.');
   }, []);
 
+  const resetCompletedTripRef = useRef(resetCompletedTrip);
+  useEffect(() => {
+    resetCompletedTripRef.current = resetCompletedTrip;
+  }, [resetCompletedTrip]);
+
   const handleConfirmPaymentAndReady = useCallback(async () => {
     if (!requestResponse) {
       return;
@@ -587,6 +606,28 @@ export default function DriverScreen() {
       }
     };
   }, [activeTripId, requestResponse?.status, sendDriverGpsPing]);
+
+  // Polling check to handle TRIP_CANCELLED in case the backend hasn't implemented websocket notification yet
+  useEffect(() => {
+    if (!activeTripId) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const trip = await getTrip(activeTripId);
+        if (trip.status === 'CANCELLED') {
+          Alert.alert(
+            'Chuyến xe đã bị hủy',
+            'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
+          );
+          resetCompletedTrip();
+        }
+      } catch (err) {
+        console.warn('[Driver] Polling trip status failed:', err);
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(intervalId);
+  }, [activeTripId, resetCompletedTrip]);
 
   useEffect(() => {
     if (!incomingRequest) {
@@ -1368,6 +1409,10 @@ function formatDuration(duration?: number) {
 }
 
 function formatTripStatus(status: TripStatus) {
+  if (status === 'CANCELLED') {
+    return 'Đã hủy';
+  }
+
   if (status === 'ACCEPTED') {
     return 'Đã nhận';
   }
@@ -1444,6 +1489,10 @@ function getNextStatusIcon(status: TripStatus | null): keyof typeof MaterialComm
 }
 
 function getDriverStatusMessage(status: TripStatus) {
+  if (status === 'CANCELLED') {
+    return 'Chuyến xe đã bị hủy bởi hành khách.';
+  }
+
   if (status === 'ARRIVED') {
     return 'Bạn đã đến điểm đón. Hãy đón khách và bắt đầu chuyến khi sẵn sàng.';
   }
