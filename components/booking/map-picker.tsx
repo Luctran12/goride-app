@@ -56,6 +56,7 @@ export type MapPickerProps = {
   allowSelection?: boolean;
   showGpsButton?: boolean;
   showUserLocation?: boolean;
+  routeCoordinates?: { latitude: number; longitude: number }[];
   onLocationChange?: (point: LocationPoint) => void;
   onRequestCurrentLocation?: () => void;
   onInteractionStart?: () => void;
@@ -77,6 +78,7 @@ export function MapPicker({
   allowSelection,
   showGpsButton = true,
   showUserLocation = true,
+  routeCoordinates: customRouteCoordinates,
   onLocationChange,
   onRequestCurrentLocation,
   onInteractionStart,
@@ -103,10 +105,12 @@ export function MapPicker({
     [selectedPoint.lat, selectedPoint.lng],
   );
 
-  const routeCoordinates = useMemo(
-    () => compactRawLatLng([[originLat, originLng], [destinationLat, destinationLng]]),
-    [destinationLat, destinationLng, originLat, originLng],
-  );
+  const routeCoordinates = useMemo(() => {
+    if (customRouteCoordinates && customRouteCoordinates.length > 0) {
+      return customRouteCoordinates;
+    }
+    return compactRawLatLng([[originLat, originLng], [destinationLat, destinationLng]]);
+  }, [customRouteCoordinates, destinationLat, destinationLng, originLat, originLng]);
   const showOriginMarker = Boolean(origin && (!hasSelectionMarker || !isSameCoordinate(origin, selectedPoint)));
   const showDestinationMarker = Boolean(destination && (!hasSelectionMarker || !isSameCoordinate(destination, selectedPoint)));
 
@@ -183,7 +187,7 @@ export function MapPicker({
         onTouchStart={onInteractionStart}
         onTouchEnd={onInteractionEnd}
       >
-        {routeCoordinates.length === 2 && (
+        {routeCoordinates.length > 1 && (
           <Polyline
             coordinates={routeCoordinates}
             strokeColor={palette.primary}

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DriverInfoCard, MapPicker, TripCompletionCard, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
+import { fetchRoute } from '@/lib/location-service';
 import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
 import {
   connectRealtime,
@@ -64,6 +65,21 @@ type FooterAction = {
   onPress?: () => void;
 };
 
+function getDistanceBetweenPoints(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // metres
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // in metres
+}
+
 export default function WaitingDriverScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -95,6 +111,9 @@ export default function WaitingDriverScreen() {
   const [tripDetailError, setTripDetailError] = useState<string | null>(null);
   const [tripDetailUpdatedAt, setTripDetailUpdatedAt] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
+  const lastFetchedLocationRef = useRef<{ tripId: number; status: TripStatus | null; lat: number; lng: number } | null>(null);
+  const lastRouteFetchTimeRef = useRef<number>(0);
   const statusCopy = getStatusCopy(liveStatus);
   const realtimeCopy = getRealtimeCopy(realtimeMode);
   const fallbackPollingEnabled = Boolean(
@@ -161,6 +180,80 @@ export default function WaitingDriverScreen() {
 
     return () => pulse.stop();
   }, [pulseAnim]);
+
+  // Fetch routing coordinates dynamically based on trip status
+  useEffect(() => {
+    if (!pickup?.lat || !dropoff?.lat || !numericTripId) {
+      setRouteCoordinates([]);
+      lastFetchedLocationRef.current = null;
+      lastRouteFetchTimeRef.current = 0;
+      return;
+    }
+
+    const tripId = numericTripId;
+    const status = liveStatus;
+    const now = Date.now();
+
+    // 1. Nếu đang SEARCHING (chưa có tài xế nhận): Vẽ lộ trình từ Pickup -> Dropoff
+    if (status === 'SEARCHING' || !driverLocation?.lat || !driverLocation?.lng) {
+      // Chỉ fetch 1 lần khi ở trạng thái SEARCHING
+      if (lastFetchedLocationRef.current?.tripId === tripId && lastFetchedLocationRef.current?.status === 'SEARCHING') {
+        return;
+      }
+      
+      void fetchRoute(
+        { lat: pickup.lat, lng: pickup.lng },
+        { lat: dropoff.lat, lng: dropoff.lng }
+      )
+        .then((res) => {
+          setRouteCoordinates(res.coordinates);
+          lastFetchedLocationRef.current = { tripId, status: 'SEARCHING', lat: pickup.lat, lng: pickup.lng };
+          lastRouteFetchTimeRef.current = now;
+        })
+        .catch(() => setRouteCoordinates([]));
+      return;
+    }
+
+    // 2. Có vị trí tài xế: Xác định điểm bắt đầu và điểm kết thúc dựa theo trạng thái
+    const isHeadingToPickup = status === 'ACCEPTED' || status === 'ARRIVED';
+    const targetLoc = isHeadingToPickup ? pickup : dropoff;
+    const currentLoc = { lat: driverLocation.lat, lng: driverLocation.lng };
+
+    // Check throttle and distance moved
+    const isFirstFetchForStatus =
+      !lastFetchedLocationRef.current ||
+      lastFetchedLocationRef.current.tripId !== tripId ||
+      lastFetchedLocationRef.current.status !== status;
+
+    if (!isFirstFetchForStatus && lastFetchedLocationRef.current) {
+      // Throttle: fetch at most once every 12 seconds when moving
+      if (now - lastRouteFetchTimeRef.current < 12000) {
+        return;
+      }
+      // Distance check: driver must move > 50 meters
+      const distanceMoved = getDistanceBetweenPoints(
+        currentLoc.lat,
+        currentLoc.lng,
+        lastFetchedLocationRef.current.lat,
+        lastFetchedLocationRef.current.lng
+      );
+      if (distanceMoved <= 50) {
+        return;
+      }
+    }
+
+    void fetchRoute(
+      { lat: currentLoc.lat, lng: currentLoc.lng },
+      { lat: targetLoc.lat, lng: targetLoc.lng }
+    )
+      .then((res) => {
+        setRouteCoordinates(res.coordinates);
+        lastFetchedLocationRef.current = { tripId, status, lat: currentLoc.lat, lng: currentLoc.lng };
+        lastRouteFetchTimeRef.current = now;
+      })
+      .catch(() => {});
+
+  }, [liveStatus, pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng, driverLocation?.lat, driverLocation?.lng, numericTripId]);
 
   useEffect(() => {
     setLiveStatus(normalizeTripStatus(tripStatus));
@@ -403,6 +496,7 @@ export default function WaitingDriverScreen() {
               origin={pickup}
               destination={dropoff}
               driverLocation={driverLocation}
+              routeCoordinates={routeCoordinates}
               status="ready"
               height={rvs(360)}
               allowSelection={false}
