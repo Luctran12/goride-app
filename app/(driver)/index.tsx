@@ -108,6 +108,8 @@ export default function DriverScreen() {
   const driverLocationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationRef = useRef<LocationPoint | null>(null);
   const driverGpsPingInFlightRef = useRef(false);
+  const lastFetchedLocationRef = useRef<{ tripId: number; status: TripStatus | null; lat: number; lng: number } | null>(null);
+  const lastRouteFetchTimeRef = useRef<number>(0);
 
   const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -765,11 +767,14 @@ export default function DriverScreen() {
   useEffect(() => {
     if (!incomingRequest) {
       setRouteCoordinates([]);
+      lastFetchedLocationRef.current = null;
+      lastRouteFetchTimeRef.current = 0;
       return;
     }
 
     const tripId = incomingRequest.tripId;
-    const status = requestResponse?.status;
+    const status = requestResponse?.status ?? null;
+    const now = Date.now();
 
     // 1. Nếu chưa ACCEPT (đang rung chuông): vẽ lộ trình từ pickup đến dropoff
     if (!requestResponse || requestResponse.tripId !== tripId) {
@@ -786,40 +791,77 @@ export default function DriverScreen() {
       return;
     }
 
+    // Determine current driver location
+    const currentLoc = driverLocation ?? driverLocationRef.current ?? getDefaultLocationPoint();
+    if (!currentLoc?.lat || !currentLoc?.lng) {
+      return;
+    }
+
+    // Check throttle and distance
+    const isFirstFetchForStatus =
+      !lastFetchedLocationRef.current ||
+      lastFetchedLocationRef.current.tripId !== tripId ||
+      lastFetchedLocationRef.current.status !== status;
+
+    if (!isFirstFetchForStatus && lastFetchedLocationRef.current) {
+      // Throttle: fetch at most once every 12 seconds when moving
+      if (now - lastRouteFetchTimeRef.current < 12000) {
+        return;
+      }
+      // Distance check: must move > 50 meters
+      const distanceMoved = getDistanceBetweenPoints(
+        currentLoc.lat,
+        currentLoc.lng,
+        lastFetchedLocationRef.current.lat,
+        lastFetchedLocationRef.current.lng
+      );
+      if (distanceMoved <= 50) {
+        return;
+      }
+    }
+
     // 2. Nếu đã ACCEPTED hoặc ARRIVED: vẽ lộ trình từ vị trí tài xế hiện tại đến điểm đón
     if (status === 'ACCEPTED' || status === 'ARRIVED') {
-      const start = driverLocationRef.current ?? getDefaultLocationPoint();
-      if (start?.lat && incomingRequest.pickup?.lat) {
+      if (incomingRequest.pickup?.lat) {
         void fetchRoute(
-          { lat: start.lat, lng: start.lng },
+          { lat: currentLoc.lat, lng: currentLoc.lng },
           { lat: incomingRequest.pickup.lat, lng: incomingRequest.pickup.lng }
         )
           .then((res) => {
             setRouteCoordinates(res.coordinates);
+            lastFetchedLocationRef.current = { tripId, status, lat: currentLoc.lat, lng: currentLoc.lng };
+            lastRouteFetchTimeRef.current = now;
           })
-          .catch(() => setRouteCoordinates([]));
+          .catch(() => {});
       }
       return;
     }
 
     // 3. Nếu đang IN_PROGRESS: vẽ lộ trình từ vị trí tài xế đến điểm trả khách
     if (status === 'IN_PROGRESS') {
-      const start = driverLocationRef.current ?? getDefaultLocationPoint();
-      if (start?.lat && incomingRequest.dropoff?.lat) {
+      if (incomingRequest.dropoff?.lat) {
         void fetchRoute(
-          { lat: start.lat, lng: start.lng },
+          { lat: currentLoc.lat, lng: currentLoc.lng },
           { lat: incomingRequest.dropoff.lat, lng: incomingRequest.dropoff.lng }
         )
           .then((res) => {
             setRouteCoordinates(res.coordinates);
+            lastFetchedLocationRef.current = { tripId, status, lat: currentLoc.lat, lng: currentLoc.lng };
+            lastRouteFetchTimeRef.current = now;
           })
-          .catch(() => setRouteCoordinates([]));
+          .catch(() => {});
       }
       return;
     }
 
     setRouteCoordinates([]);
-  }, [incomingRequest?.tripId, requestResponse?.status, incomingRequest?.pickup?.lat, incomingRequest?.dropoff?.lat]);
+  }, [
+    incomingRequest?.tripId,
+    requestResponse?.status,
+    incomingRequest?.pickup?.lat,
+    incomingRequest?.dropoff?.lat,
+    driverLocation,
+  ]);
 
   if (loadingProfile) {
     return (
@@ -1699,6 +1741,21 @@ function isTripStepCompleted(currentStatus: TripStatus, stepStatus: TripStatus) 
   const stepIndex = ACTIVE_TRIP_STEPS.findIndex((step) => step.status === stepStatus);
 
   return currentIndex >= 0 && stepIndex >= 0 && stepIndex <= currentIndex;
+}
+
+function getDistanceBetweenPoints(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // metres
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // in metres
 }
 
 const styles = StyleSheet.create({
