@@ -217,11 +217,11 @@ function formatCoordinates(coords: Coordinates) {
   return `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage = 'Lấy vị trí quá thời gian chờ'): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout>;
 
   const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('Lấy vị trí quá thời gian chờ')), timeoutMs);
+    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
   });
 
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
@@ -236,15 +236,20 @@ export type RoutePath = {
 export async function fetchRoute(origin: Coordinates, destination: Coordinates): Promise<RoutePath> {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`OSRM API error: ${response.status}`);
-    }
-    const data = await response.json();
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-      throw new Error('No route found');
-    }
+    
+    const fetchPromise = async () => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`OSRM API error: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+        throw new Error('No route found');
+      }
+      return data;
+    };
 
+    const data = await withTimeout(fetchPromise(), 8000, 'Lấy lộ trình quá thời gian chờ');
     const route = data.routes[0];
     const coords = route.geometry.coordinates.map((coord: [number, number]) => ({
       latitude: coord[1],
