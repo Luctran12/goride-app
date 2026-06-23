@@ -110,6 +110,7 @@ export default function DriverScreen() {
   const driverGpsPingInFlightRef = useRef(false);
   const lastFetchedLocationRef = useRef<{ tripId: number; status: TripStatus | null; lat: number; lng: number } | null>(null);
   const lastRouteFetchTimeRef = useRef<number>(0);
+  const mapRef = useRef<MapView | null>(null);
 
   const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -854,14 +855,26 @@ export default function DriverScreen() {
       return;
     }
 
-    setRouteCoordinates([]);
-  }, [
+    }, [
     incomingRequest?.tripId,
     requestResponse?.status,
     incomingRequest?.pickup?.lat,
     incomingRequest?.dropoff?.lat,
     driverLocation,
   ]);
+
+  // Animate map to show the trip region when status or location changes
+  useEffect(() => {
+    if (!incomingRequest || !mapRef.current) return;
+
+    const nextRegion = getTripMapRegion(
+      incomingRequest,
+      driverLocation,
+      requestResponse?.status ?? null
+    );
+
+    mapRef.current.animateToRegion(nextRegion, 1000);
+  }, [incomingRequest?.tripId, requestResponse?.status, driverLocation?.lat, driverLocation?.lng]);
 
   if (loadingProfile) {
     return (
@@ -963,9 +976,9 @@ export default function DriverScreen() {
               {/* Routing Map Preview */}
               <View style={styles.routingMapFrame}>
                 <MapView
+                  ref={mapRef}
                   style={StyleSheet.absoluteFill}
                   initialRegion={getTripMapRegion(incomingRequest, driverLocation, requestResponse?.status ?? null)}
-                  region={getTripMapRegion(incomingRequest, driverLocation, requestResponse?.status ?? null)}
                   loadingEnabled
                   pitchEnabled={false}
                   rotateEnabled={false}
