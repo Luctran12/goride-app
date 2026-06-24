@@ -31,6 +31,7 @@ import {
   subscribeDriverRequests,
   subscribeNotifications,
   subscribeRealtimeConnection,
+  subscribeTrip,
   type RealtimeSubscription,
 } from '@/lib/realtime';
 import { ApiError } from '@/lib/api';
@@ -691,11 +692,29 @@ export default function DriverScreen() {
     return () => clearInterval(intervalId);
   }, [activeTripId, resetCompletedTrip]);
 
-  // Polling check to handle TRIP_CANCELLED for incoming trip request before acceptance
+  // Polling and WebSocket subscription to handle TRIP_CANCELLED for incoming trip request before acceptance
   useEffect(() => {
     if (!incomingRequest || requestResponse) return;
 
     const tripId = incomingRequest.tripId;
+    let wsSubscription: RealtimeSubscription | null = null;
+
+    try {
+      wsSubscription = subscribeTrip(tripId, {
+        onStatus: (message) => {
+          if (message.status === 'CANCELLED') {
+            Alert.alert(
+              'Cuốc xe đã bị hủy',
+              'Hành khách đã hủy yêu cầu đặt xe này.'
+            );
+            resetCompletedTrip();
+          }
+        },
+      });
+    } catch (wsErr) {
+      console.warn('[Driver] Failed to subscribe to incoming trip status WS:', wsErr);
+    }
+
     const intervalId = setInterval(async () => {
       try {
         const trip = await getTrip(tripId);
@@ -711,7 +730,12 @@ export default function DriverScreen() {
       }
     }, 3000); // Check every 3 seconds
 
-    return () => clearInterval(intervalId);
+    return () => {
+      if (wsSubscription) {
+        wsSubscription.unsubscribe();
+      }
+      clearInterval(intervalId);
+    };
   }, [incomingRequest, requestResponse, resetCompletedTrip]);
 
   // Countdown timer for incoming trip requests

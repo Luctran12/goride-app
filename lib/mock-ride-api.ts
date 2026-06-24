@@ -187,13 +187,27 @@ export async function mockEstimateBooking(draft: BookingDraft): Promise<BookingE
   };
 }
 
+type BookingListener = (trip: TripDetail) => void;
+const bookingListeners = new Set<BookingListener>();
+
+export function subscribeMockBookings(listener: BookingListener) {
+  bookingListeners.add(listener);
+  return () => {
+    bookingListeners.delete(listener);
+  };
+}
+
+export function mockGetActiveSearchingTrip(): TripDetail | undefined {
+  return Array.from(trips.values()).find((t) => t.status === 'SEARCHING');
+}
+
 export async function mockCreateBooking(
   draft: BookingDraft,
   estimate: BookingEstimate,
 ): Promise<BookingCreateResponse> {
   const tripId = nextTripId++;
 
-  trips.set(tripId, {
+  const newTrip: TripDetail = {
     tripId,
     status: 'SEARCHING',
     pickup: draft.pickup,
@@ -203,6 +217,17 @@ export async function mockCreateBooking(
     estimatedDistance: estimate.estimatedDistance,
     estimatedDuration: estimate.estimatedDuration,
     requestedAt: new Date().toISOString(),
+  };
+
+  trips.set(tripId, newTrip);
+
+  // Notify listeners immediately
+  bookingListeners.forEach((listener) => {
+    try {
+      listener(newTrip);
+    } catch (e) {
+      console.warn('[Mock API] Listener error:', e);
+    }
   });
 
   return {

@@ -3,7 +3,7 @@ import SockJS from 'sockjs-client';
 
 import { getAccessToken } from '@/lib/api';
 import { USE_MOCK_REALTIME, WS_URL } from '@/lib/config';
-import { mockGetDriverLocation, mockUpdateTripStatus } from '@/lib/mock-ride-api';
+import { mockGetActiveSearchingTrip, mockGetDriverLocation, mockUpdateTripStatus, subscribeMockBookings } from '@/lib/mock-ride-api';
 import type { DriverLocationUpdate, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 export type TripStatusMessage = {
@@ -799,6 +799,31 @@ function queueMockDriverRequest(driverId: number) {
   }
 
   mockRequestTimer = setTimeout(() => {
+    const activeTrip = mockGetActiveSearchingTrip();
+    if (activeTrip) {
+      emit('driverRequest', {
+        tripId: activeTrip.tripId,
+        passenger: {
+          id: 1,
+          fullName: 'Nguyen Van A',
+          phone: '0901234567',
+        },
+        pickup: activeTrip.pickup,
+        dropoff: activeTrip.dropoff,
+        estimatedFare: activeTrip.estimatedFare,
+        estimatedDistance: activeTrip.estimatedDistance,
+        estimatedDuration: activeTrip.estimatedDuration,
+      });
+
+      emit('notification', {
+        type: 'NEW_TRIP_REQUEST',
+        title: 'Co cuoc moi',
+        body: `Tai xe ${driverId} co mot yeu cau dat xe moi.`,
+        data: { tripId: activeTrip.tripId },
+      });
+      return;
+    }
+
     emit('driverRequest', {
       tripId: 101,
       passenger: {
@@ -831,3 +856,34 @@ function queueMockDriverRequest(driverId: number) {
     });
   }, 2000);
 }
+
+// Automatically emit mock driver requests when a passenger books a ride in mock mode
+subscribeMockBookings((trip) => {
+  if (USE_MOCK_REALTIME) {
+    if (mockRequestTimer) {
+      clearTimeout(mockRequestTimer);
+    }
+    mockRequestTimer = setTimeout(() => {
+      emit('driverRequest', {
+        tripId: trip.tripId,
+        passenger: {
+          id: 1,
+          fullName: 'Nguyen Van A',
+          phone: '0901234567',
+        },
+        pickup: trip.pickup,
+        dropoff: trip.dropoff,
+        estimatedFare: trip.estimatedFare,
+        estimatedDistance: trip.estimatedDistance,
+        estimatedDuration: trip.estimatedDuration,
+      });
+
+      emit('notification', {
+        type: 'NEW_TRIP_REQUEST',
+        title: 'Co cuoc moi',
+        body: 'Tai xe 5 co mot yeu cau dat xe moi.',
+        data: { tripId: trip.tripId },
+      });
+    }, 1000);
+  }
+});
