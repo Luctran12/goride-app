@@ -264,6 +264,15 @@ export function sendTripStatus(tripId: number, status: TripStatus) {
       clearMockTripTimers(tripId);
     }
 
+    if (status === 'CANCELLED') {
+      emitMockNotification({
+        type: 'TRIP_CANCELLED',
+        title: 'Chuyến đã hủy',
+        body: 'Yêu cầu đặt xe đã bị hành khách hủy.',
+        data: { tripId },
+      });
+    }
+
     mockUpdateTripStatus(tripId, status).catch(() => {
       // Keep emitting realtime demo events even if the optional mock REST store is unavailable.
     });

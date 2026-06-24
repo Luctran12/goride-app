@@ -83,6 +83,10 @@ export default function DriverScreen() {
   const [statusMessage, setStatusMessage] = useState('Bạn đang offline. Bật online để nhận cuốc mới.');
   const [realtimeMode, setRealtimeMode] = useState<DriverRealtimeMode>('offline');
   const [incomingRequest, setIncomingRequest] = useState<DriverTripRequest | null>(null);
+  const incomingRequestRef = useRef(incomingRequest);
+  useEffect(() => {
+    incomingRequestRef.current = incomingRequest;
+  }, [incomingRequest]);
   const [requestResponse, setRequestResponse] = useState<{
     status: TripStatus;
     tripId: number;
@@ -330,12 +334,18 @@ export default function DriverScreen() {
         setLatestNotification(notification);
         if (notification.type === 'TRIP_CANCELLED') {
           const notificationTripId = notification.data?.tripId ? Number(notification.data.tripId) : null;
-          if (notificationTripId && requestResponseRef.current?.tripId === notificationTripId) {
-            Alert.alert(
-              'Chuyến xe đã bị hủy',
-              'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
-            );
-            resetCompletedTripRef.current();
+          if (notificationTripId) {
+            if (incomingRequestRef.current?.tripId === notificationTripId && !requestResponseRef.current) {
+              setIncomingRequest(null);
+              setStatusMessage('Yêu cầu cuốc xe đã bị hành khách hủy.');
+              Alert.alert('Cuốc xe đã bị hủy', 'Hành khách đã hủy yêu cầu đặt xe này.');
+            } else if (requestResponseRef.current?.tripId === notificationTripId) {
+              Alert.alert(
+                'Chuyến xe đã bị hủy',
+                'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
+              );
+              resetCompletedTripRef.current();
+            }
           }
         }
       });
@@ -680,6 +690,29 @@ export default function DriverScreen() {
 
     return () => clearInterval(intervalId);
   }, [activeTripId, resetCompletedTrip]);
+
+  // Polling check to handle TRIP_CANCELLED for incoming trip request before acceptance
+  useEffect(() => {
+    if (!incomingRequest || requestResponse) return;
+
+    const tripId = incomingRequest.tripId;
+    const intervalId = setInterval(async () => {
+      try {
+        const trip = await getTrip(tripId);
+        if (trip.status === 'CANCELLED') {
+          Alert.alert(
+            'Cuốc xe đã bị hủy',
+            'Hành khách đã hủy yêu cầu đặt xe này.'
+          );
+          resetCompletedTrip();
+        }
+      } catch (err) {
+        console.warn('[Driver] Polling incoming request status failed:', err);
+      }
+    }, 3000); // Check every 3 seconds
+
+    return () => clearInterval(intervalId);
+  }, [incomingRequest, requestResponse, resetCompletedTrip]);
 
   // Countdown timer for incoming trip requests
   useEffect(() => {
