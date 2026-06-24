@@ -141,13 +141,14 @@ export async function listBookings(page = 1, size = 20): Promise<TripHistoryPage
   return normalizeTripHistoryPage(response, page, size);
 }
 
-export function cancelTrip(tripId: number): Promise<CancelTripResponse> {
+export function cancelTrip(tripId: number, reason = ''): Promise<CancelTripResponse> {
   if (USE_MOCK_API) {
     return mockCancelTrip(tripId);
   }
 
   return apiRequest<ApiResponse<any>>(`/bookings/${tripId}/cancel`, {
     method: 'PATCH',
+    body: { reason },
   }).then((res) => {
     const data = res.data;
     return {
