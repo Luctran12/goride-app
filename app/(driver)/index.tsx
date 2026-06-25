@@ -279,6 +279,22 @@ export default function DriverScreen() {
       const connection = await connectRealtime();
       setRealtimeMode(connection.mode);
       requestSubscriptionRef.current = subscribeDriverRequests(driverIdRef.current, (request) => {
+        if (request.type === 'TRIP_CANCELLED') {
+          const cancelledTripId = request.tripId;
+          if (incomingRequestRef.current?.tripId === cancelledTripId && !requestResponseRef.current) {
+            setIncomingRequest(null);
+            setStatusMessage('Yêu cầu cuốc xe đã bị hành khách hủy.');
+            Alert.alert('Cuốc xe đã bị hủy', 'Hành khách đã hủy yêu cầu đặt xe này.');
+          } else if (requestResponseRef.current?.tripId === cancelledTripId) {
+            Alert.alert(
+              'Chuyến xe đã bị hủy',
+              'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
+            );
+            resetCompletedTripRef.current();
+          }
+          return;
+        }
+
         setIncomingRequest(request);
         setRequestResponse(null);
         setStatusMessage('Có cuốc mới đang chờ bạn phản hồi.');

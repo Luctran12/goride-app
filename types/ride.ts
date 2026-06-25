@@ -183,6 +183,20 @@ export type DriverTripRequest = {
   expiresAt?: string;
 };
 
+export type DriverTripCancelMessage = {
+  type: 'TRIP_CANCELLED';
+  action: 'DISMISS';
+  tripId: number;
+  passengerId?: number;
+  driverId?: number;
+  reason?: string;
+  cancelledAt?: string;
+};
+
+export type DriverTripRequestsMessage =
+  | ({ type?: never } & DriverTripRequest)
+  | DriverTripCancelMessage;
+
 export type DriverLocationUpdate = {
   tripId?: number;
   driverId?: number;

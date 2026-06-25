@@ -4,7 +4,7 @@ import SockJS from 'sockjs-client';
 import { getAccessToken } from '@/lib/api';
 import { USE_MOCK_REALTIME, WS_URL } from '@/lib/config';
 import { mockGetActiveSearchingTrip, mockGetDriverLocation, mockUpdateTripStatus, subscribeMockBookings } from '@/lib/mock-ride-api';
-import type { DriverLocationUpdate, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
+import type { DriverLocationUpdate, DriverTripRequest, LocationPoint, TripStatus, WsNotification, DriverTripCancelMessage, DriverTripRequestsMessage } from '@/types/ride';
 
 export type TripStatusMessage = {
   tripId: number;
@@ -53,7 +53,7 @@ type RemoteSubscriptionEntry = {
 
 type RealtimeEventMap = {
   notification: WsNotification;
-  driverRequest: DriverTripRequest;
+  driverRequest: DriverTripRequestsMessage;
   tripStatus: TripStatusMessage;
   driverLocation: DriverLocationUpdate;
 };
@@ -63,7 +63,7 @@ const REMOTE_RECONNECT_DELAY_MS = 5000;
 
 const eventHandlers = {
   notification: new Set<Handler<WsNotification>>(),
-  driverRequest: new Set<Handler<DriverTripRequest>>(),
+  driverRequest: new Set<Handler<DriverTripRequestsMessage>>(),
   tripStatus: new Set<Handler<TripStatusMessage>>(),
   driverLocation: new Set<Handler<DriverLocationUpdate>>(),
 };
@@ -201,13 +201,29 @@ export function subscribeNotifications(handler: Handler<WsNotification>): Realti
   return subscribe('notification', handler);
 }
 
-export function subscribeDriverRequests(driverId: number, handler: Handler<DriverTripRequest>): RealtimeSubscription {
+export function subscribeDriverRequests(driverId: number, handler: Handler<DriverTripRequestsMessage>): RealtimeSubscription {
   if (!USE_MOCK_REALTIME) {
     return subscribeRemote('/user/queue/trip-requests', (message) => {
-      const request = normalizeDriverTripRequest(parseJsonMessage(message));
+      const parsed = parseJsonMessage(message);
+      const record = asRecord(parsed);
+      const inner = asRecord(record?.data) ?? record;
 
-      if (request) {
-        handler(request);
+      if (inner?.type === 'TRIP_CANCELLED' && inner?.action === 'DISMISS') {
+        const cancelMsg: DriverTripCancelMessage = {
+          type: 'TRIP_CANCELLED',
+          action: 'DISMISS',
+          tripId: toFiniteNumber(inner.tripId) ?? 0,
+          passengerId: toFiniteNumber(inner.passengerId),
+          driverId: toFiniteNumber(inner.driverId),
+          reason: typeof inner.reason === 'string' ? inner.reason : undefined,
+          cancelledAt: typeof inner.cancelledAt === 'string' ? inner.cancelledAt : undefined,
+        };
+        handler(cancelMsg);
+      } else {
+        const request = normalizeDriverTripRequest(parsed);
+        if (request) {
+          handler(request);
+        }
       }
     });
   }
