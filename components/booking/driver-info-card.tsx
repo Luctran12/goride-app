@@ -238,24 +238,26 @@ function formatUpdatedAt(value?: string | null) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.card,
-    borderRadius: rs(36),
-    padding: rs(22),
+    borderRadius: rs(32),
+    padding: rs(24),
     gap: rvs(18),
+    borderWidth: 1,
+    borderColor: '#E8E5FA',
     ...shadow,
   },
   placeholderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(16),
+    gap: rs(18),
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(16),
+    gap: rs(18),
   },
   avatar: {
-    width: rs(82),
-    height: rs(82),
+    width: rs(86),
+    height: rs(86),
     borderRadius: rs(28),
     backgroundColor: palette.primarySoft,
     alignItems: 'center',
@@ -266,7 +268,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: palette.primary,
-    fontSize: rf(29),
+    fontSize: rf(30),
     fontWeight: '900',
   },
   content: {
@@ -275,14 +277,14 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     color: palette.primaryMid,
-    fontSize: rf(15),
+    fontSize: rf(14),
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   driverName: {
     color: palette.text,
-    fontSize: rf(27),
+    fontSize: rf(28),
     fontWeight: '900',
   },
   placeholderTitle: {
@@ -293,21 +295,22 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: palette.muted,
     fontSize: rf(16),
-    fontWeight: '700',
-    lineHeight: rf(23),
+    fontWeight: '600',
+    lineHeight: rf(22),
   },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: rs(8),
+    marginTop: 2,
   },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(4),
-    paddingHorizontal: rs(10),
-    paddingVertical: rvs(6),
-    borderRadius: rs(14),
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(5),
+    borderRadius: rs(12),
     backgroundColor: palette.amberSoft,
   },
   ratingText: {
@@ -316,9 +319,9 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   statusBadge: {
-    paddingHorizontal: rs(10),
-    paddingVertical: rvs(6),
-    borderRadius: rs(14),
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(5),
+    borderRadius: rs(12),
     backgroundColor: palette.greenSoft,
   },
   statusBadgeText: {
@@ -333,13 +336,14 @@ const styles = StyleSheet.create({
   },
   metaItem: {
     width: '48%',
-    minHeight: rvs(76),
+    minHeight: rvs(78),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(8),
-    padding: rs(12),
+    gap: rs(10),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(10),
     borderRadius: rs(20),
-    backgroundColor: '#f8f6fb',
+    backgroundColor: '#F7F5FC',
   },
   metaCopy: {
     flex: 1,
@@ -348,7 +352,7 @@ const styles = StyleSheet.create({
   metaLabel: {
     color: palette.muted,
     fontSize: rf(13),
-    fontWeight: '800',
+    fontWeight: '700',
   },
   metaValue: {
     color: palette.text,

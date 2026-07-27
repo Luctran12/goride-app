@@ -206,20 +206,22 @@ function formatLastUpdated(value?: string | null) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: palette.card,
-    borderRadius: rs(36),
-    padding: rs(22),
+    borderRadius: rs(32),
+    padding: rs(24),
     gap: rvs(18),
+    borderWidth: 1,
+    borderColor: '#E8E5FA',
     ...shadow,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(12),
+    gap: rs(14),
   },
   headerIcon: {
-    width: rs(52),
-    height: rs(52),
-    borderRadius: rs(18),
+    width: rs(56),
+    height: rs(56),
+    borderRadius: rs(20),
     backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -230,20 +232,21 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.text,
-    fontSize: rf(24),
+    fontSize: rf(25),
     fontWeight: '900',
   },
   subtitle: {
     color: palette.muted,
     fontSize: rf(15),
-    fontWeight: '800',
+    fontWeight: '700',
   },
   interruptedBanner: {
     minHeight: rvs(54),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(9),
-    padding: rs(12),
+    gap: rs(10),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(12),
     borderRadius: rs(20),
   },
   cancelledBanner: {
@@ -263,21 +266,21 @@ const styles = StyleSheet.create({
   },
   stepRow: {
     flexDirection: 'row',
-    gap: rs(14),
+    gap: rs(16),
   },
   stepRail: {
     width: rs(44),
     alignItems: 'center',
   },
   stepCircle: {
-    width: rs(42),
-    height: rs(42),
-    borderRadius: rs(21),
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(22),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.primarySoft,
     borderWidth: 1,
-    borderColor: '#e0d8f4',
+    borderColor: '#E2D9FD',
   },
   stepCircleDone: {
     backgroundColor: palette.green,
@@ -286,14 +289,14 @@ const styles = StyleSheet.create({
   stepCircleActive: {
     backgroundColor: palette.greenSoft,
     borderColor: palette.green,
-    borderWidth: 2,
+    borderWidth: 2.5,
   },
   stepCircleMuted: {
-    backgroundColor: '#f4f1f5',
+    backgroundColor: '#F5F4FA',
     borderColor: palette.line,
   },
   stepLine: {
-    width: 2,
+    width: 2.5,
     flex: 1,
     minHeight: rvs(34),
     backgroundColor: palette.line,
@@ -302,20 +305,20 @@ const styles = StyleSheet.create({
     backgroundColor: palette.green,
   },
   stepLineMuted: {
-    backgroundColor: '#efecf1',
+    backgroundColor: '#EBE8F5',
   },
   stepCopy: {
     flex: 1,
-    minHeight: rvs(76),
-    paddingBottom: rvs(12),
+    minHeight: rvs(78),
+    paddingBottom: rvs(14),
     gap: rvs(3),
   },
   stepCopyMuted: {
-    opacity: 0.62,
+    opacity: 0.6,
   },
   stepTitle: {
     color: palette.text,
-    fontSize: rf(18),
+    fontSize: rf(19),
     fontWeight: '900',
   },
   stepTitleActive: {
@@ -324,7 +327,7 @@ const styles = StyleSheet.create({
   stepDescription: {
     color: palette.muted,
     fontSize: rf(15),
-    fontWeight: '700',
+    fontWeight: '600',
     lineHeight: rf(21),
   },
   stepTextMuted: {
@@ -332,8 +335,8 @@ const styles = StyleSheet.create({
   },
   activeLabel: {
     alignSelf: 'flex-start',
-    marginTop: rvs(3),
-    paddingHorizontal: rs(9),
+    marginTop: rvs(4),
+    paddingHorizontal: rs(10),
     paddingVertical: rvs(4),
     borderRadius: rs(12),
     overflow: 'hidden',

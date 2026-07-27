@@ -204,11 +204,19 @@ function formatFare(fare: number) {
 }
 
 const shadow = {
-  shadowColor: '#7c6da8',
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.11,
+  shadowColor: '#2C1B85',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.08,
+  shadowRadius: 20,
+  elevation: 6,
+};
+
+const shadowSelected = {
+  shadowColor: '#3F22D6',
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.16,
   shadowRadius: 24,
-  elevation: 7,
+  elevation: 9,
 };
 
 const styles = StyleSheet.create({
@@ -220,13 +228,14 @@ const styles = StyleSheet.create({
     padding: rs(20),
     borderRadius: rs(30),
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#F0ECFF',
     backgroundColor: palette.card,
     ...shadow,
   },
   cardSelected: {
     borderColor: palette.primary,
-    backgroundColor: '#fffbff',
+    backgroundColor: '#F8F6FF',
+    ...shadowSelected,
   },
   cardDisabled: {
     opacity: 0.55,
@@ -237,13 +246,13 @@ const styles = StyleSheet.create({
     borderRadius: rs(26),
   },
   pressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.99 }],
+    opacity: 0.86,
+    transform: [{ scale: 0.985 }],
   },
   iconBox: {
     width: rs(72),
     height: rs(72),
-    borderRadius: rs(22),
+    borderRadius: rs(24),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.primarySoft,
@@ -300,7 +309,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rs(9),
     paddingVertical: rvs(5),
     borderRadius: rs(999),
-    backgroundColor: '#f7f4fb',
+    backgroundColor: '#F4F0FE',
   },
   metaText: {
     color: palette.muted,

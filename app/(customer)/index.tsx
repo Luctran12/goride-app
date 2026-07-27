@@ -14,24 +14,25 @@ import {
 } from 'react-native';
 
 const palette = {
-  background: '#fcf8ff',
+  background: '#F6F7FC',
   card: '#ffffff',
-  primary: '#1d0796',
-  primarySoft: '#f1ecfb',
-  primaryMid: '#4b3fc4',
-  text: '#111114',
-  muted: '#68646e',
-  line: '#e8e4ec',
-  danger: '#d72828',
-  green: '#00b67a',
-  greenSoft: '#dff8ef',
+  primary: '#3F22D6',
+  primaryDark: '#261294',
+  primarySoft: '#F0ECFF',
+  primaryMid: '#5B3BE2',
+  text: '#0E0927',
+  muted: '#625E7A',
+  line: '#E7E3FA',
+  danger: '#FF3B30',
+  green: '#00C853',
+  greenSoft: '#E8FADF',
 };
 
 const shadow = {
-  shadowColor: '#7c6da8',
+  shadowColor: '#2C1B85',
   shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.11,
-  shadowRadius: 24,
+  shadowOpacity: 0.09,
+  shadowRadius: 22,
   elevation: 7,
 };
 
@@ -48,12 +49,15 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.profile}>
-            <Image
-              source={{ uri: 'https://i.pravatar.cc/160?img=11' }}
-              style={styles.avatar}
-            />
-            <View>
-              <Text style={styles.hello}>Xin chào,</Text>
+            <View style={styles.avatarWrapper}>
+              <Image
+                source={{ uri: 'https://i.pravatar.cc/160?img=11' }}
+                style={styles.avatar}
+              />
+              <View style={styles.onlineBadge} />
+            </View>
+            <View style={styles.profileText}>
+              <Text style={styles.hello}>Xin chào 👋</Text>
               <Text style={styles.name}>Thiện</Text>
             </View>
           </View>
@@ -65,9 +69,15 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.quickCard}>
-          <TouchableOpacity activeOpacity={0.82} style={styles.searchBox} onPress={() => router.push('/(customer)/booking/pickup')}>
-            <Feather name="search" size={rs(35)} color={palette.primary} />
-            <Text style={styles.searchText}>Bạn muốn đi đâu?</Text>
+          <TouchableOpacity activeOpacity={0.85} style={styles.searchBox} onPress={() => router.push('/(customer)/booking/pickup')}>
+            <View style={styles.searchIconBox}>
+              <Feather name="search" size={rs(32)} color={palette.card} />
+            </View>
+            <View style={styles.searchCopy}>
+              <Text style={styles.searchText}>Bạn muốn đi đâu hôm nay?</Text>
+              <Text style={styles.searchSubtext}>Nhập điểm đến để nhận báo giá ưu đãi</Text>
+            </View>
+            <Feather name="chevron-right" size={rs(28)} color={palette.muted} />
           </TouchableOpacity>
 
           <View style={styles.actionRow}>
@@ -79,13 +89,13 @@ export default function HomeScreen() {
             />
             <ActionButton
               icon="car"
-              label="Đặt xe ô tô"
+              label={'Đặt xe\nô tô'}
               active
               onPress={() => router.push('/(customer)/booking/pickup')}
             />
-            <ActionButton icon="history" label="Lịch sử" onPress={() => router.push('/(customer)/activity')} />
+            <ActionButton icon="history" label={'Lịch\nsử'} onPress={() => router.push('/(customer)/activity')} />
             <ActionButton
-              icon="cash-multiple"
+              icon="wallet-outline"
               label={'Thanh\ntoán'}
               onPress={() => router.push('/(customer)/billing')}
             />
@@ -93,41 +103,51 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Khuyến mãi cho bạn</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Khuyến mãi cho bạn</Text>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(customer)/billing')}>
+              <Text style={styles.seeAllText}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.promoScroller}
           >
             <TouchableOpacity activeOpacity={0.9} style={styles.promoCard}>
-              <View style={styles.promoOrb} />
+              <View style={styles.promoOrb1} />
+              <View style={styles.promoOrb2} />
               <View style={styles.codePill}>
-                <Text style={styles.codeText}>Mã: RYDE50</Text>
+                <Text style={styles.codeText}>Mã: GORIDE50</Text>
               </View>
               <Text style={styles.promoTitle}>Giảm 50% chuyến đầu</Text>
-              <Text style={styles.promoText}>Tối đa 30k. HSD: 30/11</Text>
+              <Text style={styles.promoText}>Tối đa 30k cho khách hàng mới • HSD: 30/11</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={0.9} style={styles.smallPromo}>
-              <View style={styles.ticketBubble}>
-                <Feather name="tag" size={rs(34)} color={palette.green} />
+            <TouchableOpacity activeOpacity={0.9} style={styles.promoCardAlt}>
+              <View style={styles.promoOrb1} />
+              <View style={styles.codePillAlt}>
+                <Text style={styles.codeTextAlt}>Mã: PEAKHOUR</Text>
               </View>
+              <Text style={styles.promoTitleAlt}>Đồng giá 15k Xe máy</Text>
+              <Text style={styles.promoTextAlt}>Áp dụng khung giờ vàng 17h-19h hàng ngày</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
 
         <View style={styles.recentCard}>
-          <Text style={styles.recentHeading}>Điểm đến gần đây</Text>
+          <Text style={styles.recentHeading}>Địa điểm gần đây</Text>
           <RecentPlace
-            icon="location-outline"
+            icon="location"
             title="Landmark 81"
             detail="720A Điện Biên Phủ, Phường 22, Bình Thạnh"
           />
           <View style={styles.divider} />
           <RecentPlace
-            icon="home-outline"
-            title="Nhà"
-            detail="123 Nguyễn Thị Minh Khai, Quận 1"
+            icon="home"
+            title="Nhà riêng"
+            detail="123 Nguyễn Thị Minh Khai, Quận 1, TP.HCM"
           />
         </View>
 
@@ -136,18 +156,18 @@ export default function HomeScreen() {
 
       <View style={styles.bottomNav}>
         <TouchableOpacity activeOpacity={0.84} style={styles.navActive}>
-          <Feather name="home" size={rs(33)} color="#9a8fee" />
-          <Text style={styles.navActiveText}>Home</Text>
+          <Feather name="home" size={rs(30)} color={palette.card} />
+          <Text style={styles.navActiveText}>Trang chủ</Text>
         </TouchableOpacity>
-        <NavItem icon="history" label="Activity" onPress={() => router.push('/(customer)/activity')} />
+        <NavItem icon="history" label="Hoạt động" onPress={() => router.push('/(customer)/activity')} />
         <NavItem
-          icon="cash-multiple"
-          label="Payment"
+          icon="wallet-outline"
+          label="Ví & Thẻ"
           onPress={() => router.push('/(customer)/billing')}
         />
         <NavItem
           icon="account-outline"
-          label="Profile"
+          label="Tài khoản"
           onPress={() => router.push('/(customer)/profile')}
         />
       </View>
@@ -168,11 +188,11 @@ function ActionButton({
 }) {
   return (
     <TouchableOpacity activeOpacity={0.82} style={styles.actionItem} onPress={onPress}>
-      <View style={styles.actionCircle}>
+      <View style={[styles.actionCircle, active && styles.actionCircleActive]}>
         <MaterialCommunityIcons
           name={icon}
-          size={rs(35)}
-          color={active ? palette.primary : '#68646e'}
+          size={rs(40)}
+          color={active ? palette.primary : palette.muted}
         />
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
@@ -192,7 +212,7 @@ function RecentPlace({
   return (
     <TouchableOpacity activeOpacity={0.82} style={styles.placeRow}>
       <View style={styles.placeIcon}>
-        <Ionicons name={icon} size={rs(32)} color="#68646e" />
+        <Ionicons name={icon} size={rs(28)} color={palette.primary} />
       </View>
       <View style={styles.placeCopy}>
         <Text style={styles.placeTitle}>{title}</Text>
@@ -200,6 +220,7 @@ function RecentPlace({
           {detail}
         </Text>
       </View>
+      <Ionicons name="chevron-forward" size={rs(24)} color="#B8B4D0" />
     </TouchableOpacity>
   );
 }
@@ -215,7 +236,7 @@ function NavItem({
 }) {
   return (
     <TouchableOpacity activeOpacity={0.82} style={styles.navItem} onPress={onPress}>
-      <MaterialCommunityIcons name={icon} size={rs(34)} color="#302d39" />
+      <MaterialCommunityIcons name={icon} size={rs(32)} color={palette.muted} />
       <Text style={styles.navText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -228,11 +249,11 @@ const styles = StyleSheet.create({
     marginTop: StatusBar.currentHeight,
   },
   content: {
-    paddingTop: rvs(42),
+    paddingTop: rvs(24),
     paddingBottom: rvs(26),
   },
   header: {
-    marginBottom: rvs(28),
+    marginBottom: rvs(24),
     paddingHorizontal: rs(36),
     flexDirection: 'row',
     alignItems: 'center',
@@ -242,66 +263,107 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  avatarWrapper: {
+    position: 'relative',
+    marginRight: rs(20),
+  },
   avatar: {
-    width: rs(88),
-    height: rs(88),
-    borderRadius: rs(44),
-    borderWidth: rs(4),
-    borderColor: '#d7cff1',
-    marginRight: rs(24),
+    width: rs(84),
+    height: rs(84),
+    borderRadius: rs(42),
+    borderWidth: rs(3),
+    borderColor: palette.primarySoft,
+  },
+  onlineBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: rs(20),
+    height: rs(20),
+    borderRadius: rs(10),
+    backgroundColor: palette.green,
+    borderWidth: 2,
+    borderColor: palette.card,
+  },
+  profileText: {
+    justifyContent: 'center',
   },
   hello: {
     color: palette.muted,
-    fontSize: rf(28),
-    lineHeight: rf(36),
-    fontWeight: '400',
+    fontSize: rf(24),
+    lineHeight: rf(30),
+    fontWeight: '600',
   },
   name: {
     color: palette.text,
-    fontSize: rf(39),
-    lineHeight: rf(48),
-    fontWeight: '800',
+    fontSize: rf(36),
+    lineHeight: rf(44),
+    fontWeight: '900',
   },
   bellButton: {
-    width: rs(76),
-    height: rs(76),
-    borderRadius: rs(38),
-    backgroundColor: '#f7f3ff',
+    width: rs(72),
+    height: rs(72),
+    borderRadius: rs(36),
+    backgroundColor: palette.card,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    ...shadow,
   },
   bellDot: {
     position: 'absolute',
-    top: rs(15),
-    right: rs(15),
-    width: rs(15),
-    height: rs(15),
-    borderRadius: rs(8),
+    top: rs(14),
+    right: rs(14),
+    width: rs(14),
+    height: rs(14),
+    borderRadius: rs(7),
     backgroundColor: palette.danger,
+    borderWidth: 2,
+    borderColor: palette.card,
   },
   quickCard: {
     marginHorizontal: rs(36),
     padding: rs(28),
-    borderRadius: rs(24),
+    borderRadius: rs(32),
     backgroundColor: palette.card,
-    marginBottom: rvs(46),
+    marginBottom: rvs(36),
     ...shadow,
   },
   searchBox: {
-    minHeight: rvs(120),
-    borderRadius: rs(14),
-    backgroundColor: palette.primarySoft,
+    minHeight: rvs(110),
+    borderRadius: rs(24),
+    backgroundColor: '#F3EFFF',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: rs(28),
-    marginBottom: rvs(42),
+    paddingHorizontal: rs(24),
+    marginBottom: rvs(36),
+    borderWidth: 1.5,
+    borderColor: '#E2D9FD',
+  },
+  searchIconBox: {
+    width: rs(64),
+    height: rs(64),
+    borderRadius: rs(20),
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: rs(20),
+  },
+  searchCopy: {
+    flex: 1,
   },
   searchText: {
-    marginLeft: rs(52),
+    color: palette.text,
+    fontSize: rf(26),
+    lineHeight: rf(32),
+    fontWeight: '800',
+  },
+  searchSubtext: {
     color: palette.muted,
-    fontSize: rf(29),
-    fontWeight: '400',
+    fontSize: rf(20),
+    lineHeight: rf(26),
+    fontWeight: '500',
+    marginTop: 2,
   },
   actionRow: {
     flexDirection: 'row',
@@ -312,200 +374,242 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionCircle: {
-    width: rs(102),
-    height: rs(102),
-    borderRadius: rs(51),
+    width: rs(106),
+    height: rs(106),
+    borderRadius: rs(38),
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F5F4FA',
+    marginBottom: rvs(14),
+  },
+  actionCircleActive: {
     backgroundColor: palette.primarySoft,
-    marginBottom: rvs(15),
   },
   actionLabel: {
     color: palette.text,
-    fontSize: rf(23),
-    lineHeight: rf(29),
-    fontWeight: '600',
+    fontSize: rf(22),
+    lineHeight: rf(28),
+    fontWeight: '700',
     textAlign: 'center',
   },
   section: {
-    marginBottom: rvs(58),
+    marginBottom: rvs(44),
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: rs(36),
+    marginBottom: rvs(20),
   },
   sectionTitle: {
     color: palette.text,
     fontSize: rf(29),
     lineHeight: rf(37),
+    fontWeight: '900',
+  },
+  seeAllText: {
+    color: palette.primary,
+    fontSize: rf(22),
     fontWeight: '800',
-    paddingHorizontal: rs(36),
-    marginBottom: rvs(26),
   },
   promoScroller: {
     paddingHorizontal: rs(36),
-    gap: rs(28),
+    gap: rs(24),
   },
   promoCard: {
-    width: rs(507),
-    minHeight: rvs(205),
-    borderRadius: rs(20),
+    width: rs(500),
+    minHeight: rvs(200),
+    borderRadius: rs(28),
     backgroundColor: palette.primaryMid,
-    paddingHorizontal: rs(29),
-    paddingVertical: rvs(34),
+    paddingHorizontal: rs(30),
+    paddingVertical: rvs(30),
     overflow: 'hidden',
     justifyContent: 'center',
-    shadowColor: '#1a0c75',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.27,
-    shadowRadius: 10,
+    shadowColor: '#3F22D6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
     elevation: 8,
   },
-  promoOrb: {
+  promoCardAlt: {
+    width: rs(440),
+    minHeight: rvs(200),
+    borderRadius: rs(28),
+    backgroundColor: '#0E0927',
+    paddingHorizontal: rs(30),
+    paddingVertical: rvs(30),
+    overflow: 'hidden',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  promoOrb1: {
     position: 'absolute',
-    right: rs(-34),
-    top: rvs(-48),
-    width: rs(164),
-    height: rs(164),
-    borderRadius: rs(82),
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    right: rs(-30),
+    top: rvs(-40),
+    width: rs(160),
+    height: rs(160),
+    borderRadius: rs(80),
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  promoOrb2: {
+    position: 'absolute',
+    left: rs(-30),
+    bottom: rvs(-50),
+    width: rs(140),
+    height: rs(140),
+    borderRadius: rs(70),
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
   codePill: {
     alignSelf: 'flex-start',
-    borderRadius: rs(7),
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: rs(15),
-    paddingVertical: rvs(9),
-    marginBottom: rvs(18),
+    borderRadius: rs(10),
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(7),
+    marginBottom: rvs(14),
   },
   codeText: {
     color: '#ffffff',
-    fontSize: rf(21),
-    lineHeight: rf(26),
-    fontWeight: '800',
+    fontSize: rf(20),
+    fontWeight: '900',
+  },
+  codePillAlt: {
+    alignSelf: 'flex-start',
+    borderRadius: rs(10),
+    backgroundColor: 'rgba(255,149,0,0.25)',
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(7),
+    marginBottom: rvs(14),
+  },
+  codeTextAlt: {
+    color: '#FF9500',
+    fontSize: rf(20),
+    fontWeight: '900',
   },
   promoTitle: {
     color: '#ffffff',
-    fontSize: rf(29),
-    lineHeight: rf(37),
-    fontWeight: '800',
-    marginBottom: rvs(8),
+    fontSize: rf(28),
+    lineHeight: rf(34),
+    fontWeight: '900',
+    marginBottom: rvs(6),
   },
   promoText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: rf(22),
+    lineHeight: rf(28),
+    fontWeight: '500',
+  },
+  promoTitleAlt: {
     color: '#ffffff',
-    fontSize: rf(27),
-    lineHeight: rf(35),
-    fontWeight: '400',
+    fontSize: rf(28),
+    lineHeight: rf(34),
+    fontWeight: '900',
+    marginBottom: rvs(6),
   },
-  smallPromo: {
-    width: rs(150),
-    minHeight: rvs(205),
-    borderRadius: rs(18),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ticketBubble: {
-    width: rs(86),
-    height: rs(86),
-    borderRadius: rs(43),
-    backgroundColor: palette.greenSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+  promoTextAlt: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: rf(22),
+    lineHeight: rf(28),
+    fontWeight: '500',
   },
   recentCard: {
     marginHorizontal: rs(36),
-    borderRadius: rs(22),
+    borderRadius: rs(28),
     backgroundColor: palette.card,
-    paddingHorizontal: rs(29),
-    paddingTop: rvs(31),
-    paddingBottom: rvs(31),
+    paddingHorizontal: rs(28),
+    paddingTop: rvs(28),
+    paddingBottom: rvs(28),
     ...shadow,
   },
   recentHeading: {
     color: palette.text,
-    fontSize: rf(29),
-    lineHeight: rf(37),
-    fontWeight: '800',
-    marginBottom: rvs(34),
+    fontSize: rf(28),
+    lineHeight: rf(35),
+    fontWeight: '900',
+    marginBottom: rvs(24),
   },
   placeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: rvs(8),
   },
   placeIcon: {
-    width: rs(73),
-    height: rs(73),
-    borderRadius: rs(37),
+    width: rs(68),
+    height: rs(68),
+    borderRadius: rs(22),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.primarySoft,
-    marginRight: rs(21),
+    marginRight: rs(20),
   },
   placeCopy: {
     flex: 1,
   },
   placeTitle: {
     color: palette.text,
-    fontSize: rf(25),
-    lineHeight: rf(33),
-    fontWeight: '700',
+    fontSize: rf(24),
+    lineHeight: rf(30),
+    fontWeight: '800',
   },
   placeDetail: {
     color: palette.muted,
-    fontSize: rf(25),
-    lineHeight: rf(33),
-    fontWeight: '400',
+    fontSize: rf(21),
+    lineHeight: rf(27),
+    fontWeight: '500',
+    marginTop: 2,
   },
   divider: {
     height: 1,
     backgroundColor: palette.line,
-    marginLeft: rs(94),
-    marginVertical: rvs(28),
+    marginLeft: rs(88),
+    marginVertical: rvs(20),
   },
   bottomSpacer: {
-    height: rvs(165),
+    height: rvs(150),
   },
   bottomNav: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 3,
-    height: rvs(118),
-    borderTopLeftRadius: rs(16),
-    borderTopRightRadius: rs(16),
+    left: rs(20),
+    right: rs(20),
+    bottom: rvs(16),
+    height: rvs(100),
+    borderRadius: rs(32),
     backgroundColor: palette.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingBottom: rvs(13),
-    paddingHorizontal: rs(20),
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
+    paddingHorizontal: rs(16),
+    borderWidth: 1,
+    borderColor: '#E8E5FA',
+    ...shadow,
   },
   navActive: {
-    width: rs(136),
-    height: rvs(92),
-    borderRadius: rs(46),
-    backgroundColor: palette.primary,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: rs(8),
+    paddingHorizontal: rs(24),
+    paddingVertical: rvs(14),
+    borderRadius: rs(24),
+    backgroundColor: palette.primary,
   },
   navActiveText: {
-    color: '#9a8fee',
-    fontSize: rf(23),
-    lineHeight: rf(29),
-    fontWeight: '600',
-    marginTop: 2,
+    color: palette.card,
+    fontSize: rf(22),
+    fontWeight: '800',
   },
   navItem: {
-    minWidth: rs(100),
     alignItems: 'center',
     justifyContent: 'center',
+    gap: rvs(2),
   },
   navText: {
-    color: '#302d39',
-    fontSize: rf(23),
-    lineHeight: rf(29),
-    fontWeight: '500',
-    marginTop: 5,
+    color: palette.muted,
+    fontSize: rf(18),
+    fontWeight: '700',
   },
 });
