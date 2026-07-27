@@ -498,7 +498,7 @@ export default function WaitingDriverScreen() {
               driverLocation={driverLocation}
               routeCoordinates={routeCoordinates}
               status="ready"
-              height={rvs(360)}
+              height={rvs(540)}
               allowSelection={false}
               showGpsButton={false}
               showUserLocation={false}

@@ -126,15 +126,6 @@ export default function DestinationScreen() {
           </View>
         </View>
 
-        {usedFallbackPickup && (
-          <View style={styles.warningCard}>
-            <Ionicons name="information-circle-outline" size={rs(26)} color={palette.primaryMid} />
-            <Text style={styles.warningText}>
-              Không nhận được điểm đón từ màn trước, GoRide đang dùng vị trí mặc định để bạn vẫn có thể demo flow.
-            </Text>
-          </View>
-        )}
-
         <AddressSearch
           label="Tìm điểm đến"
           placeholder="Bạn muốn đi đâu?"
@@ -142,7 +133,6 @@ export default function DestinationScreen() {
           onChangeText={setQuery}
           onSelect={handleSearchSelect}
           searchBias={dropoff ?? pickup}
-          helperText="Tìm bằng Google Places nếu có API key, hoặc fallback geocode khi chưa cấu hình key."
           autoFocus
           style={styles.search}
         />
@@ -161,7 +151,7 @@ export default function DestinationScreen() {
             destination={dropoff}
             status="ready"
             showGpsButton={false}
-            height={rvs(560)}
+            height={rvs(780)}
             onLocationChange={handleMapLocationChange}
             onInteractionStart={() => setScrollEnabled(false)}
             onInteractionEnd={() => setScrollEnabled(true)}

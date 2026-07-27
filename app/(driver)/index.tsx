@@ -2655,7 +2655,7 @@ const styles = StyleSheet.create({
     color: palette.greenDark,
   },
   routingMapFrame: {
-    height: rvs(220),
+    height: rvs(420),
     borderRadius: rs(20),
     overflow: 'hidden',
     borderWidth: 1,

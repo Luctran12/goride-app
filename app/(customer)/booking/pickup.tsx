@@ -152,18 +152,6 @@ export default function PickupScreen() {
           </View>
         </View>
 
-        <View style={styles.heroCard}>
-          <View style={styles.heroIcon}>
-            <MaterialCommunityIcons name="crosshairs-gps" size={rs(36)} color={palette.primary} />
-          </View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroTitle}>Bật GPS hoặc ghim trên bản đồ</Text>
-            <Text style={styles.heroText}>
-              GoRide sẽ nhận diện địa chỉ hiện tại nếu bạn cấp quyền. Nếu không, bạn vẫn có thể tìm kiếm hoặc kéo marker thủ công.
-            </Text>
-          </View>
-        </View>
-
         <AddressSearch
           label="Tìm điểm đón"
           placeholder="Nhập tên đường, tòa nhà, quán cafe..."
@@ -171,7 +159,6 @@ export default function PickupScreen() {
           onChangeText={setQuery}
           onSelect={handleSearchSelect}
           searchBias={pickup}
-          helperText="Bạn có thể chọn bằng search, chạm trên bản đồ hoặc kéo marker để đặt điểm đón."
           style={styles.search}
         />
 
@@ -189,23 +176,13 @@ export default function PickupScreen() {
             status={permissionStatus}
             loading={loadingLocation}
             error={locationError}
-            height={rvs(560)}
+            height={rvs(780)}
             onLocationChange={handleMapLocationChange}
             onRequestCurrentLocation={locateCurrentUser}
             onInteractionStart={() => setScrollEnabled(false)}
             onInteractionEnd={() => setScrollEnabled(true)}
           />
         </View>
-
-        {locationStatusCopy && (
-          <View style={[styles.statusCard, locationStatusCopy.tone === 'danger' && styles.statusCardDanger]}>
-            <Ionicons name={locationStatusCopy.icon} size={rs(26)} color={locationStatusCopy.color} />
-            <View style={styles.statusCopy}>
-              <Text style={styles.statusTitle}>{locationStatusCopy.title}</Text>
-              <Text style={styles.statusText}>{locationStatusCopy.message}</Text>
-            </View>
-          </View>
-        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
