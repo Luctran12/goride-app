@@ -91,26 +91,54 @@ export async function getCurrentLocationPoint(options: CurrentLocationOptions = 
 }
 
 export async function reverseGeocode(coords: Coordinates): Promise<string> {
+  // 1. Try Expo native Location.reverseGeocodeAsync first
   try {
     const [address] = await Location.reverseGeocodeAsync({
       latitude: coords.lat,
       longitude: coords.lng,
     });
 
-    if (!address) {
-      return formatCoordinates(coords);
-    }
+    if (address) {
+      const formatted = formatAddressParts([
+        [address.streetNumber, address.street].filter(Boolean).join(' '),
+        address.name,
+        address.district,
+        address.city,
+        address.region,
+      ]);
 
-    return formatAddressParts([
-      [address.streetNumber, address.street].filter(Boolean).join(' '),
-      address.name,
-      address.district,
-      address.city,
-      address.region,
-    ]);
-  } catch {
-    return formatCoordinates(coords);
+      if (formatted && formatted !== 'Vị trí đã chọn') {
+        return formatted;
+      }
+    }
+  } catch (err) {
+    console.warn('[LocationService] Expo reverseGeocodeAsync unavailable/unauthorized, trying Nominatim API:', err);
   }
+
+  // 2. Fallback: OpenStreetMap Nominatim Reverse Geocoding API
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'GoRideApp/1.0',
+          'Accept-Language': 'vi',
+        },
+      },
+    );
+
+    if (response.ok) {
+      const data = (await response.json()) as { display_name?: string };
+      if (data?.display_name) {
+        return data.display_name;
+      }
+    }
+  } catch (nominatimErr) {
+    console.warn('[LocationService] Nominatim reverseGeocode fallback failed:', nominatimErr);
+  }
+
+  // 3. Graceful fallback: formatted coordinates
+  return formatCoordinates(coords);
 }
 
 export async function searchPlaces(query: string, bias?: Coordinates): Promise<LocationPoint[]> {
@@ -121,7 +149,11 @@ export async function searchPlaces(query: string, bias?: Coordinates): Promise<L
   }
 
   if (HAS_GOOGLE_MAPS_API_KEY) {
-    return searchGooglePlaces(trimmedQuery, bias);
+    try {
+      return await searchGooglePlaces(trimmedQuery, bias);
+    } catch (err) {
+      console.warn('[LocationService] Google Places search failed, trying fallback:', err);
+    }
   }
 
   return searchExpoGeocode(trimmedQuery);
@@ -190,22 +222,69 @@ async function searchGooglePlaces(query: string, bias?: Coordinates): Promise<Lo
 }
 
 async function searchExpoGeocode(query: string): Promise<LocationPoint[]> {
-  const results = await Location.geocodeAsync(query);
+  try {
+    const results = await Location.geocodeAsync(query);
 
-  return Promise.all(
-    results.slice(0, 5).map(async (result, index) => {
-      const coords = {
-        lat: result.latitude,
-        lng: result.longitude,
-      };
+    if (results && results.length > 0) {
+      return await Promise.all(
+        results.slice(0, 5).map(async (result, index) => {
+          const coords = {
+            lat: result.latitude,
+            lng: result.longitude,
+          };
 
-      return {
-        ...coords,
-        address: await reverseGeocode(coords),
-        label: index === 0 ? query : `${query} (${index + 1})`,
-      };
-    }),
-  );
+          return {
+            ...coords,
+            address: await reverseGeocode(coords),
+            label: index === 0 ? query : `${query} (${index + 1})`,
+          };
+        }),
+      );
+    }
+  } catch (err) {
+    console.warn('[LocationService] Expo geocodeAsync unavailable/unauthorized, trying Nominatim API:', err);
+  }
+
+  return searchNominatimGeocode(query);
+}
+
+async function searchNominatimGeocode(query: string): Promise<LocationPoint[]> {
+  try {
+    const params = new URLSearchParams({
+      format: 'json',
+      q: query,
+      countrycodes: 'vn',
+      limit: '5',
+      addressdetails: '1',
+    });
+
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: {
+        'User-Agent': 'GoRideApp/1.0',
+        'Accept-Language': 'vi',
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = (await response.json()) as Array<{ lat: string; lon: string; display_name?: string; name?: string; place_id?: number }>;
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data.map((item, index) => ({
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      address: item.display_name ?? query,
+      label: item.name ?? (item.display_name ? item.display_name.split(',')[0] : query),
+      placeId: `nominatim_${item.place_id ?? index}`,
+    }));
+  } catch (err) {
+    console.warn('[LocationService] Nominatim search fallback failed:', err);
+    return [];
+  }
 }
 
 function formatAddressParts(parts: Array<string | null | undefined>) {
