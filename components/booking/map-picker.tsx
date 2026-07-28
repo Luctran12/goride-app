@@ -1,8 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
+  Share,
   StyleProp,
   StyleSheet,
   Text,
@@ -21,6 +23,7 @@ import MapView, {
 
 import { rs, rvs, rf } from '@/constants/responsive';
 import { getDefaultLocationPoint } from '@/lib/location-service';
+import { getLocationToWords } from '@/lib/three-word-location-api';
 import type { Coordinates, LocationPermissionState, LocationPoint } from '@/types/ride';
 
 const palette = {
@@ -100,6 +103,73 @@ export function MapPicker({
   const destinationLng = destination?.lng;
   const driverLat = driverLocation?.lat;
   const driverLng = driverLocation?.lng;
+
+  const [activeFocusTarget, setActiveFocusTarget] = useState<'pickup' | 'destination' | 'driver' | 'custom'>('pickup');
+  const [customFocusPoint, setCustomFocusPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
+
+  const currentFocusPoint = useMemo(() => {
+    if (activeFocusTarget === 'destination' && destination?.lat && destination?.lng) {
+      return { lat: destination.lat, lng: destination.lng, label: 'Điểm đến' };
+    }
+    if (activeFocusTarget === 'driver' && driverLocation?.lat && driverLocation?.lng) {
+      return { lat: driverLocation.lat, lng: driverLocation.lng, label: 'Tài xế' };
+    }
+    if (activeFocusTarget === 'custom' && customFocusPoint) {
+      return customFocusPoint;
+    }
+    if (origin?.lat && origin?.lng) {
+      return { lat: origin.lat, lng: origin.lng, label: 'Điểm đón' };
+    }
+    return { lat: selectedPoint.lat, lng: selectedPoint.lng, label: 'Vị trí đã chọn' };
+  }, [activeFocusTarget, destination, driverLocation, customFocusPoint, origin, selectedPoint]);
+
+  const [threeWordAddress, setThreeWordAddress] = useState<string | null>(null);
+  const [loadingThreeWords, setLoadingThreeWords] = useState(false);
+
+  useEffect(() => {
+    setThreeWordAddress(null);
+  }, [currentFocusPoint.lat, currentFocusPoint.lng]);
+
+  const handleFetchThreeWords = async () => {
+    if (loadingThreeWords) {
+      return;
+    }
+    setLoadingThreeWords(true);
+    try {
+      const result = await getLocationToWords(currentFocusPoint.lat, currentFocusPoint.lng);
+      setThreeWordAddress(result.wordAddress);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Chưa thể lấy địa chỉ 3 từ, vui lòng thử lại.';
+      Alert.alert('Địa chỉ 3 từ', message);
+    } finally {
+      setLoadingThreeWords(false);
+    }
+  };
+
+  const handleCopyThreeWords = async () => {
+    if (!threeWordAddress) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(threeWordAddress);
+      }
+      Alert.alert('Đã sao chép', `Địa chỉ 3 từ: ${threeWordAddress}`);
+    } catch {
+      Alert.alert('Địa chỉ 3 từ', threeWordAddress);
+    }
+  };
+
+  const handleShareThreeWords = async () => {
+    if (!threeWordAddress) return;
+    try {
+      await Share.share({
+        message: `Địa chỉ 3 từ GoRide: ${threeWordAddress}`,
+        title: 'Địa chỉ 3 từ',
+      });
+    } catch {
+      // ignore
+    }
+  };
+
   const selectedRegion = useMemo(
     () => createRegion({ lat: selectedPoint.lat, lng: selectedPoint.lng }),
     [selectedPoint.lat, selectedPoint.lng],
@@ -161,6 +231,16 @@ export function MapPicker({
   };
 
   const handleMapPress = (event: MapPressEvent) => {
+    if (mode === 'tracking') {
+      const coord = event.nativeEvent.coordinate;
+      setCustomFocusPoint({
+        lat: coord.latitude,
+        lng: coord.longitude,
+        label: 'Tọa độ chọn',
+      });
+      setActiveFocusTarget('custom');
+      return;
+    }
     handleCoordinateSelect(event.nativeEvent.coordinate);
   };
 
@@ -197,9 +277,21 @@ export function MapPicker({
           />
         )}
 
-        {showOriginMarker && origin && <LocationMarker point={origin} tone="pickup" title="Điểm đón" />}
+        {showOriginMarker && origin && (
+          <LocationMarker
+            point={origin}
+            tone="pickup"
+            title="Điểm đón"
+            onPress={() => setActiveFocusTarget('pickup')}
+          />
+        )}
         {showDestinationMarker && destination && (
-          <LocationMarker point={destination} tone="destination" title="Điểm đến" />
+          <LocationMarker
+            point={destination}
+            tone="destination"
+            title="Điểm đến"
+            onPress={() => setActiveFocusTarget('destination')}
+          />
         )}
 
         {hasSelectionMarker && (
@@ -210,13 +302,136 @@ export function MapPicker({
             title={mode === 'pickup' ? 'Điểm đón' : 'Điểm đến'}
             onDragStart={onInteractionStart}
             onDragEnd={handleMarkerDragEnd}
+            onPress={() => setActiveFocusTarget('pickup')}
           />
         )}
 
-        {driverLocation && <DriverMarker coordinate={driverLocation} />}
+        {driverLocation && (
+          <DriverMarker
+            coordinate={driverLocation}
+            onPress={() => setActiveFocusTarget('driver')}
+          />
+        )}
+
+        {activeFocusTarget === 'custom' && customFocusPoint && (
+          <Marker
+            key={`custom-${customFocusPoint.lat.toFixed(6)}-${customFocusPoint.lng.toFixed(6)}`}
+            coordinate={{ latitude: customFocusPoint.lat, longitude: customFocusPoint.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            title={threeWordAddress ? `/// ${threeWordAddress}` : "Vị trí đã chọn"}
+            description={threeWordAddress ? "Địa chỉ 3 từ" : "Nhấn để lấy địa chỉ 3 từ"}
+          >
+            <View style={styles.customFocusPin}>
+              <View style={styles.customFocusPinHalo} />
+              <View style={styles.customFocusPinBubble}>
+                <Text style={styles.customFocusPinSymbol}>///</Text>
+              </View>
+            </View>
+          </Marker>
+        )}
       </MapView>
 
       <View style={styles.topScrim} pointerEvents="none" />
+
+      {/* Floating 3-word action button / address badge */}
+      {Boolean(currentFocusPoint?.lat && currentFocusPoint?.lng) && (
+        <View style={styles.threeWordContainer}>
+          {mode === 'tracking' && (
+            <View style={styles.targetPillRow}>
+              {origin && (
+                <Pressable
+                  onPress={() => setActiveFocusTarget('pickup')}
+                  style={[styles.targetPill, activeFocusTarget === 'pickup' && styles.targetPillActive]}
+                >
+                  <Text style={[styles.targetPillText, activeFocusTarget === 'pickup' && styles.targetPillTextActive]}>
+                    Đón
+                  </Text>
+                </Pressable>
+              )}
+              {destination && (
+                <Pressable
+                  onPress={() => setActiveFocusTarget('destination')}
+                  style={[styles.targetPill, activeFocusTarget === 'destination' && styles.targetPillActive]}
+                >
+                  <Text style={[styles.targetPillText, activeFocusTarget === 'destination' && styles.targetPillTextActive]}>
+                    Đến
+                  </Text>
+                </Pressable>
+              )}
+              {driverLocation && (
+                <Pressable
+                  onPress={() => setActiveFocusTarget('driver')}
+                  style={[styles.targetPill, activeFocusTarget === 'driver' && styles.targetPillActive]}
+                >
+                  <Text style={[styles.targetPillText, activeFocusTarget === 'driver' && styles.targetPillTextActive]}>
+                    Tài xế
+                  </Text>
+                </Pressable>
+              )}
+              {customFocusPoint && (
+                <Pressable
+                  onPress={() => setActiveFocusTarget('custom')}
+                  style={[styles.targetPill, activeFocusTarget === 'custom' && styles.targetPillActive]}
+                >
+                  <Text style={[styles.targetPillText, activeFocusTarget === 'custom' && styles.targetPillTextActive]}>
+                    Đã chọn
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {threeWordAddress ? (
+            <View style={styles.threeWordBadge}>
+              <View style={styles.threeWordTextRow}>
+                <Text style={styles.threeWordSymbol}>///</Text>
+                <Text style={styles.threeWordText}>{threeWordAddress}</Text>
+              </View>
+              <View style={styles.threeWordActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Sao chép địa chỉ 3 từ"
+                  onPress={handleCopyThreeWords}
+                  style={styles.threeWordActionBtn}
+                >
+                  <Ionicons name="copy-outline" size={rs(20)} color={palette.primary} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Chia sẻ địa chỉ 3 từ"
+                  onPress={handleShareThreeWords}
+                  style={styles.threeWordActionBtn}
+                >
+                  <Ionicons name="share-social-outline" size={rs(20)} color={palette.primary} />
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Lấy 3 từ"
+              disabled={loadingThreeWords}
+              onPress={handleFetchThreeWords}
+              style={({ pressed }) => [
+                styles.getThreeWordsBtn,
+                pressed && styles.pressed,
+                loadingThreeWords && styles.disabledButton,
+              ]}
+            >
+              {loadingThreeWords ? (
+                <ActivityIndicator size="small" color={palette.primary} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="tag-text-outline" size={rs(20)} color={palette.primary} />
+                  <Text style={styles.getThreeWordsText}>
+                    Lấy 3 từ ({currentFocusPoint.label})
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {showGpsButton && onRequestCurrentLocation && mode !== 'tracking' && (
         <Pressable
@@ -268,6 +483,7 @@ function LocationMarker({
   draggable = false,
   onDragStart,
   onDragEnd,
+  onPress,
 }: {
   point: LocationPoint;
   tone: 'pickup' | 'destination';
@@ -275,6 +491,7 @@ function LocationMarker({
   draggable?: boolean;
   onDragStart?: () => void;
   onDragEnd?: (event: MarkerDragStartEndEvent) => void;
+  onPress?: () => void;
 }) {
   const color = tone === 'pickup' ? palette.primary : palette.danger;
 
@@ -288,6 +505,7 @@ function LocationMarker({
       description={point.address}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onPress={onPress}
     >
       <View style={[styles.pin, { borderColor: color }]}>
         <View style={[styles.pinDot, { backgroundColor: color }]} />
@@ -296,7 +514,13 @@ function LocationMarker({
   );
 }
 
-function DriverMarker({ coordinate }: { coordinate: Coordinates }) {
+function DriverMarker({
+  coordinate,
+  onPress,
+}: {
+  coordinate: Coordinates;
+  onPress?: () => void;
+}) {
   return (
     <Marker
       key={`driver-${coordinate.lat.toFixed(6)}-${coordinate.lng.toFixed(6)}`}
@@ -305,6 +529,7 @@ function DriverMarker({ coordinate }: { coordinate: Coordinates }) {
       title="Tài xế"
       description="Vị trí tài xế gần nhất trên tuyến"
       zIndex={10}
+      onPress={onPress}
     >
       <View style={styles.driverPin}>
         <View style={styles.driverPinHalo} />
@@ -608,5 +833,137 @@ const styles = StyleSheet.create({
     color: palette.primary,
     fontSize: rf(17),
     fontWeight: '800',
+  },
+  threeWordContainer: {
+    position: 'absolute',
+    right: rs(24),
+    top: rvs(24),
+    zIndex: 10,
+  },
+  getThreeWordsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    paddingHorizontal: rs(16),
+    height: rvs(46),
+    borderRadius: rs(23),
+    backgroundColor: palette.card,
+    borderWidth: 1.5,
+    borderColor: palette.primary,
+    shadowColor: '#1d0796',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  getThreeWordsText: {
+    color: palette.primary,
+    fontSize: rf(18),
+    fontWeight: '800',
+  },
+  threeWordBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    paddingHorizontal: rs(14),
+    height: rvs(46),
+    borderRadius: rs(23),
+    backgroundColor: palette.primary,
+    shadowColor: '#1d0796',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  threeWordTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(4),
+  },
+  threeWordSymbol: {
+    color: '#ff4b4b',
+    fontSize: rf(18),
+    fontWeight: '900',
+  },
+  threeWordText: {
+    color: '#ffffff',
+    fontSize: rf(18),
+    fontWeight: '700',
+  },
+  threeWordActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    marginLeft: rs(4),
+  },
+  threeWordActionBtn: {
+    width: rs(30),
+    height: rs(30),
+    borderRadius: rs(15),
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  targetPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    marginBottom: rvs(6),
+    justifyContent: 'flex-end',
+  },
+  targetPill: {
+    paddingHorizontal: rs(10),
+    paddingVertical: rvs(4),
+    borderRadius: rs(12),
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  targetPillActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  targetPillText: {
+    fontSize: rf(13),
+    fontWeight: '700',
+    color: palette.muted,
+  },
+  targetPillTextActive: {
+    color: '#ffffff',
+  },
+  customFocusPin: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: rs(44),
+    height: rs(44),
+  },
+  customFocusPinHalo: {
+    position: 'absolute',
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(22),
+    backgroundColor: 'rgba(29, 7, 150, 0.18)',
+    borderWidth: 1.5,
+    borderColor: palette.primary,
+  },
+  customFocusPinBubble: {
+    width: rs(30),
+    height: rs(30),
+    borderRadius: rs(15),
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
+  },
+  customFocusPinSymbol: {
+    color: '#ff4b4b',
+    fontSize: rf(14),
+    fontWeight: '900',
   },
 });

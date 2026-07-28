@@ -1,10 +1,12 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,6 +19,7 @@ import { DriverInfoCard, MapPicker, TripCompletionCard, TripEtaCard, TripStatusT
 import { rf, rs, rvs } from '@/constants/responsive';
 import { fetchRoute } from '@/lib/location-service';
 import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
+import { getLocationToWords } from '@/lib/three-word-location-api';
 import {
   connectRealtime,
   sendTripStatus,
@@ -112,6 +115,61 @@ export default function WaitingDriverScreen() {
   const [tripDetailUpdatedAt, setTripDetailUpdatedAt] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
+
+  const [pickupThreeWords, setPickupThreeWords] = useState<string | null>(null);
+  const [dropoffThreeWords, setDropoffThreeWords] = useState<string | null>(null);
+  const [loadingPickupWords, setLoadingPickupWords] = useState(false);
+  const [loadingDropoffWords, setLoadingDropoffWords] = useState(false);
+
+  const handleFetchPickupThreeWords = async () => {
+    if (!pickup?.lat || !pickup?.lng || loadingPickupWords) return;
+    setLoadingPickupWords(true);
+    try {
+      const res = await getLocationToWords(pickup.lat, pickup.lng);
+      setPickupThreeWords(res.wordAddress);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Chưa thể lấy địa chỉ 3 từ, vui lòng thử lại.';
+      Alert.alert('Địa chỉ 3 từ điểm đón', message);
+    } finally {
+      setLoadingPickupWords(false);
+    }
+  };
+
+  const handleFetchDropoffThreeWords = async () => {
+    if (!dropoff?.lat || !dropoff?.lng || loadingDropoffWords) return;
+    setLoadingDropoffWords(true);
+    try {
+      const res = await getLocationToWords(dropoff.lat, dropoff.lng);
+      setDropoffThreeWords(res.wordAddress);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Chưa thể lấy địa chỉ 3 từ, vui lòng thử lại.';
+      Alert.alert('Địa chỉ 3 từ điểm đến', message);
+    } finally {
+      setLoadingDropoffWords(false);
+    }
+  };
+
+  const handleCopyThreeWords = async (address: string) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(address);
+      }
+      Alert.alert('Đã sao chép', `Địa chỉ 3 từ: ${address}`);
+    } catch {
+      Alert.alert('Địa chỉ 3 từ', address);
+    }
+  };
+
+  const handleShareThreeWords = async (address: string) => {
+    try {
+      await Share.share({
+        message: `Địa chỉ 3 từ GoRide: ${address}`,
+        title: 'Địa chỉ 3 từ',
+      });
+    } catch {
+      // ignore
+    }
+  };
   const lastFetchedLocationRef = useRef<{ tripId: number; status: TripStatus | null; lat: number; lng: number } | null>(null);
   const lastRouteFetchTimeRef = useRef<number>(0);
   const statusCopy = getStatusCopy(liveStatus);
@@ -406,11 +464,7 @@ export default function WaitingDriverScreen() {
       });
       sendTripStatus(numericTripId, result.status);
       void hydrateTripDetail();
-
-      Alert.alert('Đã hủy chuyến', 'Bạn có thể đặt lại chuyến mới khi sẵn sàng.', [
-        { text: 'Ở lại xem trạng thái', style: 'cancel' },
-        { text: 'Về trang chủ', onPress: handleBackHome },
-      ]);
+      router.replace('/(customer)');
     } catch (error: unknown) {
       Alert.alert('Không thể hủy chuyến', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
     } finally {
@@ -441,118 +495,97 @@ export default function WaitingDriverScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
 
+      {/* Floating Header on Map */}
+      <View style={styles.floatingHeader}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleBackHome}
+          style={styles.backIconButton}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={rs(24)} color={palette.primary} />
+        </TouchableOpacity>
+        <View style={styles.headerTripBadge}>
+          <Text style={styles.headerTripCode}>
+            {numericTripId ? `Cuốc #${numericTripId}` : 'Khởi tạo'}
+          </Text>
+        </View>
+        <View style={[styles.headerStatusBadge, { backgroundColor: statusCopy.color + '1c' }]}>
+          <View style={[styles.headerStatusDot, { backgroundColor: statusCopy.color }]} />
+          <Text style={[styles.headerStatusText, { color: statusCopy.color }]}>
+            {statusCopy.label}
+          </Text>
+        </View>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.container}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.searchingCard}>
-          <View style={styles.searchingContainer}>
-            <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }], opacity: 0.15 }]} />
-            <Animated.View
-              style={[
-                styles.pulseCircle,
-                { transform: [{ scale: Animated.multiply(pulseAnim, 0.8) }], opacity: 0.25 },
-              ]}
-            />
-            <View style={styles.centerCircle}>
-              <MaterialCommunityIcons name="radar" size={rs(70)} color="#fff" />
-            </View>
-          </View>
-
-          <View style={styles.statusPill}>
-            <View style={[styles.statusDot, { backgroundColor: statusCopy.color }]} />
-            <Text style={styles.statusPillText}>{statusCopy.label}</Text>
-          </View>
-
-          <Text style={styles.waitingTitle}>{statusCopy.title}</Text>
-          <Text style={styles.waitingSubtitle}>{statusCopy.description}</Text>
+        {/* HERO MAP VIEW */}
+        <View style={styles.mapFrame}>
+          <MapPicker
+            mode="tracking"
+            origin={pickup}
+            destination={dropoff}
+            driverLocation={driverLocation}
+            routeCoordinates={routeCoordinates}
+            status="ready"
+            height={rvs(380)}
+            allowSelection={false}
+            showGpsButton={false}
+            showUserLocation={false}
+          />
         </View>
 
-        <TripEtaCard
-          status={liveStatus}
-          estimatedDistance={distance}
-          estimatedDuration={duration}
-          driverLocation={driverLocation}
-          lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt}
-        />
-
-        <TripStatusTimeline status={liveStatus} lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt} />
-
-        <View style={styles.trackingCard}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIcon}>
-              <MaterialCommunityIcons name="map-marker-path" size={rs(26)} color={palette.primary} />
-            </View>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>Theo dõi tài xế</Text>
-              <Text style={styles.sectionSubtitle}>{driverLocation ? 'Vị trí tài xế đang được cập nhật' : 'Đang chờ tín hiệu vị trí tài xế'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.mapFrame}>
-            <MapPicker
-              mode="tracking"
-              origin={pickup}
-              destination={dropoff}
-              driverLocation={driverLocation}
-              routeCoordinates={routeCoordinates}
-              status="ready"
-              height={rvs(540)}
-              allowSelection={false}
-              showGpsButton={false}
-              showUserLocation={false}
-            />
-          </View>
-
-          <View style={styles.driverSignalCard}>
-            <MaterialCommunityIcons
-              name={driverLocation ? 'navigation-variant' : 'satellite-uplink'}
-              size={rs(28)}
-              color={driverLocation ? palette.green : palette.primary}
-            />
-            <View style={styles.driverSignalCopy}>
-              <Text style={styles.driverSignalLabel}>
-                {driverLocation ? 'Tọa độ tài xế' : 'Chưa có tọa độ tài xế'}
-              </Text>
-              <Text style={styles.driverSignalValue} selectable>
-                {driverLocation
-                  ? formatCoordinates(driverLocation) + ' • ' + formatTrackingTime(lastTrackingAt)
-                  : 'GoRide sẽ hiển thị marker tài xế ngay khi nhận được tín hiệu realtime.'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.realtimeCard}>
-          <View style={[styles.realtimeIcon, { backgroundColor: realtimeCopy.background }]}>
-            <MaterialCommunityIcons name={realtimeCopy.icon} size={rs(26)} color={realtimeCopy.color} />
-          </View>
-          <View style={styles.realtimeCopy}>
-            <Text style={styles.realtimeTitle}>{realtimeCopy.title}</Text>
-            <Text style={styles.realtimeDescription}>{realtimeCopy.description}</Text>
-            {trackingError ? (
-              <Text style={styles.trackingErrorText} selectable>
-                {trackingError}
-              </Text>
-            ) : null}
-            {latestNotification ? (
-              <View style={styles.notificationBox}>
-                <Text style={styles.notificationTitle}>{latestNotification.title}</Text>
-                <Text style={styles.notificationBody}>{latestNotification.body}</Text>
+        {/* SEARCHING RADAR BANNER (When status is SEARCHING) */}
+        {liveStatus === 'SEARCHING' && (
+          <View style={styles.searchingCardCompact}>
+            <View style={styles.searchingRadarCompact}>
+              <Animated.View
+                style={[
+                  styles.pulseCircleCompact,
+                  { transform: [{ scale: pulseAnim }], opacity: 0.18 },
+                ]}
+              />
+              <View style={styles.centerCircleCompact}>
+                <MaterialCommunityIcons name="radar" size={rs(38)} color="#ffffff" />
               </View>
-            ) : null}
+            </View>
+            <View style={styles.searchingCopyCompact}>
+              <Text style={styles.searchingTitleCompact}>{statusCopy.title}</Text>
+              <Text style={styles.searchingSubtitleCompact}>{statusCopy.description}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
-        <DriverInfoCard
-          driver={tripDetail?.driver}
-          status={liveStatus}
-          loading={tripDetailLoading}
-          error={tripDetailError}
-          lastUpdatedAt={tripDetailUpdatedAt}
-        />
+        {/* ETA & TIMELINE (When driver accepted/assigned) */}
+        {liveStatus !== 'SEARCHING' && liveStatus !== 'COMPLETED' && liveStatus !== 'CANCELLED' && (
+          <>
+            <TripEtaCard
+              status={liveStatus}
+              estimatedDistance={distance}
+              estimatedDuration={duration}
+              driverLocation={driverLocation}
+              lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt}
+            />
 
+            <TripStatusTimeline status={liveStatus} lastUpdatedAt={lastTrackingAt ?? tripDetailUpdatedAt} />
+          </>
+        )}
+
+        {/* DRIVER INFO CARD (When assigned) */}
+        {liveStatus !== 'SEARCHING' && (
+          <DriverInfoCard
+            driver={tripDetail?.driver}
+            status={liveStatus}
+            loading={tripDetailLoading}
+            error={tripDetailError}
+            lastUpdatedAt={tripDetailUpdatedAt}
+          />
+        )}
+
+        {/* COMPLETION CARD */}
         <TripCompletionCard
           visible={liveStatus === 'COMPLETED'}
           tripId={tripId}
@@ -568,21 +601,12 @@ export default function WaitingDriverScreen() {
           onRatingSubmitted={handleRatingSubmitted}
         />
 
-        <View style={styles.tripCodeCard}>
-          <MaterialCommunityIcons name="ticket-confirmation-outline" size={rs(34)} color={palette.primary} />
-          <View style={styles.tripCodeCopy}>
-            <Text style={styles.tripCodeLabel}>Mã chuyến</Text>
-            <Text style={styles.tripCodeValue} selectable>
-              {tripId ? '#' + tripId : 'Đang khởi tạo'}
-            </Text>
-          </View>
-        </View>
-
+        {/* TRIP SUMMARY CARD (Vehicle, Fare, Addresses) */}
         <View style={styles.tripCard}>
           <View style={styles.tripHeader}>
             <View style={styles.vehicleInfo}>
               <View style={styles.vehicleIconBox}>
-                <MaterialCommunityIcons name={vehicle.icon} size={rs(42)} color={palette.primary} />
+                <MaterialCommunityIcons name={vehicle.icon} size={rs(36)} color={palette.primary} />
               </View>
               <View style={styles.vehicleCopy}>
                 <Text style={styles.vehicleName}>{vehicle.name}</Text>
@@ -603,7 +627,7 @@ export default function WaitingDriverScreen() {
 
           {promoCode ? (
             <View style={styles.promoRow}>
-              <MaterialCommunityIcons name="ticket-percent-outline" size={rs(24)} color={palette.amber} />
+              <MaterialCommunityIcons name="ticket-percent-outline" size={rs(22)} color={palette.amber} />
               <Text style={styles.promoText}>Ưu đãi đã chọn: {promoCode}</Text>
             </View>
           ) : null}
@@ -614,16 +638,75 @@ export default function WaitingDriverScreen() {
             <View style={styles.addressItem}>
               <View style={[styles.dot, { backgroundColor: palette.primary }]} />
               <View style={styles.addressCopy}>
-                <Text style={styles.addressLabel}>Điểm đón</Text>
+                <View style={styles.addressTitleRow}>
+                  <Text style={styles.addressLabel}>Điểm đón</Text>
+                  {pickupThreeWords ? (
+                    <View style={styles.inlineThreeWordBadge}>
+                      <Text style={styles.inlineThreeWordSymbol}>///</Text>
+                      <Text style={styles.inlineThreeWordText}>{pickupThreeWords}</Text>
+                      <TouchableOpacity onPress={() => void handleCopyThreeWords(pickupThreeWords)} style={styles.inlineActionBtn}>
+                        <Ionicons name="copy-outline" size={rs(16)} color={palette.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => void handleShareThreeWords(pickupThreeWords)} style={styles.inlineActionBtn}>
+                        <Ionicons name="share-social-outline" size={rs(16)} color={palette.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      disabled={loadingPickupWords || !pickup?.lat}
+                      onPress={() => void handleFetchPickupThreeWords()}
+                      style={styles.getThreeWordSmallBtn}
+                    >
+                      {loadingPickupWords ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <>
+                          <Text style={styles.getThreeWordSymbol}>///</Text>
+                          <Text style={styles.getThreeWordSmallText}>Lấy 3 từ</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Text style={styles.addressText} numberOfLines={2} selectable>
                   {pickupAddress}
                 </Text>
               </View>
             </View>
+
             <View style={styles.addressItem}>
               <View style={[styles.dot, { backgroundColor: palette.danger }]} />
               <View style={styles.addressCopy}>
-                <Text style={styles.addressLabel}>Điểm đến</Text>
+                <View style={styles.addressTitleRow}>
+                  <Text style={styles.addressLabel}>Điểm đến</Text>
+                  {dropoffThreeWords ? (
+                    <View style={styles.inlineThreeWordBadge}>
+                      <Text style={styles.inlineThreeWordSymbol}>///</Text>
+                      <Text style={styles.inlineThreeWordText}>{dropoffThreeWords}</Text>
+                      <TouchableOpacity onPress={() => void handleCopyThreeWords(dropoffThreeWords)} style={styles.inlineActionBtn}>
+                        <Ionicons name="copy-outline" size={rs(16)} color={palette.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => void handleShareThreeWords(dropoffThreeWords)} style={styles.inlineActionBtn}>
+                        <Ionicons name="share-social-outline" size={rs(16)} color={palette.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      disabled={loadingDropoffWords || !dropoff?.lat}
+                      onPress={() => void handleFetchDropoffThreeWords()}
+                      style={styles.getThreeWordSmallBtn}
+                    >
+                      {loadingDropoffWords ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <>
+                          <Text style={styles.getThreeWordSymbol}>///</Text>
+                          <Text style={styles.getThreeWordSmallText}>Lấy 3 từ</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Text style={styles.addressText} numberOfLines={2} selectable>
                   {dropoffAddress}
                 </Text>
@@ -633,6 +716,7 @@ export default function WaitingDriverScreen() {
         </View>
       </ScrollView>
 
+      {/* FOOTER ACTION BUTTON */}
       <View style={styles.footer}>
         <Text style={styles.footerHelper}>{footerAction.helper}</Text>
         <TouchableOpacity
@@ -649,7 +733,7 @@ export default function WaitingDriverScreen() {
         >
           <MaterialCommunityIcons
             name={footerAction.icon}
-            size={rs(26)}
+            size={rs(24)}
             color={footerAction.variant === 'disabled' ? palette.muted : palette.card}
           />
           <Text
@@ -1020,12 +1104,109 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
+  floatingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: rs(20),
+    paddingVertical: rvs(12),
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
+    zIndex: 20,
+  },
+  backIconButton: {
+    width: rs(40),
+    height: rs(40),
+    borderRadius: rs(20),
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTripBadge: {
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(6),
+    borderRadius: rs(16),
+    backgroundColor: palette.primarySoft,
+  },
+  headerTripCode: {
+    fontSize: rf(16),
+    fontWeight: '800',
+    color: palette.primary,
+  },
+  headerStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(6),
+    borderRadius: rs(16),
+  },
+  headerStatusDot: {
+    width: rs(10),
+    height: rs(10),
+    borderRadius: rs(5),
+  },
+  headerStatusText: {
+    fontSize: rf(15),
+    fontWeight: '800',
+  },
   container: {
     flexGrow: 1,
-    paddingHorizontal: rs(28),
-    paddingTop: rvs(24),
+    paddingHorizontal: rs(20),
+    paddingTop: rvs(16),
     paddingBottom: rvs(30),
-    gap: rvs(20),
+    gap: rvs(16),
+  },
+  mapHeroContainer: {
+    borderRadius: rs(24),
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  searchingCardCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: rs(18),
+    borderRadius: rs(24),
+    backgroundColor: palette.card,
+    gap: rs(16),
+    ...shadow,
+  },
+  searchingRadarCompact: {
+    width: rs(70),
+    height: rs(70),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseCircleCompact: {
+    position: 'absolute',
+    width: rs(70),
+    height: rs(70),
+    borderRadius: rs(35),
+    backgroundColor: palette.primary,
+  },
+  centerCircleCompact: {
+    width: rs(54),
+    height: rs(54),
+    borderRadius: rs(27),
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchingCopyCompact: {
+    flex: 1,
+    gap: rvs(4),
+  },
+  searchingTitleCompact: {
+    fontSize: rf(20),
+    fontWeight: '800',
+    color: palette.text,
+  },
+  searchingSubtitleCompact: {
+    fontSize: rf(15),
+    color: palette.muted,
+    lineHeight: rf(20),
   },
   searchingCard: {
     alignItems: 'center',
@@ -1360,6 +1541,59 @@ const styles = StyleSheet.create({
   addressCopy: {
     flex: 1,
     gap: rvs(3),
+  },
+  addressTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  getThreeWordSmallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(4),
+    paddingHorizontal: rs(10),
+    paddingVertical: rvs(4),
+    borderRadius: rs(12),
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: 'rgba(29, 7, 150, 0.25)',
+  },
+  getThreeWordSymbol: {
+    color: '#ff4b4b',
+    fontSize: rf(13),
+    fontWeight: '900',
+  },
+  getThreeWordSmallText: {
+    color: palette.primary,
+    fontSize: rf(13),
+    fontWeight: '800',
+  },
+  inlineThreeWordBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    paddingHorizontal: rs(10),
+    paddingVertical: rvs(4),
+    borderRadius: rs(12),
+    backgroundColor: palette.primary,
+  },
+  inlineThreeWordSymbol: {
+    color: '#ff4b4b',
+    fontSize: rf(13),
+    fontWeight: '900',
+  },
+  inlineThreeWordText: {
+    color: '#ffffff',
+    fontSize: rf(13),
+    fontWeight: '700',
+  },
+  inlineActionBtn: {
+    width: rs(22),
+    height: rs(22),
+    borderRadius: rs(11),
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addressLabel: {
     color: palette.muted,
