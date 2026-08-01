@@ -23,21 +23,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { rf, rs, rvs } from '@/constants/responsive';
 
 const palette = {
-  background: '#eaf7ef',
+  background: '#f7faf8',
   card: '#ffffff',
   ink: '#08110d',
   muted: '#637069',
-  line: '#dfe7e2',
-  green: '#00b875',
+  line: '#e2e8f0',
+  green: '#00c853',
   greenDark: '#053f2a',
-  greenSoft: '#d8f6e8',
+  greenSoft: '#e8fcdb',
   mint: '#6df0a7',
   blue: '#1664ff',
   blueInk: '#050063',
   blueSoft: '#edf4ff',
   amber: '#f59e0b',
-  danger: '#f02d3a',
-  dangerSoft: '#fff0f0',
+  danger: '#ef4444',
+  dangerSoft: '#fee2e2',
 };
 
 export default function DriverAccountScreen() {

@@ -20,22 +20,22 @@ import { listBookings } from '@/lib/ride-api';
 import type { TripDetail } from '@/types/ride';
 
 const palette = {
-  background: '#eaf7ef',
+  background: '#f7faf8',
   card: '#ffffff',
   ink: '#08110d',
   muted: '#637069',
-  line: '#dfe7e2',
-  green: '#00b875',
+  line: '#e2e8f0',
+  green: '#00c853',
   greenDark: '#053f2a',
-  greenSoft: '#c8f0db',
+  greenSoft: '#e8fcdb',
   mint: '#6df0a7',
   blue: '#1664ff',
   blueInk: '#050063',
   blueSoft: '#edf4ff',
   amber: '#f59e0b',
-  danger: '#d72828',
-  dangerSoft: '#f2e9df',
-  graySoft: '#e8efeb',
+  danger: '#ef4444',
+  dangerSoft: '#fee2e2',
+  graySoft: '#f1f5f9',
 };
 
 type ActivityPeriod = 'today' | 'week' | 'month';

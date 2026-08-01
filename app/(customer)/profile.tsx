@@ -18,23 +18,25 @@ import {
 } from 'react-native';
 
 const palette = {
-  background: '#fcf8ff',
+  background: '#f6f7fc',
   card: '#ffffff',
-  primary: '#1d0796',
-  primarySoft: '#f1ecfb',
-  text: '#111114',
-  muted: '#68646e',
-  line: '#e8e4ec',
-  danger: '#c91c1c',
-  dangerSoft: '#fdeaea',
+  primary: '#3f22d6',
+  primarySoft: '#eeecfb',
+  primaryDark: '#18113c',
+  primaryMid: '#5a3fe6',
+  text: '#0f172a',
+  muted: '#64748b',
+  line: '#e2e8f0',
+  danger: '#ef4444',
+  dangerSoft: '#fee2e2',
 };
 
 const shadow = {
-  shadowColor: '#7c6da8',
+  shadowColor: '#3f22d6',
   shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.11,
+  shadowOpacity: 0.08,
   shadowRadius: 18,
-  elevation: 6,
+  elevation: 5,
 };
 
 const menuItems: MenuItemProps[] = [

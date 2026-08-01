@@ -24,27 +24,29 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const palette = {
-  background: '#fcf8ff',
+  background: '#f6f7fc',
   card: '#ffffff',
-  primary: '#1d0796',
-  primarySoft: '#f1ecfb',
-  primaryMid: '#4b3fc4',
-  text: '#111114',
-  muted: '#68646e',
-  line: '#e8e4ec',
-  green: '#00b67a',
-  amber: '#b7791f',
-  amberSoft: '#fff7df',
-  danger: '#c91c1c',
-  dangerSoft: '#fdeaea',
+  primary: '#3f22d6',
+  primarySoft: '#eeecfb',
+  primaryDark: '#18113c',
+  primaryMid: '#5a3fe6',
+  text: '#0f172a',
+  muted: '#64748b',
+  line: '#e2e8f0',
+  green: '#00c853',
+  greenSoft: '#e8fcdb',
+  amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  danger: '#ef4444',
+  dangerSoft: '#fee2e2',
 };
 
 const shadow = {
-  shadowColor: '#7c6da8',
+  shadowColor: '#3f22d6',
   shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.12,
-  shadowRadius: 16,
-  elevation: 6,
+  shadowOpacity: 0.08,
+  shadowRadius: 18,
+  elevation: 5,
 };
 
 export default function PaymentScreen() {

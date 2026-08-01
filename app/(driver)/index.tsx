@@ -1138,6 +1138,20 @@ export default function DriverScreen() {
                     </Marker>
                   )}
 
+                  {threeWordPreview && (
+                    <Marker
+                      coordinate={{ latitude: threeWordPreview.lat, longitude: threeWordPreview.lng }}
+                      anchor={{ x: 0.5, y: 0.5 }}
+                      title="Kết quả tra cứu 3 từ"
+                      description={`/// ${threeWordPreview.wordAddress}`}
+                      zIndex={30}
+                    >
+                      <View style={styles.threeWordMapPin}>
+                        <Text style={styles.threeWordPinSymbol}>///</Text>
+                      </View>
+                    </Marker>
+                  )}
+
                   {routeCoordinates.length > 0 && (
                     <Polyline
                       coordinates={routeCoordinates}
@@ -1148,6 +1162,21 @@ export default function DriverScreen() {
                     />
                   )}
                 </MapView>
+
+                {threeWordPreview ? (
+                  <View style={styles.activeTripThreeWordBanner}>
+                    <View style={styles.threeWordTagPill}>
+                      <Text style={styles.threeWordTagSymbol}>///</Text>
+                      <Text style={styles.threeWordTagAddress}>{threeWordPreview.wordAddress}</Text>
+                    </View>
+                    <Text style={styles.activeTripThreeWordCoords} numberOfLines={1}>
+                      {threeWordPreview.lat.toFixed(5)}, {threeWordPreview.lng.toFixed(5)}
+                    </Text>
+                    <Pressable onPress={() => setThreeWordPreview(null)} style={styles.closeThreeWordBtn}>
+                      <MaterialCommunityIcons name="close-circle" size={rs(20)} color={palette.muted} />
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
 
               {requestResponse?.tripId === incomingRequest.tripId ? (
@@ -1180,7 +1209,7 @@ export default function DriverScreen() {
                     ))}
                   </View>
 
-                  {/* UTILITY BUTTONS: Call passenger & Open navigation */}
+                  {/* UTILITY BUTTONS: Call passenger, Open navigation & 3-Word lookup */}
                   <View style={styles.tripUtilityRow}>
                     <Pressable
                       accessibilityRole="button"
@@ -1206,6 +1235,19 @@ export default function DriverScreen() {
                     >
                       <MaterialCommunityIcons name="google-maps" size={rs(20)} color={palette.blue} />
                       <Text style={[styles.utilityButtonText, styles.navButtonText]}>Chỉ đường</Text>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setSearch3WordModalVisible(true)}
+                      style={({ pressed }) => [
+                        styles.utilityButton,
+                        styles.threeWordUtilityBtn,
+                        pressed ? styles.pressedButton : null,
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="grid" size={rs(20)} color={palette.blue} />
+                      <Text style={[styles.utilityButtonText, styles.threeWordUtilityText]}>Tra 3 từ</Text>
                     </Pressable>
                   </View>
 
@@ -1432,6 +1474,17 @@ export default function DriverScreen() {
         onClose={() => setSearch3WordModalVisible(false)}
         onSelectResult={(result) => {
           setThreeWordPreview(result);
+          if (mapRef.current) {
+            mapRef.current.animateToRegion(
+              {
+                latitude: result.lat,
+                longitude: result.lng,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              },
+              800,
+            );
+          }
         }}
       />
     </SafeAreaView>
@@ -1528,29 +1581,32 @@ function DriverMapPreview({
           zoomControlEnabled={false}
           zoomEnabled={true}
         >
-          {threeWordPreview ? (
+          {location && (
             <Marker
-              coordinate={{ latitude: threeWordPreview.lat, longitude: threeWordPreview.lng }}
-              anchor={{ x: 0.5, y: 0.5 }}
-              title="Kết quả tra cứu"
-              description={`/// ${threeWordPreview.wordAddress}`}
-            >
-              <View style={styles.threeWordMapPin}>
-                <Text style={styles.threeWordPinSymbol}>///</Text>
-              </View>
-            </Marker>
-          ) : (
-            <Marker
-              coordinate={{ latitude: mapPoint.lat, longitude: mapPoint.lng }}
+              coordinate={{ latitude: location.lat, longitude: location.lng }}
               anchor={{ x: 0.5, y: 0.5 }}
               title="Vị trí tài xế"
-              description={mapPoint.address}
+              description={location.address}
             >
               <View style={styles.mapPin}>
                 <View style={styles.mapPinHalo} />
                 <View style={styles.mapPinBubble}>
                   <MaterialCommunityIcons name="navigation-variant" size={rs(24)} color={palette.card} />
                 </View>
+              </View>
+            </Marker>
+          )}
+
+          {threeWordPreview && (
+            <Marker
+              coordinate={{ latitude: threeWordPreview.lat, longitude: threeWordPreview.lng }}
+              anchor={{ x: 0.5, y: 0.5 }}
+              title="Kết quả tra cứu"
+              description={`/// ${threeWordPreview.wordAddress}`}
+              zIndex={20}
+            >
+              <View style={styles.threeWordMapPin}>
+                <Text style={styles.threeWordPinSymbol}>///</Text>
               </View>
             </Marker>
           )}
@@ -2626,6 +2682,33 @@ const styles = StyleSheet.create({
   },
   navButtonText: {
     color: palette.blue,
+  },
+  threeWordUtilityBtn: {
+    backgroundColor: palette.blueSoft,
+    borderColor: '#cce0ff',
+  },
+  threeWordUtilityText: {
+    color: palette.blue,
+  },
+  activeTripThreeWordBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(8),
+    backgroundColor: palette.card,
+    borderTopWidth: 1,
+    borderTopColor: palette.line,
+    gap: rs(8),
+  },
+  activeTripThreeWordCoords: {
+    flex: 1,
+    fontSize: rf(13),
+    color: palette.muted,
+    fontWeight: '700',
+  },
+  closeThreeWordBtn: {
+    padding: rs(4),
   },
   statusButton: {
     minHeight: rvs(62),
