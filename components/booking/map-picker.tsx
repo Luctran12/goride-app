@@ -22,7 +22,7 @@ import MapView, {
 } from 'react-native-maps';
 
 import { rs, rvs, rf } from '@/constants/responsive';
-import { getDefaultLocationPoint } from '@/lib/location-service';
+import { fetchRoute, getDefaultLocationPoint } from '@/lib/location-service';
 import { getLocationToWords } from '@/lib/three-word-location-api';
 import type { Coordinates, LocationPermissionState, LocationPoint } from '@/types/ride';
 
@@ -175,24 +175,58 @@ export function MapPicker({
     [selectedPoint.lat, selectedPoint.lng],
   );
 
+  const [fetchedRouteCoordinates, setFetchedRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
+
+  useEffect(() => {
+    if (customRouteCoordinates && customRouteCoordinates.length > 0) {
+      setFetchedRouteCoordinates([]);
+      return;
+    }
+
+    if (!originLat || !originLng || !destinationLat || !destinationLng) {
+      setFetchedRouteCoordinates([]);
+      return;
+    }
+
+    let isMounted = true;
+    void fetchRoute({ lat: originLat, lng: originLng }, { lat: destinationLat, lng: destinationLng })
+      .then((res) => {
+        if (isMounted && res.coordinates && res.coordinates.length > 0) {
+          setFetchedRouteCoordinates(res.coordinates);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [customRouteCoordinates, originLat, originLng, destinationLat, destinationLng]);
+
   const routeCoordinates = useMemo(() => {
     if (customRouteCoordinates && customRouteCoordinates.length > 0) {
       return customRouteCoordinates;
     }
+    if (fetchedRouteCoordinates && fetchedRouteCoordinates.length > 0) {
+      return fetchedRouteCoordinates;
+    }
     return compactRawLatLng([[originLat, originLng], [destinationLat, destinationLng]]);
-  }, [customRouteCoordinates, destinationLat, destinationLng, originLat, originLng]);
+  }, [customRouteCoordinates, fetchedRouteCoordinates, destinationLat, destinationLng, originLat, originLng]);
   const showOriginMarker = Boolean(origin && (!hasSelectionMarker || !isSameCoordinate(origin, selectedPoint)));
   const showDestinationMarker = Boolean(destination && (!hasSelectionMarker || !isSameCoordinate(destination, selectedPoint)));
 
   const visibleCoordinates = useMemo(
-    () =>
-      compactRawLatLng([
+    () => {
+      if (routeCoordinates && routeCoordinates.length > 1) {
+        return routeCoordinates;
+      }
+      return compactRawLatLng([
         [valueLat, valueLng],
         [originLat, originLng],
         [destinationLat, destinationLng],
         [driverLat, driverLng],
-      ]),
-    [destinationLat, destinationLng, driverLat, driverLng, originLat, originLng, valueLat, valueLng],
+      ]);
+    },
+    [routeCoordinates, destinationLat, destinationLng, driverLat, driverLng, originLat, originLng, valueLat, valueLng],
   );
   const visibleCoordinateCount = visibleCoordinates.length;
 
