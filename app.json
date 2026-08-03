@@ -57,6 +57,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "27a38c05-0eed-4661-8323-e6f4a296f359"
+      }
+    },
+    "owner": "tlucs-team"
   }
 }

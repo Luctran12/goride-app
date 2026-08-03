@@ -11,6 +11,94 @@
         }
     ],
     "paths": {
+        "/api/v1/payments/providers/{providerName}/sandbox-uat-result": {
+            "put": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "updatePaymentSandboxUatResult",
+                "parameters": [
+                    {
+                        "name": "providerName",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PaymentSandboxUatResultRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePaymentSandboxUatResultResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/fcm-token": {
+            "put": {
+                "tags": [
+                    "notification-controller"
+                ],
+                "operationId": "updateFcmToken",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FcmTokenUpdateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseFcmTokenResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "notification-controller"
+                ],
+                "operationId": "deleteFcmToken",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseFcmTokenResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/users/{id}": {
             "get": {
                 "tags": [
@@ -188,6 +276,150 @@
                 }
             }
         },
+        "/api/v1/uploads/driver-documents/{documentType}": {
+            "post": {
+                "tags": [
+                    "file-upload-controller"
+                ],
+                "operationId": "uploadDriverDocument",
+                "parameters": [
+                    {
+                        "name": "documentType",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "PORTRAIT",
+                                "LICENSE",
+                                "ID_CARD",
+                                "VEHICLE_REGISTRATION"
+                            ]
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "required": [
+                                    "file"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverDocumentUploadResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/trips/{tripId}/messages": {
+            "get": {
+                "tags": [
+                    "trip-message-controller"
+                ],
+                "operationId": "listMessages",
+                "parameters": [
+                    {
+                        "name": "tripId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePageResponseTripMessageResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "trip-message-controller"
+                ],
+                "operationId": "sendMessage",
+                "parameters": [
+                    {
+                        "name": "tripId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TripMessageCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseTripMessageResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ratings": {
             "post": {
                 "tags": [
@@ -211,6 +443,254 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ApiResponseRatingResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/trips/{tripId}/checkout": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "getTripPaymentCheckout",
+                "parameters": [
+                    {
+                        "name": "tripId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePaymentCheckoutResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "createTripPaymentCheckout",
+                "parameters": [
+                    {
+                        "name": "tripId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePaymentCheckoutResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/providers/{providerName}/webhook": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "handleProviderWebhookQuery",
+                "parameters": [
+                    {
+                        "name": "providerName",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "queryParams",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "handleProviderWebhook",
+                "parameters": [
+                    {
+                        "name": "providerName",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/providers/{providerName}/sandbox-e2e-sessions": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "listProviderPaymentSandboxE2eSessions",
+                "parameters": [
+                    {
+                        "name": "providerName",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListPaymentSandboxE2eSessionResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "recordProviderPaymentSandboxE2eSession",
+                "parameters": [
+                    {
+                        "name": "providerName",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PaymentSandboxE2eSessionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePaymentSandboxE2eSessionResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/drivers/trips/{tripId}/route": {
+            "post": {
+                "tags": [
+                    "driver-trip-controller"
+                ],
+                "operationId": "routeToTripDestination",
+                "parameters": [
+                    {
+                        "name": "tripId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DriverTripRouteRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverTripRouteResponse"
                                 }
                             }
                         }
@@ -259,6 +739,36 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ApiResponseDriverProfileResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/drivers/me/heartbeat": {
+            "post": {
+                "tags": [
+                    "driver-status-controller"
+                ],
+                "operationId": "heartbeat",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DriverHeartbeatRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverHeartbeatResponse"
                                 }
                             }
                         }
@@ -464,6 +974,150 @@
                 }
             }
         },
+        "/api/v1/admin/service-areas": {
+            "get": {
+                "tags": [
+                    "admin-service-area-controller"
+                ],
+                "operationId": "listAllServiceAreas",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListServiceAreaResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "admin-service-area-controller"
+                ],
+                "operationId": "createServiceArea",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ServiceAreaCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseServiceAreaResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pricing": {
+            "get": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "listAllPricing",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListPricingConfigResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "createPricing",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PricingConfigCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePricingConfigResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pricing/surge-rules": {
+            "get": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "listSurgeRules",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListSurgePricingRuleResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "createSurgeRule",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SurgePricingRuleCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseSurgePricingRuleResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
@@ -530,6 +1184,75 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ApiResponseUserResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/me/avatar": {
+            "post": {
+                "tags": [
+                    "user-profile-controller"
+                ],
+                "operationId": "uploadMyAvatar",
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "required": [
+                                    "file"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseUserAvatarUploadResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/{notificationId}/read": {
+            "patch": {
+                "tags": [
+                    "notification-controller"
+                ],
+                "operationId": "markRead",
+                "parameters": [
+                    {
+                        "name": "notificationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseNotificationResponse"
                                 }
                             }
                         }
@@ -721,6 +1444,222 @@
                 }
             }
         },
+        "/api/v1/admin/service-areas/{serviceAreaId}": {
+            "patch": {
+                "tags": [
+                    "admin-service-area-controller"
+                ],
+                "operationId": "updateServiceArea",
+                "parameters": [
+                    {
+                        "name": "serviceAreaId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ServiceAreaUpdateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseServiceAreaResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/service-areas/{serviceAreaId}/deactivate": {
+            "patch": {
+                "tags": [
+                    "admin-service-area-controller"
+                ],
+                "operationId": "deactivateServiceArea",
+                "parameters": [
+                    {
+                        "name": "serviceAreaId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseServiceAreaResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pricing/{pricingConfigId}/deactivate": {
+            "patch": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "deactivatePricing",
+                "parameters": [
+                    {
+                        "name": "pricingConfigId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePricingConfigResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pricing/surge-rules/{ruleId}": {
+            "patch": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "updateSurgeRule",
+                "parameters": [
+                    {
+                        "name": "ruleId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SurgePricingRuleUpdateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseSurgePricingRuleResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pricing/surge-rules/{ruleId}/deactivate": {
+            "patch": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "deactivateSurgeRule",
+                "parameters": [
+                    {
+                        "name": "ruleId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseSurgePricingRuleResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/drivers/{driverId}/approval": {
+            "patch": {
+                "tags": [
+                    "admin-driver-controller"
+                ],
+                "operationId": "updateDriverApproval",
+                "parameters": [
+                    {
+                        "name": "driverId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DriverApprovalUpdateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseDriverProfileResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/tracking/trips/{tripId}/driver-location": {
             "get": {
                 "tags": [
@@ -745,6 +1684,378 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ApiResponseDriverLocationResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/service-areas": {
+            "get": {
+                "tags": [
+                    "service-area-controller"
+                ],
+                "operationId": "listActiveServiceAreas",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListServiceAreaResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ratings/trips/{tripId}/me": {
+            "get": {
+                "tags": [
+                    "rating-controller"
+                ],
+                "operationId": "getMyTripRatingStatus",
+                "parameters": [
+                    {
+                        "name": "tripId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseTripRatingStatusResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pricing": {
+            "get": {
+                "tags": [
+                    "pricing-controller"
+                ],
+                "operationId": "listActivePricing",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListPricingConfigResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/trips/{tripId}": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "getTripPayment",
+                "parameters": [
+                    {
+                        "name": "tripId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePaymentDetailResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/providers/sandbox-uat-results": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "listPaymentSandboxUatResults",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListPaymentSandboxUatResultResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/providers/sandbox-uat-plan": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "getPaymentSandboxUatPlan",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePaymentSandboxUatPlanResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/providers/sandbox-e2e-sessions": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "listPaymentSandboxE2eSessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListPaymentSandboxE2eSessionResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/providers/readiness": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "listPaymentProviderReadiness",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListPaymentProviderReadinessResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/methods": {
+            "get": {
+                "tags": [
+                    "payment-controller"
+                ],
+                "operationId": "listPaymentMethods",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseListPaymentMethodResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications": {
+            "get": {
+                "tags": [
+                    "notification-controller"
+                ],
+                "operationId": "listMyNotifications",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePageResponseNotificationResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/locations/to-words": {
+            "get": {
+                "tags": [
+                    "three-word-location-controller"
+                ],
+                "operationId": "toWords",
+                "parameters": [
+                    {
+                        "name": "lat",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "maximum": 90,
+                            "minimum": -90
+                        }
+                    },
+                    {
+                        "name": "lng",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "maximum": 180,
+                            "minimum": -180
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseThreeWordLocationResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/locations/to-coordinate": {
+            "get": {
+                "tags": [
+                    "three-word-location-controller"
+                ],
+                "operationId": "toCoordinate",
+                "parameters": [
+                    {
+                        "name": "address",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "minLength": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseThreeWordLocationResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/drivers/{driverId}/ratings": {
+            "get": {
+                "tags": [
+                    "driver-rating-controller"
+                ],
+                "operationId": "listDriverRatings",
+                "parameters": [
+                    {
+                        "name": "driverId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePageResponseRatingResponse"
                                 }
                             }
                         }
@@ -782,10 +2093,363 @@
                     }
                 }
             }
+        },
+        "/api/v1/admin/trips": {
+            "get": {
+                "tags": [
+                    "admin-trip-controller"
+                ],
+                "operationId": "listTrips",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "SCHEDULED",
+                                "SEARCHING",
+                                "ACCEPTED",
+                                "ARRIVED",
+                                "IN_PROGRESS",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "NO_DRIVER"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePageResponseTripResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pricing/surge-status": {
+            "get": {
+                "tags": [
+                    "admin-pricing-controller"
+                ],
+                "operationId": "currentSurgeStatus",
+                "parameters": [
+                    {
+                        "name": "vehicleType",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "MOTORBIKE",
+                                "CAR_4_SEAT",
+                                "CAR_7_SEAT"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseFareSurgeResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/drivers/pending": {
+            "get": {
+                "tags": [
+                    "admin-driver-controller"
+                ],
+                "operationId": "listPendingDrivers",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponsePageResponseDriverProfileResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/dashboard": {
+            "get": {
+                "tags": [
+                    "admin-dashboard-controller"
+                ],
+                "operationId": "getDashboard",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiResponseAdminDashboardResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
         "schemas": {
+            "PaymentSandboxUatResultRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "NOT_RUN",
+                            "BLOCKED",
+                            "FAILED",
+                            "PASSED"
+                        ]
+                    },
+                    "checkoutUrlTested": {
+                        "type": "boolean"
+                    },
+                    "successCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "failureCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "idempotentReplayTested": {
+                        "type": "boolean"
+                    },
+                    "freshnessRejectionTested": {
+                        "type": "boolean"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "maxLength": 1000,
+                        "minLength": 0
+                    },
+                    "testedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
+            "ApiResponsePaymentSandboxUatResultResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PaymentSandboxUatResultResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentSandboxUatResultResponse": {
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
+                        ]
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "sandboxReady": {
+                        "type": "boolean"
+                    },
+                    "readyForFrontendExposure": {
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "NOT_RUN",
+                            "BLOCKED",
+                            "FAILED",
+                            "PASSED"
+                        ]
+                    },
+                    "checkoutUrlTested": {
+                        "type": "boolean"
+                    },
+                    "successCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "failureCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "idempotentReplayTested": {
+                        "type": "boolean"
+                    },
+                    "freshnessRejectionTested": {
+                        "type": "boolean"
+                    },
+                    "missingChecks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "notes": {
+                        "type": "string"
+                    },
+                    "testedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "testedByUserId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "FcmTokenUpdateRequest": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "maxLength": 4096,
+                        "minLength": 0
+                    }
+                },
+                "required": [
+                    "token"
+                ]
+            },
+            "ApiResponseFcmTokenResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/FcmTokenResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "FcmTokenResponse": {
+                "type": "object",
+                "properties": {
+                    "userId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "registered": {
+                        "type": "boolean"
+                    }
+                }
+            },
             "UserUpdateRequest": {
                 "type": "object",
                 "properties": {
@@ -974,6 +2638,113 @@
                     }
                 }
             },
+            "ApiResponseDriverDocumentUploadResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/DriverDocumentUploadResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DriverDocumentUploadResponse": {
+                "type": "object",
+                "properties": {
+                    "documentType": {
+                        "type": "string",
+                        "enum": [
+                            "PORTRAIT",
+                            "LICENSE",
+                            "ID_CARD",
+                            "VEHICLE_REGISTRATION"
+                        ]
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "objectKey": {
+                        "type": "string"
+                    },
+                    "contentType": {
+                        "type": "string"
+                    },
+                    "sizeBytes": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "TripMessageCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "body": {
+                        "type": "string",
+                        "maxLength": 1000,
+                        "minLength": 0
+                    }
+                },
+                "required": [
+                    "body"
+                ]
+            },
+            "ApiResponseTripMessageResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/TripMessageResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "TripMessageResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tripId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "senderId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "senderRole": {
+                        "type": "string",
+                        "enum": [
+                            "PASSENGER",
+                            "DRIVER"
+                        ]
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "sentAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
             "RatingCreateRequest": {
                 "type": "object",
                 "properties": {
@@ -1044,6 +2815,408 @@
                     }
                 }
             },
+            "ApiResponsePaymentCheckoutResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PaymentCheckoutResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentCheckoutResponse": {
+                "type": "object",
+                "properties": {
+                    "paymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tripId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "COMPLETED",
+                            "FAILED",
+                            "REFUNDED"
+                        ]
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "checkoutRequired": {
+                        "type": "boolean"
+                    },
+                    "checkoutUrl": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentSandboxE2eSessionRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "NOT_RUN",
+                            "BLOCKED",
+                            "FAILED",
+                            "PASSED"
+                        ]
+                    },
+                    "checkoutPaymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "checkoutUrl": {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "minLength": 0
+                    },
+                    "successPaymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "successTransactionRef": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 0
+                    },
+                    "failurePaymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "failureTransactionRef": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 0
+                    },
+                    "replayTransactionRef": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 0
+                    },
+                    "checkoutUrlTested": {
+                        "type": "boolean"
+                    },
+                    "successCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "failureCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "idempotentReplayTested": {
+                        "type": "boolean"
+                    },
+                    "freshnessRejectionTested": {
+                        "type": "boolean"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "maxLength": 1000,
+                        "minLength": 0
+                    },
+                    "testedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
+            "ApiResponsePaymentSandboxE2eSessionResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PaymentSandboxE2eSessionResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentSandboxE2eSessionResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
+                        ]
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "sandboxReady": {
+                        "type": "boolean"
+                    },
+                    "sessionEvidencePassed": {
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "NOT_RUN",
+                            "BLOCKED",
+                            "FAILED",
+                            "PASSED"
+                        ]
+                    },
+                    "checkoutPaymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "checkoutUrl": {
+                        "type": "string"
+                    },
+                    "successPaymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "successTransactionRef": {
+                        "type": "string"
+                    },
+                    "failurePaymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "failureTransactionRef": {
+                        "type": "string"
+                    },
+                    "replayTransactionRef": {
+                        "type": "string"
+                    },
+                    "checkoutUrlTested": {
+                        "type": "boolean"
+                    },
+                    "successCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "failureCallbackTested": {
+                        "type": "boolean"
+                    },
+                    "idempotentReplayTested": {
+                        "type": "boolean"
+                    },
+                    "freshnessRejectionTested": {
+                        "type": "boolean"
+                    },
+                    "missingChecks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "notes": {
+                        "type": "string"
+                    },
+                    "testedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "testedByUserId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DriverTripRouteRequest": {
+                "type": "object",
+                "properties": {
+                    "latitude": {
+                        "type": "number",
+                        "maximum": 90,
+                        "minimum": -90
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "maximum": 180,
+                        "minimum": -180
+                    }
+                },
+                "required": [
+                    "latitude",
+                    "longitude"
+                ]
+            },
+            "ApiResponseDriverTripRouteResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/DriverTripRouteResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "BookingLocationResponse": {
+                "type": "object",
+                "properties": {
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "address": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DriverRouteGeometryResponse": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "coordinates": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        }
+                    }
+                }
+            },
+            "DriverRouteStepResponse": {
+                "type": "object",
+                "properties": {
+                    "distanceMeters": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "durationSeconds": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "roadName": {
+                        "type": "string"
+                    },
+                    "maneuverType": {
+                        "type": "string"
+                    },
+                    "maneuverModifier": {
+                        "type": "string"
+                    },
+                    "longitude": {
+                        "type": "number"
+                    },
+                    "latitude": {
+                        "type": "number"
+                    }
+                }
+            },
+            "DriverTripRouteResponse": {
+                "type": "object",
+                "properties": {
+                    "tripId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tripStatus": {
+                        "type": "string",
+                        "enum": [
+                            "SCHEDULED",
+                            "SEARCHING",
+                            "ACCEPTED",
+                            "ARRIVED",
+                            "IN_PROGRESS",
+                            "COMPLETED",
+                            "CANCELLED",
+                            "NO_DRIVER"
+                        ]
+                    },
+                    "destinationType": {
+                        "type": "string",
+                        "enum": [
+                            "PICKUP",
+                            "DROPOFF"
+                        ]
+                    },
+                    "destination": {
+                        "$ref": "#/components/schemas/BookingLocationResponse"
+                    },
+                    "distanceMeters": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "durationSeconds": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "geometry": {
+                        "$ref": "#/components/schemas/DriverRouteGeometryResponse"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DriverRouteStepResponse"
+                        }
+                    }
+                }
+            },
             "DriverProfileUpsertRequest": {
                 "type": "object",
                 "properties": {
@@ -1062,6 +3235,21 @@
                         "minLength": 0
                     },
                     "portraitUrl": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 0
+                    },
+                    "licenseImageUrl": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 0
+                    },
+                    "idCardImageUrl": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 0
+                    },
+                    "vehicleRegistrationUrl": {
                         "type": "string",
                         "maxLength": 500,
                         "minLength": 0
@@ -1150,6 +3338,15 @@
                     "portraitUrl": {
                         "type": "string"
                     },
+                    "licenseImageUrl": {
+                        "type": "string"
+                    },
+                    "idCardImageUrl": {
+                        "type": "string"
+                    },
+                    "vehicleRegistrationUrl": {
+                        "type": "string"
+                    },
                     "vehiclePlate": {
                         "type": "string"
                     },
@@ -1198,6 +3395,59 @@
                     }
                 }
             },
+            "DriverHeartbeatRequest": {
+                "type": "object",
+                "properties": {
+                    "lat": {
+                        "type": "number",
+                        "maximum": 90,
+                        "minimum": -90
+                    },
+                    "lng": {
+                        "type": "number",
+                        "maximum": 180,
+                        "minimum": -180
+                    }
+                },
+                "required": [
+                    "lat",
+                    "lng"
+                ]
+            },
+            "ApiResponseDriverHeartbeatResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/DriverHeartbeatResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DriverHeartbeatResponse": {
+                "type": "object",
+                "properties": {
+                    "online": {
+                        "type": "boolean"
+                    },
+                    "heartbeatAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
             "BookingCreateRequest": {
                 "type": "object",
                 "properties": {
@@ -1218,8 +3468,14 @@
                     "paymentMethod": {
                         "type": "string",
                         "enum": [
-                            "CASH"
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
                         ]
+                    },
+                    "scheduledPickupTime": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 },
                 "required": [
@@ -1272,20 +3528,6 @@
                     }
                 }
             },
-            "BookingLocationResponse": {
-                "type": "object",
-                "properties": {
-                    "lat": {
-                        "type": "number"
-                    },
-                    "lng": {
-                        "type": "number"
-                    },
-                    "address": {
-                        "type": "string"
-                    }
-                }
-            },
             "TripResponse": {
                 "type": "object",
                 "properties": {
@@ -1304,6 +3546,7 @@
                     "status": {
                         "type": "string",
                         "enum": [
+                            "SCHEDULED",
                             "SEARCHING",
                             "ACCEPTED",
                             "ARRIVED",
@@ -1324,7 +3567,9 @@
                     "paymentMethod": {
                         "type": "string",
                         "enum": [
-                            "CASH"
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
                         ]
                     },
                     "pickup": {
@@ -1346,7 +3591,14 @@
                     "finalFare": {
                         "type": "number"
                     },
+                    "fareSurgeMultiplier": {
+                        "type": "number"
+                    },
                     "requestedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "scheduledPickupTime": {
                         "type": "string",
                         "format": "date-time"
                     },
@@ -1439,6 +3691,67 @@
                         "type": "number"
                     },
                     "currency": {
+                        "type": "string"
+                    },
+                    "baseFare": {
+                        "type": "number"
+                    },
+                    "pricingSurgeMultiplier": {
+                        "type": "number"
+                    },
+                    "dynamicSurgeMultiplier": {
+                        "type": "number"
+                    },
+                    "effectiveSurgeMultiplier": {
+                        "type": "number"
+                    },
+                    "surgeAmount": {
+                        "type": "number"
+                    },
+                    "surge": {
+                        "$ref": "#/components/schemas/FareSurgeResponse"
+                    }
+                }
+            },
+            "FareSurgeResponse": {
+                "type": "object",
+                "properties": {
+                    "vehicleType": {
+                        "type": "string",
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ]
+                    },
+                    "demandTrips": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "onlineDrivers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "demandSupplyRatio": {
+                        "type": "number"
+                    },
+                    "pricingSurgeMultiplier": {
+                        "type": "number"
+                    },
+                    "dynamicSurgeMultiplier": {
+                        "type": "number"
+                    },
+                    "effectiveSurgeMultiplier": {
+                        "type": "number"
+                    },
+                    "surgeApplied": {
+                        "type": "boolean"
+                    },
+                    "ruleId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "ruleName": {
                         "type": "string"
                     }
                 }
@@ -1574,6 +3887,347 @@
                     "phone"
                 ]
             },
+            "ServiceAreaCoordinateRequest": {
+                "type": "object",
+                "properties": {
+                    "lat": {
+                        "type": "number",
+                        "maximum": 90,
+                        "minimum": -90
+                    },
+                    "lng": {
+                        "type": "number",
+                        "maximum": 180,
+                        "minimum": -180
+                    }
+                },
+                "required": [
+                    "lat",
+                    "lng"
+                ]
+            },
+            "ServiceAreaCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 0
+                    },
+                    "cityName": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 0
+                    },
+                    "countryCode": {
+                        "type": "string",
+                        "maxLength": 2,
+                        "minLength": 2
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "boundary": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ServiceAreaCoordinateRequest"
+                        },
+                        "maxItems": 200,
+                        "minItems": 3
+                    }
+                },
+                "required": [
+                    "boundary",
+                    "cityName",
+                    "name"
+                ]
+            },
+            "ApiResponseServiceAreaResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/ServiceAreaResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ServiceAreaCoordinateResponse": {
+                "type": "object",
+                "properties": {
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    }
+                }
+            },
+            "ServiceAreaResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "cityName": {
+                        "type": "string"
+                    },
+                    "countryCode": {
+                        "type": "string"
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "boundary": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ServiceAreaCoordinateResponse"
+                        }
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PricingConfigCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "vehicleType": {
+                        "type": "string",
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ]
+                    },
+                    "baseFare": {
+                        "type": "number"
+                    },
+                    "perKmRate": {
+                        "type": "number"
+                    },
+                    "perMinuteRate": {
+                        "type": "number"
+                    },
+                    "minimumFare": {
+                        "type": "number"
+                    },
+                    "surgeMultiplier": {
+                        "type": "number",
+                        "minimum": 0.1
+                    },
+                    "effectiveFrom": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "baseFare",
+                    "minimumFare",
+                    "perKmRate",
+                    "perMinuteRate",
+                    "surgeMultiplier",
+                    "vehicleType"
+                ]
+            },
+            "ApiResponsePricingConfigResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PricingConfigResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PricingConfigResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "vehicleType": {
+                        "type": "string",
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ]
+                    },
+                    "baseFare": {
+                        "type": "number"
+                    },
+                    "perKmRate": {
+                        "type": "number"
+                    },
+                    "perMinuteRate": {
+                        "type": "number"
+                    },
+                    "minimumFare": {
+                        "type": "number"
+                    },
+                    "surgeMultiplier": {
+                        "type": "number"
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "effectiveFrom": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "currency": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SurgePricingRuleCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "vehicleType": {
+                        "type": "string",
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ]
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 0
+                    },
+                    "minDemandTrips": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 1
+                    },
+                    "minDemandSupplyRatio": {
+                        "type": "number",
+                        "minimum": 0.1
+                    },
+                    "multiplier": {
+                        "type": "number",
+                        "maximum": 3,
+                        "minimum": 1
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "startsAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "endsAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "minDemandSupplyRatio",
+                    "minDemandTrips",
+                    "multiplier",
+                    "name",
+                    "vehicleType"
+                ]
+            },
+            "ApiResponseSurgePricingRuleResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/SurgePricingRuleResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "SurgePricingRuleResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "vehicleType": {
+                        "type": "string",
+                        "enum": [
+                            "MOTORBIKE",
+                            "CAR_4_SEAT",
+                            "CAR_7_SEAT"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "minDemandTrips": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "minDemandSupplyRatio": {
+                        "type": "number"
+                    },
+                    "multiplier": {
+                        "type": "number"
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "startsAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "endsAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
             "UserCreateRequest": {
                 "type": "object",
                 "properties": {
@@ -1631,12 +4285,98 @@
                     "roles"
                 ]
             },
+            "ApiResponseUserAvatarUploadResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/UserAvatarUploadResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "UserAvatarUploadResponse": {
+                "type": "object",
+                "properties": {
+                    "avatarUrl": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ApiResponseNotificationResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/NotificationResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "NotificationResponse": {
+                "type": "object",
+                "properties": {
+                    "notificationId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "TRIP_ACCEPTED",
+                            "DRIVER_ARRIVED",
+                            "TRIP_STARTED",
+                            "TRIP_COMPLETED",
+                            "PAYMENT_COMPLETED",
+                            "NO_DRIVER_FOUND"
+                        ]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "read": {
+                        "type": "boolean"
+                    },
+                    "readAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
             "DriverTripStatusUpdateRequest": {
                 "type": "object",
                 "properties": {
                     "status": {
                         "type": "string",
                         "enum": [
+                            "SCHEDULED",
                             "SEARCHING",
                             "ACCEPTED",
                             "ARRIVED",
@@ -1679,6 +4419,7 @@
                     "status": {
                         "type": "string",
                         "enum": [
+                            "SCHEDULED",
                             "SEARCHING",
                             "ACCEPTED",
                             "ARRIVED",
@@ -1779,6 +4520,141 @@
                     }
                 }
             },
+            "ServiceAreaUpdateRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 0
+                    },
+                    "cityName": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 0
+                    },
+                    "countryCode": {
+                        "type": "string",
+                        "maxLength": 2,
+                        "minLength": 2
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "boundary": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ServiceAreaCoordinateRequest"
+                        },
+                        "maxItems": 200,
+                        "minItems": 3
+                    }
+                }
+            },
+            "SurgePricingRuleUpdateRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 0
+                    },
+                    "minDemandTrips": {
+                        "type": "integer",
+                        "format": "int32",
+                        "minimum": 1
+                    },
+                    "minDemandSupplyRatio": {
+                        "type": "number",
+                        "minimum": 0.1
+                    },
+                    "multiplier": {
+                        "type": "number",
+                        "maximum": 3,
+                        "minimum": 1
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "startsAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "endsAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DriverApprovalUpdateRequest": {
+                "type": "object",
+                "properties": {
+                    "approvalStatus": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "APPROVED",
+                            "REJECTED"
+                        ]
+                    }
+                },
+                "required": [
+                    "approvalStatus"
+                ]
+            },
+            "ApiResponsePageResponseTripMessageResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PageResponseTripMessageResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PageResponseTripMessageResponse": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TripMessageResponse"
+                        }
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                }
+            },
+            "Pagination": {
+                "type": "object",
+                "properties": {
+                    "page": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "size": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "totalItems": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "totalPages": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
             "ApiResponseDriverLocationResponse": {
                 "type": "object",
                 "properties": {
@@ -1826,6 +4702,572 @@
                     }
                 }
             },
+            "ApiResponseListServiceAreaResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ServiceAreaResponse"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponseTripRatingStatusResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/TripRatingStatusResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "TripRatingStatusResponse": {
+                "type": "object",
+                "properties": {
+                    "tripId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "rated": {
+                        "type": "boolean"
+                    },
+                    "rating": {
+                        "$ref": "#/components/schemas/RatingResponse"
+                    }
+                }
+            },
+            "ApiResponseListPricingConfigResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PricingConfigResponse"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponsePaymentDetailResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PaymentDetailResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentDetailResponse": {
+                "type": "object",
+                "properties": {
+                    "paymentId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tripId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "COMPLETED",
+                            "FAILED",
+                            "REFUNDED"
+                        ]
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "transactionRef": {
+                        "type": "string"
+                    },
+                    "paidAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponseListPaymentSandboxE2eSessionResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaymentSandboxE2eSessionResponse"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponseListPaymentSandboxUatResultResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaymentSandboxUatResultResponse"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponsePaymentSandboxUatPlanResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PaymentSandboxUatPlanResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentProviderSandboxUatResponse": {
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
+                        ]
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "sandbox": {
+                        "type": "boolean"
+                    },
+                    "checkoutReady": {
+                        "type": "boolean"
+                    },
+                    "webhookReady": {
+                        "type": "boolean"
+                    },
+                    "sandboxReady": {
+                        "type": "boolean"
+                    },
+                    "readyForFrontendExposure": {
+                        "type": "boolean"
+                    },
+                    "latestUatResult": {
+                        "$ref": "#/components/schemas/PaymentSandboxUatResultResponse"
+                    },
+                    "checkoutEndpoint": {
+                        "type": "string"
+                    },
+                    "webhookEndpoint": {
+                        "type": "string"
+                    },
+                    "returnUrl": {
+                        "type": "string"
+                    },
+                    "ipnUrl": {
+                        "type": "string"
+                    },
+                    "missingRequirements": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "frontendActions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "backendChecks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "PaymentSandboxUatPlanResponse": {
+                "type": "object",
+                "properties": {
+                    "prerequisites": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "providers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaymentProviderSandboxUatResponse"
+                        }
+                    },
+                    "validationScenarios": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "ApiResponseListPaymentProviderReadinessResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaymentProviderReadinessResponse"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentProviderReadinessResponse": {
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
+                        ]
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "sandbox": {
+                        "type": "boolean"
+                    },
+                    "providerRegistered": {
+                        "type": "boolean"
+                    },
+                    "checkoutConfigured": {
+                        "type": "boolean"
+                    },
+                    "webhookConfigured": {
+                        "type": "boolean"
+                    },
+                    "checkoutReady": {
+                        "type": "boolean"
+                    },
+                    "webhookReady": {
+                        "type": "boolean"
+                    },
+                    "sandboxReady": {
+                        "type": "boolean"
+                    },
+                    "missingRequirements": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "webhookMaxAgeSeconds": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "webhookFutureSkewSeconds": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "ApiResponseListPaymentMethodResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaymentMethodResponse"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PaymentMethodResponse": {
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "CASH",
+                            "MOMO",
+                            "VNPAY"
+                        ]
+                    },
+                    "provider": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "checkoutRequired": {
+                        "type": "boolean"
+                    },
+                    "sandbox": {
+                        "type": "boolean"
+                    },
+                    "providerConfigured": {
+                        "type": "boolean"
+                    },
+                    "providerRegistered": {
+                        "type": "boolean"
+                    },
+                    "readyForFrontendExposure": {
+                        "type": "boolean"
+                    },
+                    "consumerEnabled": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ApiResponsePageResponseNotificationResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PageResponseNotificationResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PageResponseNotificationResponse": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NotificationResponse"
+                        }
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                }
+            },
+            "ApiResponseThreeWordLocationResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/ThreeWordLocationResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "LocationCoordinateResponse": {
+                "type": "object",
+                "properties": {
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    }
+                }
+            },
+            "ThreeWordCellBoundsResponse": {
+                "type": "object",
+                "properties": {
+                    "southwest": {
+                        "$ref": "#/components/schemas/LocationCoordinateResponse"
+                    },
+                    "northeast": {
+                        "$ref": "#/components/schemas/LocationCoordinateResponse"
+                    }
+                }
+            },
+            "ThreeWordLocationResponse": {
+                "type": "object",
+                "properties": {
+                    "lat": {
+                        "type": "number"
+                    },
+                    "lng": {
+                        "type": "number"
+                    },
+                    "words": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "wordAddress": {
+                        "type": "string"
+                    },
+                    "bounds": {
+                        "$ref": "#/components/schemas/ThreeWordCellBoundsResponse"
+                    }
+                }
+            },
+            "ApiResponsePageResponseRatingResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PageResponseRatingResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PageResponseRatingResponse": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RatingResponse"
+                        }
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                }
+            },
             "ApiResponseListTripResponse": {
                 "type": "object",
                 "properties": {
@@ -1837,6 +5279,181 @@
                         "items": {
                             "$ref": "#/components/schemas/TripResponse"
                         }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponsePageResponseTripResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PageResponseTripResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PageResponseTripResponse": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TripResponse"
+                        }
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                }
+            },
+            "ApiResponseFareSurgeResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/FareSurgeResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponseListSurgePricingRuleResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SurgePricingRuleResponse"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ApiResponsePageResponseDriverProfileResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/PageResponseDriverProfileResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PageResponseDriverProfileResponse": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DriverProfileResponse"
+                        }
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    }
+                }
+            },
+            "AdminDashboardResponse": {
+                "type": "object",
+                "properties": {
+                    "totalUsers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "activeUsers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "suspendedUsers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "totalDrivers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "pendingDrivers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "approvedDrivers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "rejectedDrivers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "totalTrips": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tripsByStatus": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    "completedPayments": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "completedRevenue": {
+                        "type": "number"
+                    },
+                    "averageDriverRating": {
+                        "type": "number"
+                    }
+                }
+            },
+            "ApiResponseAdminDashboardResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/AdminDashboardResponse"
                     },
                     "message": {
                         "type": "string"
@@ -1876,27 +5493,6 @@
                     },
                     "pagination": {
                         "$ref": "#/components/schemas/Pagination"
-                    }
-                }
-            },
-            "Pagination": {
-                "type": "object",
-                "properties": {
-                    "page": {
-                        "type": "integer",
-                        "format": "int32"
-                    },
-                    "size": {
-                        "type": "integer",
-                        "format": "int32"
-                    },
-                    "totalItems": {
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    "totalPages": {
-                        "type": "integer",
-                        "format": "int32"
                     }
                 }
             }
