@@ -162,6 +162,10 @@ export type TripDetail = {
   finalFare?: number | null;
   requestedAt?: string;
   acceptedAt?: string | null;
+  arrivedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
   passengerRating?: TripRating;
 };
 

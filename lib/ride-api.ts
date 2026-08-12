@@ -293,6 +293,10 @@ function normalizeTripDetail(data: any): TripDetail {
     finalFare: data.finalFare,
     requestedAt: data.requestedAt,
     acceptedAt: data.acceptedAt,
+    arrivedAt: data.arrivedAt,
+    startedAt: data.startedAt,
+    completedAt: data.completedAt,
+    cancelledAt: data.cancelledAt,
   };
 }
 

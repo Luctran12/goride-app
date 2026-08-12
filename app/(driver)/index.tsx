@@ -6,6 +6,7 @@ import {
   Alert,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -39,7 +40,7 @@ import {
 import { ApiError } from '@/lib/api';
 import { initializeAuthSession } from '@/lib/auth-api';
 import { getDriverProfile, sendHeartbeatRest, type DriverProfileResponse } from '@/lib/driver-api';
-import { confirmCashPayment, getTrip, respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
+import { confirmCashPayment, getTrip, listBookings, respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_HEARTBEAT_INTERVAL_MS = 20000;
@@ -128,6 +129,15 @@ export default function DriverScreen() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const driverIdRef = useRef<number>(5);
 
+  const [todayStats, setTodayStats] = useState<{
+    earnings: number;
+    completedTrips: number;
+  }>({
+    earnings: 0,
+    completedTrips: 0,
+  });
+  const [refreshing, setRefreshing] = useState(false);
+
   const fetchProfile = useCallback(() => {
     getDriverProfile()
       .then((profile) => {
@@ -145,6 +155,47 @@ export default function DriverScreen() {
       });
   }, [router]);
 
+  const fetchTodayStats = useCallback(async () => {
+    try {
+      const data = await listBookings(1, 100);
+      const trips = data.items || [];
+      const now = new Date();
+
+      const todayTrips = trips.filter((trip) => {
+        const dateStr = trip.completedAt || trip.requestedAt;
+        if (!dateStr) return false;
+        const tripDate = new Date(dateStr);
+        return (
+          tripDate.getDate() === now.getDate() &&
+          tripDate.getMonth() === now.getMonth() &&
+          tripDate.getFullYear() === now.getFullYear()
+        );
+      });
+
+      const completed = todayTrips.filter((t) => t.status === 'COMPLETED');
+      const totalEarnings = completed.reduce(
+        (sum, t) => sum + (t.finalFare ?? t.estimatedFare ?? 0),
+        0
+      );
+
+      setTodayStats({
+        earnings: totalEarnings,
+        completedTrips: completed.length,
+      });
+    } catch (err) {
+      console.warn('[Driver Home] Failed to load driver today stats:', err);
+    }
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchProfile(), fetchTodayStats()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchProfile, fetchTodayStats]);
+
   useEffect(() => {
     let isCurrent = true;
     initializeAuthSession().then((session) => {
@@ -154,20 +205,20 @@ export default function DriverScreen() {
     });
 
     fetchProfile();
+    fetchTodayStats();
 
     return () => {
       isCurrent = false;
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, fetchTodayStats]);
 
   const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
   const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
   const progressPercent = timeLeft !== null && totalExpiryTime > 0
     ? (timeLeft / totalExpiryTime) * 100
     : 100;
-  const todayTripCount = requestResponse?.status === 'COMPLETED' ? 13 : 12;
-  const todayEarnings =
-    450000 + (requestResponse?.status === 'COMPLETED' && incomingRequest ? Math.round(incomingRequest.estimatedFare) : 0);
+  const todayTripCount = todayStats.completedTrips;
+  const todayEarnings = todayStats.earnings;
   const listeningCopy = getListeningCopy(isOnline, incomingRequest);
 
   useEffect(() => {
@@ -538,13 +589,16 @@ export default function DriverScreen() {
         sendTripStatus(response.tripId, response.status);
         setStatusMessage(getDriverStatusMessage(response.status));
         setDriverTrackingMessage(getDriverTrackingMessage(response.status));
+        if (response.status === 'COMPLETED') {
+          void fetchTodayStats();
+        }
       } catch (error: unknown) {
         Alert.alert('Không thể cập nhật chuyến', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
       } finally {
         setUpdatingTripStatus(null);
       }
     },
-    [requestResponse, updatingTripStatus],
+    [fetchTodayStats, requestResponse, updatingTripStatus],
   );
 
   const handleCallPassenger = useCallback(() => {
@@ -613,12 +667,13 @@ export default function DriverScreen() {
     try {
       await confirmCashPayment(requestResponse.tripId);
       resetCompletedTrip();
+      void fetchTodayStats();
     } catch (error: unknown) {
       Alert.alert('Lỗi xác nhận thanh toán', getErrorMessage(error, 'Không thể xác nhận thanh toán tiền mặt lúc này.'));
     } finally {
       setConfirmingPayment(false);
     }
-  }, [requestResponse, resetCompletedTrip]);
+  }, [fetchTodayStats, requestResponse, resetCompletedTrip]);
 
   const sendDriverGpsPing = useCallback(async (tripId: number) => {
     if (driverGpsPingInFlightRef.current) {
@@ -974,6 +1029,14 @@ export default function DriverScreen() {
         contentContainerStyle={[styles.container, { minHeight: height }]}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void handleRefresh()}
+            colors={[palette.green]}
+            tintColor={palette.green}
+          />
+        }
       >
         {/* COCKPIT HEADER */}
         <View style={styles.consoleHeader}>

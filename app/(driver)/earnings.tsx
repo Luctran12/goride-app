@@ -1,9 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -14,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { listBookings } from '@/lib/ride-api';
+import type { TripDetail } from '@/types/ride';
 
 const palette = {
   background: '#f7faf8',
@@ -34,46 +38,6 @@ const palette = {
   dangerSoft: '#fee2e2',
 };
 
-const earningsSummary = {
-  totalToday: 386000,
-  completedTrips: 8,
-  onlineHours: 6,
-  acceptanceRate: 86,
-  collectedCash: 150000,
-  bonus: 50000,
-  platformFee: -45000,
-};
-
-const recentTrips: RecentTrip[] = [
-  {
-    id: 'ride-1430',
-    service: 'GoRide',
-    time: '14:30',
-    distanceKm: 5.2,
-    fare: 45000,
-    icon: 'motorbike',
-    tone: 'ride',
-  },
-  {
-    id: 'send-1315',
-    service: 'GoSend',
-    time: '13:15',
-    distanceKm: 2.1,
-    fare: 25000,
-    icon: 'truck-delivery-outline',
-    tone: 'send',
-  },
-  {
-    id: 'ride-1105',
-    service: 'GoRide',
-    time: '11:05',
-    distanceKm: 8.4,
-    fare: 72000,
-    icon: 'motorbike',
-    tone: 'ride',
-  },
-];
-
 type RecentTrip = {
   id: string;
   service: string;
@@ -87,6 +51,81 @@ type RecentTrip = {
 export default function DriverEarningsScreen() {
   const router = useRouter();
   const { height } = useWindowDimensions();
+  const [trips, setTrips] = useState<TripDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadEarnings = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      const data = await listBookings(1, 100);
+      setTrips(data.items || []);
+    } catch (err) {
+      console.warn('[Driver Earnings] Failed to load earnings data:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadEarnings();
+  }, [loadEarnings]);
+
+  const earningsSummary = useMemo(() => {
+    const now = new Date();
+    const isToday = (dateStr?: string | null) => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return (
+        d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
+    };
+
+    const todayTrips = trips.filter((t) => isToday(t.completedAt || t.requestedAt));
+    const completed = todayTrips.filter((t) => t.status === 'COMPLETED');
+    const totalEarnings = completed.reduce((sum, t) => sum + (t.finalFare ?? t.estimatedFare ?? 0), 0);
+    const platformFee = Math.round(totalEarnings * 0.15); // Standard platform fee estimation 15%
+    const totalTripsOffered = todayTrips.length;
+    const acceptanceRate = totalTripsOffered > 0
+      ? Math.round((completed.length / totalTripsOffered) * 100)
+      : 100;
+
+    return {
+      totalToday: totalEarnings,
+      completedTrips: completed.length,
+      onlineHours: completed.length > 0 ? Math.max(1, Math.round(completed.length * 0.75)) : 0,
+      acceptanceRate,
+      collectedCash: totalEarnings,
+      bonus: 0,
+      platformFee: -platformFee,
+    };
+  }, [trips]);
+
+  const recentTripsList = useMemo<RecentTrip[]>(() => {
+    const completed = trips.filter((t) => t.status === 'COMPLETED');
+    return completed.slice(0, 5).map((t) => {
+      const date = new Date(t.completedAt || t.requestedAt || Date.now());
+      const hh = String(date.getHours()).padStart(2, '0');
+      const mm = String(date.getMinutes()).padStart(2, '0');
+
+      return {
+        id: `ride-${t.tripId}`,
+        service: 'GoRide',
+        time: `${hh}:${mm}`,
+        distanceKm: t.estimatedDistance ?? 0,
+        fare: t.finalFare ?? t.estimatedFare ?? 0,
+        icon: 'motorbike',
+        tone: 'ride',
+      };
+    });
+  }, [trips]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -96,6 +135,14 @@ export default function DriverEarningsScreen() {
         contentContainerStyle={[styles.container, { minHeight: height }]}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void loadEarnings(true)}
+            colors={[palette.green]}
+            tintColor={palette.green}
+          />
+        }
       >
         <View style={styles.header}>
           <Pressable
@@ -122,53 +169,77 @@ export default function DriverEarningsScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Tổng thu nhập hôm nay</Text>
-          <Text selectable style={styles.totalValue}>
-            {formatCurrency(earningsSummary.totalToday)}
-          </Text>
-        </View>
-
-        <View style={styles.metricsRow}>
-          <MetricCard icon="check-circle-outline" label="Hoàn thành" value={`${earningsSummary.completedTrips} chuyến`} />
-          <MetricCard icon="timer-outline" label="Thời gian" value={`${earningsSummary.onlineHours} giờ online`} />
-        </View>
-
-        <View style={styles.acceptanceCard}>
-          <View style={styles.acceptanceTopRow}>
-            <View style={styles.acceptanceLabelRow}>
-              <MaterialCommunityIcons name="percent-outline" size={rs(22)} color={palette.muted} />
-              <Text style={styles.acceptanceLabel}>Tỷ lệ nhận</Text>
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={palette.green} />
+            <Text style={styles.loadingText}>Đang tải thu nhập...</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.totalCard}>
+              <Text style={styles.totalLabel}>Tổng thu nhập hôm nay</Text>
+              <Text selectable style={styles.totalValue}>
+                {formatCurrency(earningsSummary.totalToday)}
+              </Text>
             </View>
-            <Text selectable style={styles.acceptanceValue}>
-              {earningsSummary.acceptanceRate}%
-            </Text>
-          </View>
-          <ProgressBar value={earningsSummary.acceptanceRate} />
-        </View>
 
-        <View style={styles.detailCard}>
-          <View style={styles.detailHeader}>
-            <Text style={styles.detailTitle}>Chi tiết thu nhập</Text>
-          </View>
-          <EarningsRow label="Tiền mặt đã thu" value={earningsSummary.collectedCash} />
-          <EarningsRow label="Thưởng" value={earningsSummary.bonus} positive />
-          <EarningsRow label="Phí nền tảng" value={earningsSummary.platformFee} negative />
-        </View>
+            <View style={styles.metricsRow}>
+              <MetricCard icon="check-circle-outline" label="Hoàn thành" value={`${earningsSummary.completedTrips} chuyến`} />
+              <MetricCard icon="timer-outline" label="Thời gian" value={`${earningsSummary.onlineHours} giờ online`} />
+            </View>
 
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Chuyến đi gần đây</Text>
-        </View>
+            <View style={styles.acceptanceCard}>
+              <View style={styles.acceptanceTopRow}>
+                <View style={styles.acceptanceLabelRow}>
+                  <MaterialCommunityIcons name="percent-outline" size={rs(22)} color={palette.muted} />
+                  <Text style={styles.acceptanceLabel}>Tỷ lệ nhận</Text>
+                </View>
+                <Text selectable style={styles.acceptanceValue}>
+                  {earningsSummary.acceptanceRate}%
+                </Text>
+              </View>
+              <ProgressBar value={earningsSummary.acceptanceRate} />
+            </View>
 
-        <View style={styles.tripList}>
-          {recentTrips.map((trip) => (
-            <RecentTripCard key={trip.id} trip={trip} />
-          ))}
-        </View>
+            <View style={styles.detailCard}>
+              <View style={styles.detailHeader}>
+                <Text style={styles.detailTitle}>Chi tiết thu nhập</Text>
+              </View>
+              <EarningsRow label="Tiền mặt đã thu" value={earningsSummary.collectedCash} />
+              {earningsSummary.bonus > 0 ? (
+                <EarningsRow label="Thưởng" value={earningsSummary.bonus} positive />
+              ) : null}
+              {earningsSummary.platformFee !== 0 ? (
+                <EarningsRow label="Phí nền tảng ước tính" value={earningsSummary.platformFee} negative />
+              ) : null}
+            </View>
 
-        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.viewAllButton, pressed ? styles.pressedButton : null]}>
-          <Text style={styles.viewAllText}>XEM TẤT CẢ CHUYẾN ĐI</Text>
-        </Pressable>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Chuyến đi gần đây</Text>
+            </View>
+
+            <View style={styles.tripList}>
+              {recentTripsList.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <MaterialCommunityIcons name="motorbike-off" size={rs(36)} color={palette.muted} />
+                  <Text style={styles.emptyText}>Chưa có chuyến đi nào hoàn thành hôm nay</Text>
+                </View>
+              ) : (
+                recentTripsList.map((trip) => (
+                  <RecentTripCard key={trip.id} trip={trip} />
+                ))
+              )}
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/(driver)/activity')}
+              style={({ pressed }) => [styles.viewAllButton, pressed ? styles.pressedButton : null]}
+            >
+              <Text style={styles.viewAllText}>XEM TẤT CẢ CHUYẾN ĐI</Text>
+            </Pressable>
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.bottomNav}>
@@ -305,163 +376,148 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
-    backgroundColor: palette.background,
   },
   container: {
-    flexGrow: 1,
-    paddingHorizontal: rs(24),
-    paddingTop: rvs(12),
-    paddingBottom: rvs(124),
-    gap: rvs(14),
+    paddingHorizontal: rs(20),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(110),
   },
   header: {
-    minHeight: rvs(48),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: rs(12),
+    marginBottom: rvs(18),
   },
   driverIdentity: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(10),
-    borderRadius: rs(12),
   },
   avatarFrame: {
-    width: rs(44),
-    height: rs(44),
-    borderRadius: rs(22),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: '#b7ddc9',
+    width: rs(40),
+    height: rs(40),
+    borderRadius: rs(20),
     overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: palette.green,
   },
   avatar: {
     width: '100%',
     height: '100%',
   },
   brandText: {
-    color: palette.blueInk,
-    fontSize: rf(25),
-    lineHeight: rf(31),
-    fontWeight: '900',
+    fontSize: rf(18),
+    fontWeight: '800',
+    color: palette.ink,
+    letterSpacing: -0.3,
   },
   iconButton: {
     width: rs(44),
     height: rs(44),
     borderRadius: rs(22),
+    backgroundColor: palette.card,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.line,
   },
   titleRow: {
-    marginTop: rvs(22),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: rs(12),
+    marginBottom: rvs(16),
   },
   screenTitle: {
+    fontSize: rf(26),
+    fontWeight: '800',
     color: palette.ink,
-    fontSize: rf(27),
-    lineHeight: rf(34),
-    fontWeight: '900',
   },
   periodPill: {
-    minHeight: rvs(34),
-    borderRadius: rs(999),
-    paddingHorizontal: rs(16),
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(4),
-    backgroundColor: '#dcefe5',
-  },
-  periodText: {
-    color: palette.ink,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '900',
-  },
-  totalCard: {
-    minHeight: rvs(104),
-    borderRadius: rs(12),
     backgroundColor: palette.card,
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(6),
+    borderRadius: rs(20),
     borderWidth: 1,
     borderColor: palette.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: rvs(4),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.06)',
+  },
+  periodText: {
+    fontSize: rf(13),
+    fontWeight: '600',
+    color: palette.ink,
+  },
+  totalCard: {
+    backgroundColor: palette.greenDark,
+    borderRadius: rs(18),
+    paddingHorizontal: rs(20),
+    paddingVertical: rvs(18),
+    marginBottom: rvs(14),
   },
   totalLabel: {
-    color: '#7b867f',
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '700',
+    fontSize: rf(13),
+    color: palette.mint,
+    fontWeight: '600',
+    marginBottom: rvs(4),
   },
   totalValue: {
-    color: palette.green,
-    fontSize: rf(45),
-    lineHeight: rf(54),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
+    fontSize: rf(32),
+    fontWeight: '800',
+    color: '#ffffff',
   },
   metricsRow: {
     flexDirection: 'row',
-    gap: rs(14),
+    gap: rs(12),
+    marginBottom: rvs(14),
   },
   metricCard: {
     flex: 1,
-    minHeight: rvs(92),
-    borderRadius: rs(12),
     backgroundColor: palette.card,
+    borderRadius: rs(14),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(12),
     borderWidth: 1,
     borderColor: palette.line,
-    paddingHorizontal: rs(18),
-    paddingVertical: rvs(16),
-    justifyContent: 'center',
-    gap: rvs(10),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
   },
   metricLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(8),
+    marginBottom: rvs(6),
   },
   metricIconCircle: {
-    width: rs(22),
-    height: rs(22),
-    borderRadius: rs(11),
+    width: rs(30),
+    height: rs(30),
+    borderRadius: rs(15),
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricLabel: {
+    fontSize: rf(12),
+    fontWeight: '600',
     color: palette.muted,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '800',
   },
   metricValue: {
+    fontSize: rf(16),
+    fontWeight: '700',
     color: palette.ink,
-    fontSize: rf(24),
-    lineHeight: rf(31),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
   },
   acceptanceCard: {
-    borderRadius: rs(12),
     backgroundColor: palette.card,
+    borderRadius: rs(14),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(14),
     borderWidth: 1,
     borderColor: palette.line,
-    paddingHorizontal: rs(18),
-    paddingVertical: rvs(16),
-    gap: rvs(12),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
+    marginBottom: rvs(14),
   },
   acceptanceTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: rs(12),
+    marginBottom: rvs(10),
   },
   acceptanceLabelRow: {
     flexDirection: 'row',
@@ -469,72 +525,58 @@ const styles = StyleSheet.create({
     gap: rs(8),
   },
   acceptanceLabel: {
-    color: palette.muted,
-    fontSize: rf(17),
-    lineHeight: rf(23),
-    fontWeight: '800',
+    fontSize: rf(14),
+    fontWeight: '600',
+    color: palette.ink,
   },
   acceptanceValue: {
-    color: palette.green,
-    fontSize: rf(18),
-    lineHeight: rf(24),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
+    fontSize: rf(16),
+    fontWeight: '700',
+    color: palette.ink,
   },
   progressTrack: {
-    height: rvs(8),
-    borderRadius: rs(999),
-    backgroundColor: '#dfe9e4',
+    height: rvs(6),
+    borderRadius: rs(3),
+    backgroundColor: palette.line,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: rs(999),
     backgroundColor: palette.green,
+    borderRadius: rs(3),
   },
   detailCard: {
-    borderRadius: rs(12),
     backgroundColor: palette.card,
+    borderRadius: rs(14),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(14),
     borderWidth: 1,
     borderColor: palette.line,
-    overflow: 'hidden',
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
+    marginBottom: rvs(18),
   },
   detailHeader: {
-    minHeight: rvs(48),
-    justifyContent: 'center',
-    paddingHorizontal: rs(18),
-    backgroundColor: '#c8f0db',
+    marginBottom: rvs(10),
   },
   detailTitle: {
-    color: palette.greenDark,
-    fontSize: rf(21),
-    lineHeight: rf(27),
-    fontWeight: '900',
+    fontSize: rf(15),
+    fontWeight: '700',
+    color: palette.ink,
   },
   detailRow: {
-    minHeight: rvs(46),
-    paddingHorizontal: rs(18),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: rs(12),
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
+    paddingVertical: rvs(6),
   },
   detailLabel: {
-    flex: 1,
-    color: palette.ink,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '700',
+    fontSize: rf(13),
+    color: palette.muted,
+    fontWeight: '500',
   },
   detailValue: {
+    fontSize: rf(14),
+    fontWeight: '600',
     color: palette.ink,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
   },
   detailValuePositive: {
     color: palette.green,
@@ -543,116 +585,127 @@ const styles = StyleSheet.create({
     color: palette.danger,
   },
   sectionTitleRow: {
-    marginTop: rvs(4),
+    marginBottom: rvs(12),
   },
   sectionTitle: {
+    fontSize: rf(17),
+    fontWeight: '700',
     color: palette.ink,
-    fontSize: rf(22),
-    lineHeight: rf(29),
-    fontWeight: '900',
   },
   tripList: {
-    gap: rvs(12),
+    gap: rvs(10),
+    marginBottom: rvs(16),
   },
   tripCard: {
-    minHeight: rvs(80),
-    borderRadius: rs(12),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    paddingHorizontal: rs(18),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(14),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
+    backgroundColor: palette.card,
+    borderRadius: rs(14),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(12),
+    borderWidth: 1,
+    borderColor: palette.line,
+    gap: rs(12),
   },
   tripIcon: {
-    width: rs(42),
-    height: rs(42),
-    borderRadius: rs(21),
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(22),
     alignItems: 'center',
     justifyContent: 'center',
   },
   tripIconRide: {
-    backgroundColor: '#e3f2ec',
+    backgroundColor: palette.greenSoft,
   },
   tripIconSend: {
     backgroundColor: palette.blueSoft,
   },
   tripCopy: {
     flex: 1,
-    gap: rvs(2),
   },
   tripService: {
+    fontSize: rf(14),
+    fontWeight: '700',
     color: palette.ink,
-    fontSize: rf(18),
-    lineHeight: rf(24),
-    fontWeight: '900',
+    marginBottom: rvs(2),
   },
   tripMeta: {
+    fontSize: rf(12),
     color: palette.muted,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '700',
   },
   tripFare: {
+    fontSize: rf(15),
+    fontWeight: '700',
     color: palette.ink,
-    fontSize: rf(17),
-    lineHeight: rf(23),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
+  },
+  emptyCard: {
+    backgroundColor: palette.card,
+    borderRadius: rs(14),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rvs(8),
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  emptyText: {
+    fontSize: rf(13),
+    color: palette.muted,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    paddingVertical: rvs(40),
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rvs(12),
+  },
+  loadingText: {
+    fontSize: rf(13),
+    color: palette.muted,
   },
   viewAllButton: {
-    alignSelf: 'center',
-    minHeight: rvs(36),
+    backgroundColor: palette.card,
+    borderRadius: rs(12),
+    paddingVertical: rvs(12),
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: rs(16),
-    borderRadius: rs(10),
+    borderWidth: 1,
+    borderColor: palette.line,
   },
   viewAllText: {
-    color: palette.blueInk,
-    fontSize: rf(15),
-    lineHeight: rf(21),
-    fontWeight: '900',
+    fontSize: rf(13),
+    fontWeight: '700',
+    color: palette.ink,
+    letterSpacing: 0.5,
   },
   bottomNav: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    minHeight: rvs(86),
-    paddingHorizontal: rs(22),
-    paddingTop: rvs(12),
-    paddingBottom: rvs(14),
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: palette.card,
+    paddingVertical: rvs(10),
+    paddingHorizontal: rs(16),
     borderTopWidth: 1,
     borderTopColor: palette.line,
+    justifyContent: 'space-around',
   },
   navItem: {
-    flex: 1,
-    minHeight: rvs(62),
     alignItems: 'center',
-    justifyContent: 'center',
     gap: rvs(4),
-    borderRadius: rs(999),
   },
-  navItemActive: {
-    backgroundColor: palette.mint,
-  },
+  navItemActive: {},
   navLabel: {
+    fontSize: rf(11),
+    fontWeight: '600',
     color: palette.muted,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '900',
   },
   navLabelActive: {
     color: palette.greenDark,
   },
   pressedButton: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
+    opacity: 0.8,
   },
 });

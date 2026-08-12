@@ -1,7 +1,8 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Keyboard,
   Modal,
   Pressable,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useVoiceToText } from '@/hooks/useVoiceToText';
 import { getLocationToCoordinate, isValidThreeWordAddress } from '@/lib/three-word-location-api';
 import type { ThreeWordLocation } from '@/types/three-word';
 
@@ -28,6 +30,8 @@ const palette = {
   danger: '#ef4444',
   dangerSoft: '#fef2f2',
   card: '#ffffff',
+  green: '#10b981',
+  greenSoft: '#ecfdf5',
 };
 
 export type ThreeWordSearchModalProps = {
@@ -45,22 +49,86 @@ export function ThreeWordSearchModal({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const {
+    isListening,
+    transcript,
+    normalizedResult,
+    error: voiceError,
+    isSupported: voiceSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useVoiceToText();
+
+  // Pulse animation for listening state
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isListening) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.25,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isListening, pulseAnim]);
+
+  // Update input text when voice recognition produces normalized output
+  useEffect(() => {
+    if (normalizedResult) {
+      setAddressInput(normalizedResult);
+      if (errorMessage) setErrorMessage(null);
+    }
+  }, [normalizedResult]);
+
+  useEffect(() => {
+    if (voiceError) {
+      setErrorMessage(voiceError);
+    }
+  }, [voiceError]);
+
   const handleClearInput = () => {
     setAddressInput('');
     setErrorMessage(null);
+    resetTranscript();
   };
 
   const handleClose = () => {
     Keyboard.dismiss();
+    stopListening();
+    resetTranscript();
     setErrorMessage(null);
     onClose();
+  };
+
+  const handleToggleVoice = async () => {
+    Keyboard.dismiss();
+    if (isListening) {
+      stopListening();
+    } else {
+      setErrorMessage(null);
+      await startListening();
+    }
   };
 
   const handleSearch = async () => {
     const trimmed = addressInput.trim();
 
     if (!isValidThreeWordAddress(trimmed)) {
-      setErrorMessage('Nhập đúng dạng 3 từ, ví dụ hoa.la.cay.');
+      setErrorMessage('Nhập hoặc nói đúng dạng 3 từ, ví dụ hoa.la.cay.');
       return;
     }
 
@@ -120,8 +188,28 @@ export function ThreeWordSearchModal({
             </View>
 
             <Text style={styles.description}>
-              Nhập 3 từ ngăn cách bởi dấu chấm (ví dụ: <Text style={styles.boldText}>hoa.la.cay</Text>) để tra cứu vị trí chính xác.
+              {voiceSupported
+                ? <>Gõ 3 từ hoặc <Text style={styles.boldText}>nói trực tiếp bằng giọng nói</Text> (ví dụ: hoa lá cây).</>
+                : <>Gõ 3 từ (ví dụ: <Text style={styles.boldText}>hoa.la.cay</Text>).</>}
             </Text>
+
+            {/* Voice Listening Banner */}
+            {isListening && (
+              <View style={styles.listeningBanner}>
+                <Animated.View style={[styles.micPulseCircle, { transform: [{ scale: pulseAnim }] }]}>
+                  <Ionicons name="mic" size={rs(22)} color="#ffffff" />
+                </Animated.View>
+                <View style={styles.listeningCopy}>
+                  <Text style={styles.listeningTitle}>Đang lắng nghe...</Text>
+                  <Text style={styles.listeningTranscript} numberOfLines={1}>
+                    {transcript ? `"${transcript}"` : 'Hãy nói 3 từ (ví dụ: hoa lá cây)...'}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={stopListening} style={styles.stopListeningBtn}>
+                  <Text style={styles.stopListeningText}>Dừng</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={[styles.inputWrapper, errorMessage ? styles.inputErrorBorder : null]}>
               <Text style={styles.threeWordPrefix}>///</Text>
@@ -139,6 +227,17 @@ export function ThreeWordSearchModal({
                 onSubmitEditing={() => void handleSearch()}
                 returnKeyType="search"
               />
+
+              {voiceSupported && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => void handleToggleVoice()}
+                  style={[styles.micIconButton, isListening && styles.micIconButtonActive]}
+                >
+                  <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={rs(22)} color={isListening ? '#ffffff' : palette.primary} />
+                </TouchableOpacity>
+              )}
+
               {addressInput.length > 0 && (
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -270,6 +369,60 @@ const styles = StyleSheet.create({
   },
   clearIcon: {
     padding: rs(4),
+  },
+  micIconButton: {
+    width: rs(36),
+    height: rs(36),
+    borderRadius: rs(18),
+    backgroundColor: palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micIconButtonActive: {
+    backgroundColor: palette.primary,
+  },
+  listeningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: rs(12),
+    borderRadius: rs(16),
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: 'rgba(29, 7, 150, 0.3)',
+    gap: rs(12),
+  },
+  micPulseCircle: {
+    width: rs(40),
+    height: rs(40),
+    borderRadius: rs(20),
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listeningCopy: {
+    flex: 1,
+    gap: rvs(2),
+  },
+  listeningTitle: {
+    fontSize: rf(15),
+    fontWeight: '800',
+    color: palette.primary,
+  },
+  listeningTranscript: {
+    fontSize: rf(14),
+    fontWeight: '600',
+    color: palette.text,
+  },
+  stopListeningBtn: {
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(6),
+    borderRadius: rs(12),
+    backgroundColor: palette.primary,
+  },
+  stopListeningText: {
+    fontSize: rf(13),
+    fontWeight: '800',
+    color: '#ffffff',
   },
   errorCard: {
     flexDirection: 'row',
