@@ -7,20 +7,20 @@ Use this document to track the active feature, phase, branch, commit scope, and 
 - Feature: Passenger-driver in-trip chat
 - Phase: Stage 16 - Mobile trip messaging integration
 - Branch: `codex/trip-chat`
-- Current commit scope: Chat contracts, REST/realtime sync, shared conversation screen, and passenger/driver entry points
-- Status: Existing mobile work checkpointed at `d11183e`; implementing the backend trip-messaging contract
+- Current commit scope: Stage 16 review checkpoint
+- Status: Chat implementation committed at `d3c8a6b`; awaiting user review and device/backend smoke testing
 
 ## Last Completed Checkpoint
 
-- Commit: `d11183e` - checkpoint existing mobile changes before chat implementation
-- Validation: Existing work has 11 pre-existing JSX lint errors and 18 warnings; `.env` remains local and uncommitted.
-- Review status: User explicitly requested the checkpoint before chat development.
+- Commit: `d3c8a6b` - reliable in-trip chat for passenger and driver
+- Validation: TypeScript passed; chat-scoped ESLint passed; full lint remains at the unchanged baseline of 11 pre-existing errors and 18 warnings.
+- Review status: Manual contract/code review passed with no chat blocker; user review and runtime smoke testing are still required.
 
 ## Next Checkpoint
 
-- Implement cursor sync, stable `clientMessageId`, message de-duplication, read state, unread count, and reconnect recovery.
-- Add one shared chat experience reachable from the active passenger and driver trip screens.
-- Validate TypeScript and touched-file lint, then perform a manual contract review against the backend docs.
+- Smoke test passenger and driver accounts against the backend `/messages` APIs and configured `/ws` or `/ws-native` endpoint.
+- Confirm realtime receive, reconnect catch-up, read receipt, 429 cooldown, and terminal-trip read-only history on two devices/sessions.
+- Address feedback in a small follow-up commit on the same branch before merge.
 
 ## Product Readiness Targets
 

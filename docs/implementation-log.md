@@ -2507,4 +2507,79 @@
   - Ran `cmd /c npm run lint` and `cmd /c npx tsc --noEmit`.
   - Results: passed with no errors.
 
+## 2026-08-12 - Pre-chat Mobile Checkpoint
+
+- Branch: `main`
+- Commit: `d11183e` - checkpoint existing mobile changes
+- Scope: Preserved the user's existing GoRide App work before starting the requested chat feature.
+- Files committed:
+  - `app.json`
+  - `app/(driver)/earnings.tsx`
+  - `app/(driver)/index.tsx`
+  - `components/driver/three-word-search-modal.tsx`
+  - `hooks/useVoiceToText.ts`
+  - `lib/config.ts`
+  - `lib/ride-api.ts`
+  - `lib/three-word-normalizer.ts`
+  - `package.json`
+  - `package-lock.json`
+  - `types/ride.ts`
+- Behavior preserved:
+  - Checkpointed the in-progress driver, three-word search, voice-to-text, configuration, and dependency changes as-is before chat coding.
+  - Kept `.env` uncommitted to avoid storing local backend endpoints or credentials in Git.
+- Validation:
+  - Ran `npm.cmd run lint` before the checkpoint.
+  - Result: existing repository baseline failed with 11 JSX comment errors and 18 warnings across passenger booking, driver, map picker, and three-word modal files.
+- Review findings:
+  - The checkpoint intentionally records the pre-existing state and does not claim those unrelated lint findings are fixed.
+- Known risks:
+  - This checkpoint contains multiple pre-existing work areas because the user explicitly requested a commit before chat development.
+
+## 2026-08-12 - Stage 16 Reliable In-trip Chat
+
+- Branch: `codex/trip-chat`
+- Commit: `d3c8a6b` - add reliable in-trip chat
+- Scope: Integrated the production backend trip-messaging contract into the shared Expo passenger/driver app.
+- Files changed:
+  - `types/chat.ts`
+  - `lib/trip-message-api.ts`
+  - `lib/mock-trip-message-api.ts`
+  - `lib/realtime.ts`
+  - `lib/api.ts`
+  - `components/chat/trip-chat-screen.tsx`
+  - `app/(customer)/booking/chat.tsx`
+  - `app/(customer)/booking/waiting-driver.tsx`
+  - `app/(customer)/booking/_layout.tsx`
+  - `app/(driver)/chat.tsx`
+  - `app/(driver)/index.tsx`
+  - `app/(driver)/_layout.tsx`
+  - `docs/current-phase.md`
+  - `docs/changes-in-implementation.md`
+- Behavior implemented:
+  - Added typed REST adapters for initial/older/newer cursor sync, idempotent send, read-state advancement, and unread count.
+  - Added an in-memory mock message/read-state store so chat remains testable when mock APIs or mock realtime are enabled.
+  - Added realtime subscriptions for `/topic/trip/{tripId}/messages` and `/topic/trip/{tripId}/message-read`.
+  - Updated the shared realtime connector to use SockJS for `/ws` and native STOMP WebSocket transport for `/ws-native`, with JWT `CONNECT` headers and existing reconnect restoration.
+  - Implemented a shared passenger/driver chat screen with optimistic messages, stable UUID retry, de-duplication by server ID and client message ID, reconnect catch-up, older-message paging, debounced read cursor, peer read receipt, unread banner, offline REST fallback, and backend rate-limit cooldown.
+  - Added chat entry points to the passenger waiting/active trip screen and the driver's accepted-trip utility area.
+  - Kept send enabled only for `ACCEPTED`, `ARRIVED`, and `IN_PROGRESS`; persisted history remains visible for completed/cancelled participant trips.
+  - Added a guarded forbidden state when the backend reports that the current user is not a trip participant.
+  - Extended `ApiError` with parsed `Retry-After`/`retryAfterSeconds` metadata so chat respects backend 429 timing.
+- Validation:
+  - Ran `npx.cmd tsc --noEmit --pretty false`: passed.
+  - Ran ESLint on the new chat routes, shared chat screen, chat API/mock files, and chat types: passed with no errors or warnings.
+  - Ran `npm.cmd run lint`: repository result remains 11 errors and 18 warnings, identical to the pre-chat checkpoint baseline; no new chat-file lint finding appeared.
+  - Ran `git diff --check` before commit and `git show --check` after whitespace cleanup: passed.
+- Review findings:
+  - Manual review checked backend endpoint names, payload fields, authorization outcomes, cursor direction/order, retry identity, realtime race handling, reconnect recovery, and terminal-status input locking.
+  - No blocking chat defect remained after fixing optimistic status preservation, backend-directed rate-limit cooldown, native `/ws-native` transport selection, and forbidden-participant exit behavior.
+  - The required Expo plugin was unavailable in this session, so implementation used the existing Expo Router/React Native patterns and installed dependencies.
+- User review:
+  - Awaiting review of Stage 16 commit `d3c8a6b`.
+- Known risks:
+  - Runtime validation with two authenticated passenger/driver sessions and the live backend has not been run in this workspace.
+  - The backend chat worktree itself is currently uncommitted; the app contract follows its current `integrate-plan.md` and Java DTO/controller implementation.
+  - Full-repository lint still fails because of the pre-existing 11 JSX comment errors outside the new chat files.
+  - Read-state update failures are intentionally non-blocking; a later successful render/message will advance the monotonic cursor again.
+
 
