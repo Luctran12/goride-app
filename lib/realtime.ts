@@ -4,6 +4,11 @@ import SockJS from 'sockjs-client';
 import { getAccessToken } from '@/lib/api';
 import { USE_MOCK_REALTIME, WS_URL } from '@/lib/config';
 import { mockGetActiveSearchingTrip, mockGetDriverLocation, mockUpdateTripStatus, subscribeMockBookings } from '@/lib/mock-ride-api';
+import {
+  subscribeMockTripMessageReadStates,
+  subscribeMockTripMessages,
+} from '@/lib/mock-trip-message-api';
+import type { TripMessage, TripMessageReadState } from '@/types/chat';
 import type { DriverLocationUpdate, DriverTripRequest, LocationPoint, TripStatus, WsNotification, DriverTripCancelMessage, DriverTripRequestsMessage } from '@/types/ride';
 
 export type TripStatusMessage = {
@@ -16,6 +21,12 @@ export type TripSubscriptionHandlers = {
   onStatus?: (message: TripStatusMessage) => void;
   onLocation?: (message: DriverLocationUpdate) => void;
   onNotification?: (message: WsNotification) => void;
+  onError?: (error: Error) => void;
+};
+
+export type TripMessageSubscriptionHandlers = {
+  onMessage?: (message: TripMessage) => void;
+  onReadState?: (state: TripMessageReadState) => void;
   onError?: (error: Error) => void;
 };
 
@@ -187,6 +198,59 @@ export function subscribeTrip(tripId: number, handlers: TripSubscriptionHandlers
   return combineSubscriptions(subscriptions);
 }
 
+export function subscribeTripMessages(
+  tripId: number,
+  handlers: TripMessageSubscriptionHandlers,
+): RealtimeSubscription {
+  if (USE_MOCK_REALTIME) {
+    const subscriptions: RealtimeSubscription[] = [];
+
+    if (handlers.onMessage) {
+      const unsubscribe = subscribeMockTripMessages(tripId, handlers.onMessage);
+      subscriptions.push({ unsubscribe });
+    }
+    if (handlers.onReadState) {
+      const unsubscribe = subscribeMockTripMessageReadStates(tripId, handlers.onReadState);
+      subscriptions.push({ unsubscribe });
+    }
+
+    return combineSubscriptions(subscriptions);
+  }
+
+  if (!remoteClient?.connected) {
+    handlers.onError?.(new Error('Realtime connection is not ready'));
+    return combineSubscriptions([]);
+  }
+
+  const subscriptions: RealtimeSubscription[] = [];
+
+  if (handlers.onMessage) {
+    subscriptions.push(
+      subscribeRemote(`/topic/trip/${tripId}/messages`, (frame) => {
+        const message = normalizeTripMessage(parseJsonMessage(frame), tripId);
+
+        if (message) {
+          handlers.onMessage?.(message);
+        }
+      }),
+    );
+  }
+
+  if (handlers.onReadState) {
+    subscriptions.push(
+      subscribeRemote(`/topic/trip/${tripId}/message-read`, (frame) => {
+        const state = normalizeTripMessageReadState(parseJsonMessage(frame), tripId);
+
+        if (state) {
+          handlers.onReadState?.(state);
+        }
+      }),
+    );
+  }
+
+  return combineSubscriptions(subscriptions);
+}
+
 export function subscribeNotifications(handler: Handler<WsNotification>): RealtimeSubscription {
   if (!USE_MOCK_REALTIME) {
     return subscribeRemote('/user/queue/notifications', (message) => {
@@ -327,13 +391,15 @@ function createRemoteConnection(url: string): Promise<RealtimeConnection> {
     };
 
     const client = new Client({
+      ...(isNativeStompUrl(url)
+        ? { brokerURL: normalizeNativeStompUrl(url) }
+        : { webSocketFactory: () => new SockJS(url) }),
       reconnectDelay: REMOTE_RECONNECT_DELAY_MS,
       debug: () => undefined,
       beforeConnect: () => {
         const token = getAccessToken();
         client.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       },
-      webSocketFactory: () => new SockJS(url),
       onConnect: () => {
         setConnectionStatus('connected');
         restoreRemoteSubscriptions();
@@ -508,6 +574,70 @@ function normalizeDriverLocation(payload: unknown, fallbackTripId?: number): Dri
     bearing: toFiniteNumber(record?.bearing),
     speed: toFiniteNumber(record?.speed),
     updatedAt: typeof record?.updatedAt === 'string' ? record.updatedAt : new Date().toISOString(),
+  };
+}
+
+function isNativeStompUrl(url: string) {
+  return /\/ws-native(?:[/?#]|$)/i.test(url);
+}
+
+function normalizeNativeStompUrl(url: string) {
+  if (url.startsWith('https://')) {
+    return `wss://${url.slice('https://'.length)}`;
+  }
+  if (url.startsWith('http://')) {
+    return `ws://${url.slice('http://'.length)}`;
+  }
+  return url;
+}
+
+function normalizeTripMessage(payload: unknown, fallbackTripId: number): TripMessage | undefined {
+  const envelope = asRecord(payload);
+  const record = asRecord(envelope?.data) ?? envelope;
+  const id = toFiniteNumber(record?.id);
+  const tripId = toFiniteNumber(record?.tripId) ?? fallbackTripId;
+  const senderId = toFiniteNumber(record?.senderId);
+  const senderRole = record?.senderRole;
+  const clientMessageId = record?.clientMessageId;
+  const body = record?.body;
+
+  if (
+    id === undefined ||
+    senderId === undefined ||
+    (senderRole !== 'PASSENGER' && senderRole !== 'DRIVER') ||
+    typeof clientMessageId !== 'string' ||
+    typeof body !== 'string'
+  ) {
+    return undefined;
+  }
+
+  return {
+    id,
+    tripId,
+    senderId,
+    senderRole,
+    clientMessageId,
+    body,
+    sentAt: typeof record?.sentAt === 'string' ? record.sentAt : new Date().toISOString(),
+  };
+}
+
+function normalizeTripMessageReadState(payload: unknown, fallbackTripId: number): TripMessageReadState | undefined {
+  const envelope = asRecord(payload);
+  const record = asRecord(envelope?.data) ?? envelope;
+  const userId = toFiniteNumber(record?.userId);
+  const lastReadMessageId = toFiniteNumber(record?.lastReadMessageId);
+
+  if (userId === undefined || lastReadMessageId === undefined) {
+    return undefined;
+  }
+
+  return {
+    tripId: toFiniteNumber(record?.tripId) ?? fallbackTripId,
+    userId,
+    lastReadMessageId,
+    readAt: typeof record?.readAt === 'string' ? record.readAt : new Date().toISOString(),
+    unreadCount: toFiniteNumber(record?.unreadCount) ?? 0,
   };
 }
 

@@ -53,6 +53,7 @@ export default function DriverLayout() {
         <Stack.Screen name="activity" />
         <Stack.Screen name="account" />
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="chat" />
       </Stack.Protected>
     </Stack>
   );

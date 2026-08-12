@@ -12,12 +12,14 @@ export type ApiRequestOptions = Omit<AxiosRequestConfig, 'data' | 'url'> & {
 export class ApiError extends Error {
   status?: number;
   code?: string;
+  retryAfterSeconds?: number;
 
-  constructor(message: string, status?: number, code?: string) {
+  constructor(message: string, status?: number, code?: string, retryAfterSeconds?: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -152,7 +154,38 @@ function normalizeAxiosError(error: AxiosError<unknown>) {
     getApiErrorMessage(data) ??
     (status ? `Request failed with status ${status}` : error.message || 'Network request failed');
 
-  return new ApiError(message, status ?? 0, getApiErrorCode(data));
+  return new ApiError(
+    message,
+    status ?? 0,
+    getApiErrorCode(data),
+    getRetryAfterSeconds(error, data),
+  );
+}
+
+function getRetryAfterSeconds(error: AxiosError<unknown>, data: unknown) {
+  const headerValue = error.response?.headers?.['retry-after'];
+  const headerSeconds = toPositiveNumber(headerValue);
+
+  if (headerSeconds !== undefined) {
+    return headerSeconds;
+  }
+
+  if (!isRecord(data)) {
+    return undefined;
+  }
+
+  const details = isRecord(data.error) && isRecord(data.error.details)
+    ? data.error.details
+    : isRecord(data.details)
+      ? data.details
+      : undefined;
+
+  return toPositiveNumber(details?.retryAfterSeconds);
+}
+
+function toPositiveNumber(value: unknown) {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.ceil(parsed) : undefined;
 }
 
 function getApiErrorMessage(data: unknown) {

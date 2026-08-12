@@ -1314,6 +1314,28 @@ export default function DriverScreen() {
                     </Pressable>
                   </View>
 
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(driver)/chat' as any,
+                        params: {
+                          tripId: String(requestResponse.tripId),
+                          status: requestResponse.status,
+                          participantName: incomingRequest.passenger?.fullName ?? 'Hành khách',
+                        },
+                      })
+                    }
+                    style={({ pressed }) => [styles.chatUtilityButton, pressed ? styles.pressedButton : null]}
+                  >
+                    <MaterialCommunityIcons name="message-text-outline" size={rs(22)} color={palette.greenDark} />
+                    <View style={styles.chatUtilityCopy}>
+                      <Text style={styles.chatUtilityTitle}>Nhắn tin với hành khách</Text>
+                      <Text style={styles.chatUtilitySubtitle}>Trao đổi nhanh về điểm đón và lộ trình</Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={rs(22)} color={palette.greenDark} />
+                  </Pressable>
+
                   {getNextDriverStatus(requestResponse.status) ? (
                     <Pressable
                       accessibilityRole="button"
@@ -2717,6 +2739,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: rs(12),
     marginVertical: rvs(8),
+  },
+  chatUtilityButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(11),
+    borderRadius: rs(14),
+    backgroundColor: palette.greenSoft,
+    borderWidth: 1,
+    borderColor: '#b2f2d9',
+  },
+  chatUtilityCopy: {
+    flex: 1,
+    gap: rvs(2),
+  },
+  chatUtilityTitle: {
+    color: palette.greenDark,
+    fontSize: rf(16),
+    fontWeight: '900',
+  },
+  chatUtilitySubtitle: {
+    color: palette.muted,
+    fontSize: rf(12),
+    fontWeight: '600',
   },
   utilityButton: {
     flex: 1,

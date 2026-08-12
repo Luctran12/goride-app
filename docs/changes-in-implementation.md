@@ -81,3 +81,13 @@ Each entry should include:
 - Implemented behavior: `BookingDraft` and `createBooking()` now support optional `voucherCode`, `discountAmount`, and `finalFare` fields after the booking screen validates a voucher.
 - Reason for change: The passenger booking screen needs the selected voucher and discounted fare to survive the transition from promo validation to booking creation instead of being only visual state.
 - Impact: Mock mode can demo discounted booking totals immediately. Backend integration must either accept these optional fields or return a contract mismatch that will be addressed during Stage 15 smoke testing.
+
+## 2026-08-12 - In-trip Chat Product Scope
+
+- Date: 2026-08-12
+- Branch: `codex/trip-chat`
+- Feature: Passenger-driver trip messaging
+- TDD expectation: The original mobile frontend plan lists in-trip chat outside its MVP scope, while the TDD describes chat as a future extension on `/topic/trip/{tripId}/chat`.
+- Implemented behavior: The app follows the production backend contract now available in `integrate-plan.md`: REST persistence and cursor sync under `/api/v1/trips/{tripId}/messages`, realtime messages on `/topic/trip/{tripId}/messages`, read receipts on `/topic/trip/{tripId}/message-read`, and native STOMP support through `/ws-native` alongside SockJS `/ws`.
+- Reason for change: The user requested chat development after the backend implemented the reliable trip-messaging APIs, read cursor, unread count, idempotency, reconnect sync, and authorization rules.
+- Impact: Passenger and driver active-trip screens now expose a shared chat UI. Sending remains limited to `ACCEPTED`, `ARRIVED`, and `IN_PROGRESS`; participants can still view persisted history after the trip ends.

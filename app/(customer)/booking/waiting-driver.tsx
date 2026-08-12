@@ -576,13 +576,40 @@ export default function WaitingDriverScreen() {
 
         {/* DRIVER INFO CARD (When assigned) */}
         {liveStatus !== 'SEARCHING' && (
-          <DriverInfoCard
-            driver={tripDetail?.driver}
-            status={liveStatus}
-            loading={tripDetailLoading}
-            error={tripDetailError}
-            lastUpdatedAt={tripDetailUpdatedAt}
-          />
+          <>
+            <DriverInfoCard
+              driver={tripDetail?.driver}
+              status={liveStatus}
+              loading={tripDetailLoading}
+              error={tripDetailError}
+              lastUpdatedAt={tripDetailUpdatedAt}
+            />
+            {numericTripId && isChatVisibleStatus(liveStatus) ? (
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={styles.chatButton}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(customer)/booking/chat' as any,
+                    params: {
+                      tripId: String(numericTripId),
+                      status: liveStatus,
+                      participantName: tripDetail?.driver?.fullName ?? 'Tài xế',
+                    },
+                  })
+                }
+              >
+                <View style={styles.chatButtonIcon}>
+                  <MaterialCommunityIcons name="message-text-outline" size={rs(24)} color={palette.primary} />
+                </View>
+                <View style={styles.chatButtonCopy}>
+                  <Text style={styles.chatButtonTitle}>Nhắn tin với tài xế</Text>
+                  <Text style={styles.chatButtonSubtitle}>Trao đổi điểm đón và tình trạng di chuyển</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={rs(24)} color={palette.primary} />
+              </TouchableOpacity>
+            ) : null}
+          </>
         )}
 
         {/* COMPLETION CARD */}
@@ -1043,6 +1070,10 @@ function isTerminalTripStatus(status: TripStatus) {
   return status === 'COMPLETED' || status === 'CANCELLED' || status === 'NO_DRIVER';
 }
 
+function isChatVisibleStatus(status: TripStatus) {
+  return status !== 'SEARCHING' && status !== 'NO_DRIVER';
+}
+
 function getErrorMessage(error: unknown, fallback = 'Không thể cập nhật vị trí tài xế lúc này.') {
   return error instanceof Error ? error.message : fallback;
 }
@@ -1334,6 +1365,39 @@ const styles = StyleSheet.create({
     color: palette.text,
     fontWeight: '900',
     lineHeight: rf(25),
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(12),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(14),
+    borderRadius: rs(22),
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: '#d8cef3',
+  },
+  chatButtonIcon: {
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.card,
+  },
+  chatButtonCopy: {
+    flex: 1,
+    gap: rvs(2),
+  },
+  chatButtonTitle: {
+    color: palette.primary,
+    fontSize: rf(18),
+    fontWeight: '900',
+  },
+  chatButtonSubtitle: {
+    color: palette.muted,
+    fontSize: rf(13),
+    fontWeight: '600',
   },
   realtimeCard: {
     minHeight: rvs(104),

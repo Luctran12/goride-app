@@ -8,6 +8,7 @@ export default function BookingLayout() {
       <Stack.Screen name="destination" />
       <Stack.Screen name="select-vehicle" />
       <Stack.Screen name="waiting-driver" />
+      <Stack.Screen name="chat" />
     </Stack>
   );
 }
