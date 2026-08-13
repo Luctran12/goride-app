@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import type { VehicleType } from '@/types/ride';
 
 const palette = {
@@ -96,13 +97,32 @@ export function VehicleOptionCard({
   style,
   onPress,
 }: VehicleOptionCardProps) {
-  const price = option.estimatedFare ? formatFare(option.estimatedFare) : option.priceLabel ?? '-- đ';
+  const { t } = useLanguage();
+
+  const title = option.vehicleType === 'MOTORBIKE' ? t('booking.gorideBike', 'GoRide Bike') :
+                option.vehicleType === 'CAR_4_SEAT' ? t('booking.gorideCar', 'GoRide Car') :
+                option.vehicleType === 'CAR_7_SEAT' ? t('booking.goridePremium', 'GoRide Premium') : option.title;
+
+  const description = option.vehicleType === 'MOTORBIKE' ? t('booking.gorideBikeDesc', 'Nhanh chóng & tiết kiệm') :
+                      option.vehicleType === 'CAR_4_SEAT' ? t('booking.gorideCarDesc', 'Thoải mái cho nhóm nhỏ') :
+                      option.vehicleType === 'CAR_7_SEAT' ? t('booking.goridePremiumDesc', 'Rộng rãi cho gia đình') : option.description;
+
+  const priceLabel = option.priceLabel === 'Từ 15.000đ' ? t('booking.from15k', 'Từ 15.000đ') :
+                     option.priceLabel === 'Từ 45.000đ' ? t('booking.from45k', 'Từ 45.000đ') :
+                     option.priceLabel === 'Từ 65.000đ' ? t('booking.from65k', 'Từ 65.000đ') : option.priceLabel;
+
+  const badgeLabel = option.badgeLabel === 'Phổ biến' ? t('booking.popular', 'Phổ biến') :
+                     option.badgeLabel === '7 chỗ' ? t('booking.sevenSeats', '7 chỗ') : option.badgeLabel;
+
+  const metaLabel = option.metaLabel === 'Đang chọn' ? t('booking.selecting', 'Đang chọn') : option.metaLabel;
+
+  const price = option.estimatedFare ? formatFare(option.estimatedFare) : priceLabel ?? t('booking.dashFare', '-- đ');
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected, disabled }}
-      accessibilityLabel={`Chọn ${option.title}`}
+      accessibilityLabel={`Chọn ${title}`}
       disabled={disabled || loading}
       onPress={() => onPress?.(option.vehicleType)}
       style={({ pressed }) => [
@@ -124,22 +144,22 @@ export function VehicleOptionCard({
 
       <View style={styles.content}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>{option.title}</Text>
-          {option.badgeLabel && (
+          <Text style={styles.title}>{title}</Text>
+          {badgeLabel && (
             <View style={[styles.badge, selected && styles.badgeSelected]}>
-              <Text style={[styles.badgeText, selected && styles.badgeTextSelected]}>{option.badgeLabel}</Text>
+              <Text style={[styles.badgeText, selected && styles.badgeTextSelected]}>{badgeLabel}</Text>
             </View>
           )}
         </View>
 
         <Text style={styles.description} numberOfLines={1}>
-          {option.description}
+          {description}
         </Text>
 
         <View style={styles.metaRow}>
-          <MetaPill icon="time-outline" label={formatEta(option.etaMinutes)} />
-          <MetaPill icon="person-outline" label={`${option.capacity} khách`} />
-          {option.metaLabel && <MetaPill icon="sparkles-outline" label={option.metaLabel} />}
+          <MetaPill icon="time-outline" label={formatEta(option.etaMinutes, t)} />
+          <MetaPill icon="person-outline" label={t('booking.capacityGuests', '{capacity} khách', { capacity: option.capacity })} />
+          {metaLabel && <MetaPill icon="sparkles-outline" label={metaLabel} />}
         </View>
       </View>
 
@@ -149,7 +169,7 @@ export function VehicleOptionCard({
         ) : (
           <>
             <Text style={styles.priceText}>{price}</Text>
-            <Text style={styles.priceSubtext}>Ước tính</Text>
+            <Text style={styles.priceSubtext}>{t('booking.estimateLabel', 'Ước tính')}</Text>
           </>
         )}
         {selected && <Ionicons name="checkmark-circle" size={rs(32)} color={palette.primary} />}
@@ -191,12 +211,12 @@ function MetaPill({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label
   );
 }
 
-function formatEta(etaMinutes?: number | null) {
+function formatEta(etaMinutes: number | null | undefined, t: any) {
   if (!etaMinutes || etaMinutes <= 0) {
-    return '-- phút';
+    return t('booking.dashMinutes', '-- phút');
   }
 
-  return `${Math.round(etaMinutes)} phút`;
+  return t('booking.etaMinutes', '{minutes} phút', { minutes: Math.round(etaMinutes) });
 }
 
 function formatFare(fare: number) {

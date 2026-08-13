@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import type { TripStatus } from '@/types/ride';
 
 const palette = {
@@ -36,35 +37,35 @@ type TimelineStep = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
-const steps: TimelineStep[] = [
+const getSteps = (t: any): TimelineStep[] => [
   {
     status: 'SEARCHING',
-    title: 'Đang tìm tài xế',
-    description: 'GoRide gửi yêu cầu tới tài xế gần bạn.',
+    title: t('booking.stepSearching', 'Đang tìm tài xế'),
+    description: t('booking.stepSearchingDesc', 'GoRide gửi yêu cầu tới tài xế gần bạn.'),
     icon: 'radar',
   },
   {
     status: 'ACCEPTED',
-    title: 'Tài xế đã nhận',
-    description: 'Thông tin tài xế và vị trí sẽ được cập nhật.',
+    title: t('booking.stepAccepted', 'Tài xế đã nhận'),
+    description: t('booking.stepAcceptedDesc', 'Thông tin tài xế và vị trí sẽ được cập nhật.'),
     icon: 'account-check-outline',
   },
   {
     status: 'ARRIVED',
-    title: 'Tài xế đã đến',
-    description: 'Kiểm tra biển số và lên xe an toàn.',
+    title: t('booking.stepArrived', 'Tài xế đã đến'),
+    description: t('booking.stepArrivedDesc', 'Kiểm tra biển số và lên xe an toàn.'),
     icon: 'map-marker-check-outline',
   },
   {
     status: 'IN_PROGRESS',
-    title: 'Đang di chuyển',
-    description: 'Chuyến đi đang được theo dõi realtime.',
+    title: t('booking.stepInProgress', 'Đang di chuyển'),
+    description: t('booking.stepInProgressDesc', 'Chuyến đi đang được theo dõi realtime.'),
     icon: 'car-clock',
   },
   {
     status: 'COMPLETED',
-    title: 'Hoàn thành',
-    description: 'Chuyến đi kết thúc và đồng bộ hóa đơn.',
+    title: t('booking.stepCompleted', 'Hoàn thành'),
+    description: t('booking.stepCompletedDesc', 'Chuyến đi kết thúc và đồng bộ hóa đơn.'),
     icon: 'flag-checkered',
   },
 ];
@@ -76,7 +77,9 @@ export type TripStatusTimelineProps = {
 };
 
 export function TripStatusTimeline({ status, lastUpdatedAt = null, style }: TripStatusTimelineProps) {
-  const activeIndex = getActiveIndex(status);
+  const { t } = useLanguage();
+  const steps = useMemo(() => getSteps(t), [t]);
+  const activeIndex = getActiveIndex(status, steps);
   const interrupted = status === 'CANCELLED' || status === 'NO_DRIVER';
 
   return (
@@ -86,19 +89,19 @@ export function TripStatusTimeline({ status, lastUpdatedAt = null, style }: Trip
           <MaterialCommunityIcons name="timeline-clock-outline" size={rs(26)} color={palette.primary} />
         </View>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Tiến trình chuyến đi</Text>
-          <Text style={styles.subtitle}>{formatLastUpdated(lastUpdatedAt)}</Text>
+          <Text style={styles.title}>{t('booking.tripProgress', 'Tiến trình chuyến đi')}</Text>
+          <Text style={styles.subtitle}>{formatLastUpdated(lastUpdatedAt, t)}</Text>
         </View>
       </View>
 
-      {interrupted ? <InterruptedBanner status={status} /> : null}
+      {interrupted ? <InterruptedBanner status={status} t={t} /> : null}
 
       <View style={styles.timeline}>
         {steps.map((step, index) => {
           const state = getStepState(index, activeIndex, interrupted);
           const isLast = index === steps.length - 1;
 
-          return <TimelineRow key={step.status} step={step} state={state} isLast={isLast} />;
+          return <TimelineRow key={step.status} step={step} state={state} isLast={isLast} t={t} />;
         })}
       </View>
     </View>
@@ -109,10 +112,12 @@ function TimelineRow({
   step,
   state,
   isLast,
+  t,
 }: {
   step: TimelineStep;
   state: 'done' | 'active' | 'upcoming' | 'muted';
   isLast: boolean;
+  t: any;
 }) {
   const active = state === 'active';
   const done = state === 'done';
@@ -138,13 +143,13 @@ function TimelineRow({
       <View style={[styles.stepCopy, muted && styles.stepCopyMuted]}>
         <Text style={[styles.stepTitle, active && styles.stepTitleActive, muted && styles.stepTextMuted]}>{step.title}</Text>
         <Text style={[styles.stepDescription, muted && styles.stepTextMuted]}>{step.description}</Text>
-        {active ? <Text style={styles.activeLabel}>Đang ở bước này</Text> : null}
+        {active ? <Text style={styles.activeLabel}>{t('booking.currentStep', 'Đang ở bước này')}</Text> : null}
       </View>
     </View>
   );
 }
 
-function InterruptedBanner({ status }: { status: TripStatus }) {
+function InterruptedBanner({ status, t }: { status: TripStatus; t: any }) {
   const isCancelled = status === 'CANCELLED';
 
   return (
@@ -155,13 +160,13 @@ function InterruptedBanner({ status }: { status: TripStatus }) {
         color={isCancelled ? palette.danger : palette.amber}
       />
       <Text style={[styles.interruptedText, { color: isCancelled ? palette.danger : palette.amber }]}>
-        {isCancelled ? 'Chuyến đi đã hủy. Timeline được giữ lại để đối soát.' : 'Chưa tìm thấy tài xế phù hợp cho chuyến này.'}
+        {isCancelled ? t('booking.timelineCancelled', 'Chuyến đi đã hủy. Timeline được giữ lại để đối soát.') : t('booking.timelineNoDriver', 'Chưa tìm thấy tài xế phù hợp cho chuyến này.')}
       </Text>
     </View>
   );
 }
 
-function getActiveIndex(status: TripStatus) {
+function getActiveIndex(status: TripStatus, steps: TimelineStep[]) {
   const index = steps.findIndex((step) => step.status === status);
   return index >= 0 ? index : 0;
 }
@@ -182,19 +187,20 @@ function getStepState(index: number, activeIndex: number, interrupted: boolean) 
   return 'upcoming';
 }
 
-function formatLastUpdated(value?: string | null) {
+function formatLastUpdated(value?: string | null, t?: any) {
   if (!value) {
-    return 'Cập nhật theo realtime và fallback GPS';
+    return t ? t('booking.updatedRealtime', 'Cập nhật theo realtime và fallback GPS') : 'Cập nhật theo realtime và fallback GPS';
   }
 
   const date = new Date(value);
+  const updatedPrefix = t ? t('booking.updatedAt', 'Cập nhật lúc ') : 'Cập nhật lúc ';
 
   if (Number.isNaN(date.getTime())) {
-    return 'Cập nhật lúc ' + value;
+    return updatedPrefix + value;
   }
 
   return (
-    'Cập nhật lúc ' +
+    updatedPrefix +
     date.toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit',

@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { LanguageProvider } from '@/lib/i18n';
 import { initializeAuthSession } from '@/lib/auth-api';
 import { installGlobalErrorReporting } from '@/lib/error-reporting';
 
@@ -19,15 +20,17 @@ export default function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(customer)" options={{ headerShown: false }} />
-          <Stack.Screen name="(driver)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(customer)" options={{ headerShown: false }} />
+            <Stack.Screen name="(driver)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </LanguageProvider>
     </AppErrorBoundary>
   );
 }

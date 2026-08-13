@@ -1,6 +1,8 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
+
+import { useLanguage } from '@/lib/i18n';
 import {
   Alert,
   ActivityIndicator,
@@ -103,12 +105,12 @@ const paymentThemeByMethod: Record<
   },
 };
 
-const fallbackPaymentMethods: PassengerPaymentMethod[] = [
+const getFallbackPaymentMethods = (t: (key: string) => string): PassengerPaymentMethod[] => [
   {
     id: 'cash',
     method: 'CASH',
-    title: 'Tiền mặt',
-    detail: 'Thanh toán sau chuyến',
+    title: t('booking.cash'),
+    detail: t('booking.payAfterTrip'),
     status: 'ACTIVE',
     isDefault: true,
     linked: true,
@@ -117,38 +119,37 @@ const fallbackPaymentMethods: PassengerPaymentMethod[] = [
     id: 'momo',
     method: 'MOMO',
     title: 'MoMo',
-    detail: 'Sắp hỗ trợ ví điện tử',
+    detail: t('booking.ewalletSoon'),
     status: 'COMING_SOON',
     isDefault: false,
     linked: false,
-    badge: 'Sắp có',
+    badge: t('booking.comingSoonBadge'),
   },
   {
     id: 'vnpay',
     method: 'VNPAY',
     title: 'VNPay',
-    detail: 'Sắp hỗ trợ QR ngân hàng',
+    detail: t('booking.qrSoon'),
     status: 'COMING_SOON',
     isDefault: false,
     linked: false,
-    badge: 'Sắp có',
+    badge: t('booking.comingSoonBadge'),
   },
 ];
 
-const noPromotionOption: PromotionOption = {
+const getNoPromotionOption = (t: (key: string) => string): PromotionOption => ({
   code: null,
-  title: 'Không dùng ưu đãi',
-  description: 'Giữ nguyên giá ước tính',
+  title: t('booking.noPromoOption'),
+  description: t('booking.keepEstimateOption'),
   status: 'AVAILABLE',
-};
+});
 
-const fallbackPromotionOptions: PromotionOption[] = [
-  {
-    ...noPromotionOption,
-  },
+const getFallbackPromotionOptions = (t: (key: string) => string): PromotionOption[] => [
+  getNoPromotionOption(t),
 ];
 
 export default function SelectVehicleScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const params = useLocalSearchParams();
   const pickupParam = readParam(params.pickup);
@@ -170,7 +171,7 @@ export default function SelectVehicleScreen() {
         destLat: destLatParam,
         destLng: destLngParam,
         destLabel: destLabelParam,
-      }),
+      }, t),
     [
       destLabelParam,
       destLatParam,
@@ -180,12 +181,13 @@ export default function SelectVehicleScreen() {
       pickupLatParam,
       pickupLngParam,
       pickupParam,
+      t,
     ],
   );
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('MOTORBIKE');
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('CASH');
   const [selectedPromotionCode, setSelectedPromotionCode] = useState<string | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<PassengerPaymentMethod[]>(fallbackPaymentMethods);
+  const [paymentMethods, setPaymentMethods] = useState<PassengerPaymentMethod[]>(() => getFallbackPaymentMethods(t));
   const [vouchers, setVouchers] = useState<PassengerVoucher[]>([]);
   const [checkoutLoading, setCheckoutLoading] = useState(true);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -270,8 +272,8 @@ export default function SelectVehicleScreen() {
             setSelectedPayment(defaultMethod.method);
           }
         } else if (methodResult.status === 'rejected') {
-          setPaymentMethods(fallbackPaymentMethods);
-          setCheckoutError(methodResult.reason instanceof Error ? methodResult.reason.message : 'Không thể tải ví.');
+          setPaymentMethods(getFallbackPaymentMethods(t));
+          setCheckoutError(methodResult.reason instanceof Error ? methodResult.reason.message : t('booking.errLoadWallet'));
         }
 
         if (voucherResult.status === 'fulfilled') {
@@ -282,7 +284,7 @@ export default function SelectVehicleScreen() {
             currentError ??
             (voucherResult.reason instanceof Error
               ? voucherResult.reason.message
-              : 'Không thể tải danh sách ưu đãi.'),
+              : t('booking.errLoadPromo')),
           );
         }
       } finally {
@@ -302,7 +304,7 @@ export default function SelectVehicleScreen() {
   useEffect(() => {
     if (!estimateDraft) {
       setEstimate(null);
-      setEstimateError('Thiếu điểm đón hoặc điểm đến. Vui lòng chọn lại lộ trình.');
+      setEstimateError(t('booking.errMissingRoute'));
       return;
     }
 
@@ -322,7 +324,7 @@ export default function SelectVehicleScreen() {
       } catch (error) {
         if (!cancelled) {
           setEstimate(null);
-          setEstimateError(error instanceof Error ? error.message : 'Không thể tính giá ước tính');
+          setEstimateError(error instanceof Error ? error.message : t('booking.errEstimate'));
         }
       } finally {
         if (!cancelled) {
@@ -348,7 +350,7 @@ export default function SelectVehicleScreen() {
 
     if (!estimate) {
       setVoucherValidation(null);
-      setVoucherValidationError('Chờ GoRide tính giá trước khi áp dụng ưu đãi.');
+      setVoucherValidationError(t('booking.waitEstimatePromo'));
       setVoucherValidationLoading(false);
       return;
     }
@@ -370,12 +372,12 @@ export default function SelectVehicleScreen() {
 
         if (!cancelled) {
           setVoucherValidation(result);
-          setVoucherValidationError(result.isValid ? null : result.message ?? 'Ưu đãi không khả dụng.');
+          setVoucherValidationError(result.isValid ? null : result.message ?? t('booking.promoUnavailable'));
         }
       } catch (error) {
         if (!cancelled) {
           setVoucherValidation(null);
-          setVoucherValidationError(error instanceof Error ? error.message : 'Không thể kiểm tra ưu đãi.');
+          setVoucherValidationError(error instanceof Error ? error.message : t('booking.errCheckPromo'));
         }
       } finally {
         if (!cancelled) {
@@ -396,28 +398,28 @@ export default function SelectVehicleScreen() {
       DEFAULT_VEHICLE_OPTIONS.map((option) => ({
         ...option,
         estimatedFare: option.vehicleType === selectedVehicle ? estimate?.estimatedFare ?? null : null,
-        metaLabel: option.vehicleType === selectedVehicle ? 'Đang chọn' : option.metaLabel,
+        metaLabel: option.vehicleType === selectedVehicle ? t('booking.selecting') : option.metaLabel,
       })),
-    [estimate?.estimatedFare, selectedVehicle],
+    [estimate?.estimatedFare, selectedVehicle, t],
   );
 
-  const paymentOptions = useMemo(() => paymentMethods.map(toPaymentOption), [paymentMethods]);
+  const paymentOptions = useMemo(() => paymentMethods.map(m => toPaymentOption(m, t)), [paymentMethods, t]);
   const promotionOptions = useMemo<PromotionOption[]>(
     () =>
       vouchers.length
         ? [
-            noPromotionOption,
+            getNoPromotionOption(t),
             ...vouchers.map((voucher) => ({
               code: voucher.code,
               title: voucher.title,
-              description: getVoucherDescription(voucher),
-              badge: getVoucherBadge(voucher),
+              description: getVoucherDescription(voucher, t),
+              badge: getVoucherBadge(voucher, t),
               status: voucher.status,
               voucher,
             })),
           ]
-        : fallbackPromotionOptions,
-    [vouchers],
+        : getFallbackPromotionOptions(t),
+    [vouchers, t],
   );
 
   const selectedOption = vehicleOptions.find((option) => option.vehicleType === selectedVehicle) ?? vehicleOptions[0];
@@ -443,8 +445,8 @@ export default function SelectVehicleScreen() {
   const handlePaymentPress = (option: PaymentOption) => {
     if (!isPaymentOptionReady(option)) {
       Alert.alert(
-        'Sắp hỗ trợ',
-        `${option.label} đang được chuẩn bị. Hiện GoRide mini ưu tiên thanh toán tiền mặt để đặt xe ổn định.`,
+        t('booking.soonSupportTitle'),
+        t('booking.paymentSoonMsg', { label: option.label }),
       );
       return;
     }
@@ -459,7 +461,7 @@ export default function SelectVehicleScreen() {
     }
 
     if (option.status !== 'AVAILABLE') {
-      Alert.alert(option.title, getUnavailableVoucherMessage(option.status));
+      Alert.alert(option.title, getUnavailableVoucherMessage(option.status, t));
       return;
     }
 
@@ -468,17 +470,17 @@ export default function SelectVehicleScreen() {
 
   const handleConfirmBooking = async () => {
     if (!bookingDraft || !bookingEstimate) {
-      Alert.alert('Chưa có giá ước tính', 'Vui lòng chờ GoRide tính giá hoặc thử lại trước khi đặt xe.');
+      Alert.alert(t('booking.noEstimateTitle'), t('booking.noEstimateMsg'));
       return;
     }
 
     if (!selectedPaymentReady) {
-      Alert.alert('Thanh toán chưa sẵn sàng', `${selectedPaymentOption.label} chưa thể dùng trong bản MVP này.`);
+      Alert.alert(t('booking.paymentNotReadyTitle'), t('booking.paymentNotReadyMsg', { label: selectedPaymentOption.label }));
       return;
     }
 
     if (selectedVoucherBlocked) {
-      Alert.alert('Ưu đãi chưa hợp lệ', voucherValidationError ?? 'Vui lòng bỏ ưu đãi hoặc chọn mã khác.');
+      Alert.alert(t('booking.voucherInvalidTitle'), voucherValidationError ?? t('booking.voucherInvalidMsg'));
       return;
     }
 
@@ -526,9 +528,9 @@ export default function SelectVehicleScreen() {
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tạo booking';
+      const message = error instanceof Error ? error.message : t('booking.errCreateBooking');
       setBookingError(message);
-      Alert.alert('Không thể đặt xe', `${message}. Vui lòng thử lại, lộ trình của bạn vẫn được giữ nguyên.`);
+      Alert.alert(t('booking.cannotBookTitle'), t('booking.cannotBookMsg', { message }));
     } finally {
       setBookingLoading(false);
     }
@@ -544,7 +546,7 @@ export default function SelectVehicleScreen() {
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>GoRide Passenger</Text>
-          <Text style={styles.title}>Chọn loại xe</Text>
+          <Text style={styles.title}>{t('booking.selectVehicleTitle')}</Text>
         </View>
       </View>
 
@@ -572,8 +574,8 @@ export default function SelectVehicleScreen() {
             )}
             <Text style={[styles.checkoutStateText, checkoutError && styles.checkoutStateTextError]}>
               {checkoutLoading
-                ? 'Đang đồng bộ phương thức thanh toán và ưu đãi...'
-                : `${checkoutError} GoRide vẫn giữ lựa chọn tiền mặt để bạn tiếp tục đặt xe.`}
+                ? t('booking.syncingCheckout')
+                : t('booking.checkoutErrorFallback', { error: checkoutError })}
             </Text>
           </View>
         )}
@@ -586,11 +588,11 @@ export default function SelectVehicleScreen() {
         )}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Dịch vụ đề xuất</Text>
+          <Text style={styles.sectionTitle}>{t('booking.recommendedServices')}</Text>
           {estimateLoading && (
             <View style={styles.loadingPill}>
               <ActivityIndicator size="small" color={palette.primary} />
-              <Text style={styles.loadingText}>Đang tính giá</Text>
+              <Text style={styles.loadingText}>{t('booking.calculatingFare')}</Text>
             </View>
           )}
         </View>
@@ -608,7 +610,7 @@ export default function SelectVehicleScreen() {
         </View>
 
         <View style={styles.optionSection}>
-          <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+          <Text style={styles.sectionTitle}>{t('booking.paymentMethod')}</Text>
           <View style={styles.paymentGrid}>
             {paymentOptions.map((option) => (
               <PaymentMethodCard
@@ -622,7 +624,7 @@ export default function SelectVehicleScreen() {
         </View>
 
         <View style={styles.optionSection}>
-          <Text style={styles.sectionTitle}>Ưu đãi</Text>
+          <Text style={styles.sectionTitle}>{t('booking.promotions')}</Text>
           <View style={styles.promoList}>
             {promotionOptions.map((option) => (
               <PromotionCard
@@ -650,27 +652,27 @@ export default function SelectVehicleScreen() {
               />
             </View>
             <View>
-              <Text style={styles.paymentLabel}>Thanh toán</Text>
+              <Text style={styles.paymentLabel}>{t('booking.paymentLabel')}</Text>
               <Text style={styles.paymentMethod}>{selectedPaymentOption.label}</Text>
               <Text style={styles.promotionSummary} numberOfLines={1}>
                 {selectedPromotion.code
                   ? voucherValidationLoading
-                    ? 'Đang kiểm tra ưu đãi...'
+                    ? t('booking.checkingPromo')
                     : activeVoucherValidation
-                      ? `Ưu đãi: ${activeVoucherValidation.voucher?.code ?? selectedPromotion.code}`
-                      : `Ưu đãi chưa hợp lệ: ${selectedPromotion.code}`
-                  : 'Chưa dùng ưu đãi'}
+                      ? t('booking.appliedPromo', { code: activeVoucherValidation.voucher?.code ?? selectedPromotion.code })
+                      : t('booking.invalidPromo', { code: selectedPromotion.code })
+                  : t('booking.noPromoSelected')}
               </Text>
             </View>
           </View>
           <View style={styles.fareSummary}>
-            <Text style={styles.fareLabel}>{discountAmount > 0 ? 'Sau ưu đãi' : 'Tạm tính'}</Text>
+            <Text style={styles.fareLabel}>{discountAmount > 0 ? t('booking.afterDiscount') : t('booking.tempFare')}</Text>
             {discountAmount > 0 && estimate ? (
               <Text style={styles.originalFareValue}>{formatFare(estimate.estimatedFare)}</Text>
             ) : null}
             <Text style={styles.fareValue}>{finalFare !== null ? formatFare(finalFare) : '-- đ'}</Text>
             {discountAmount > 0 ? (
-              <Text style={styles.discountText}>Giảm {formatFare(discountAmount)}</Text>
+              <Text style={styles.discountText}>{t('booking.discountAmount', { amount: formatFare(discountAmount) })}</Text>
             ) : null}
           </View>
         </View>
@@ -685,7 +687,7 @@ export default function SelectVehicleScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Text style={styles.confirmButtonText}>Đặt {selectedOption.title}</Text>
+              <Text style={styles.confirmButtonText}>{t('booking.bookService', { service: selectedOption.title })}</Text>
               <Feather name="arrow-right" size={rs(32)} color="#fff" style={styles.confirmButtonIcon} />
             </>
           )}
@@ -752,6 +754,7 @@ function PromotionCard({
   validationError?: string | null;
   onPress: () => void;
 }) {
+  const { t } = useLanguage();
   const unavailable = option.status !== 'AVAILABLE';
   const validSelected = Boolean(selected && validationResult?.isValid);
   const noneSelected = selected && !option.code;
@@ -782,17 +785,17 @@ function PromotionCard({
       <View style={styles.promoCopy}>
         <View style={styles.promoTitleRow}>
           <Text style={styles.promoTitle}>{option.title}</Text>
-          {option.badge && (
+          {option.badge ? (
             <View style={styles.promoBadge}>
               <Text style={styles.promoBadgeText}>{option.badge}</Text>
             </View>
-          )}
+          ) : null}
         </View>
         <Text style={styles.promoDescription}>{option.description}</Text>
         {selected && (validationError || validationResult?.message) ? (
           <Text style={[styles.promoValidationText, validSelected && styles.promoValidationTextSuccess]}>
             {validationResult?.isValid
-              ? `${validationResult.message ?? 'Đã áp dụng ưu đãi.'} Giảm ${formatFare(validationResult.discountAmount)}`
+              ? `${validationResult.message ?? t('booking.promoApplied')} ${t('booking.discountAmount', { amount: formatFare(validationResult.discountAmount) })}`
               : validationError ?? validationResult?.message}
           </Text>
         ) : null}
@@ -807,7 +810,7 @@ function PromotionCard({
   );
 }
 
-function toPaymentOption(method: PassengerPaymentMethod): PaymentOption {
+function toPaymentOption(method: PassengerPaymentMethod, t: any): PaymentOption {
   const theme = paymentThemeByMethod[method.method];
 
   return {
@@ -821,7 +824,7 @@ function toPaymentOption(method: PassengerPaymentMethod): PaymentOption {
     status: method.status,
     isDefault: method.isDefault,
     linked: method.linked,
-    badge: method.badge ?? (method.isDefault ? 'Mặc định' : undefined),
+    badge: method.badge ?? (method.isDefault ? t('booking.defaultBadge') : undefined),
   };
 }
 
@@ -829,75 +832,71 @@ function isPaymentOptionReady(option?: PaymentOption) {
   return Boolean(option && option.status === 'ACTIVE' && option.linked);
 }
 
-function getPaymentStatusLabel(status: PaymentMethodStatus) {
+function getPaymentStatusLabel(status: PaymentMethodStatus, t?: any) {
   if (status === 'COMING_SOON') {
-    return 'Sắp có';
+    return t ? t('booking.comingSoonBadge') : 'Sắp có';
   }
 
   if (status === 'DISABLED') {
-    return 'Tạm khóa';
+    return t ? t('booking.disabledBadge') : 'Tạm khóa';
   }
 
-  return 'Sẵn sàng';
+  return t ? t('booking.readyBadge') : 'Sẵn sàng';
 }
 
-function getVoucherDescription(voucher: PassengerVoucher) {
+function getVoucherDescription(voucher: PassengerVoucher, t: any) {
   const meta = [
-    voucher.minFare ? `Tối thiểu ${formatFare(voucher.minFare)}` : undefined,
-    voucher.maxDiscount ? `Tối đa ${formatFare(voucher.maxDiscount)}` : undefined,
+    voucher.minFare ? t('booking.minFare', { amount: formatFare(voucher.minFare) }) : undefined,
+    voucher.maxDiscount ? t('booking.maxDiscount', { amount: formatFare(voucher.maxDiscount) }) : undefined,
     voucher.eligiblePaymentMethods?.length
-      ? `Áp dụng: ${voucher.eligiblePaymentMethods.map(getPaymentMethodLabel).join(', ')}`
+      ? t('booking.applyFor', { methods: voucher.eligiblePaymentMethods.map(m => getPaymentMethodLabel(m, t)).join(', ') })
       : undefined,
   ].filter(Boolean);
 
   return meta.length ? `${voucher.description} ${meta.join(' • ')}` : voucher.description;
 }
 
-function getVoucherBadge(voucher: PassengerVoucher) {
+function getVoucherBadge(voucher: PassengerVoucher, t: any) {
   if (voucher.status !== 'AVAILABLE') {
-    return getVoucherStatusLabel(voucher.status);
+    return getVoucherStatusLabel(voucher.status, t);
   }
 
-  if (voucher.discountType === 'FIXED') {
-    return `-${formatFare(voucher.discountValue)}`;
-  }
-
-  return `-${voucher.discountValue}%`;
+  return t('booking.voucherAvailableBadge');
 }
 
-function getVoucherStatusLabel(status: VoucherStatus) {
+function getVoucherStatusLabel(status: VoucherStatus, t: any) {
   if (status === 'COMING_SOON') {
-    return 'Sắp có';
+    return t('booking.soonBadge');
   }
 
   if (status === 'EXPIRED') {
-    return 'Hết hạn';
+    return t('booking.expiredBadge');
   }
 
   if (status === 'USED') {
-    return 'Đã dùng';
+    return t('booking.usedBadge');
   }
 
-  return 'Dùng được';
+  return t('booking.usableBadge');
 }
 
-function getUnavailableVoucherMessage(status: VoucherStatus) {
+function getUnavailableVoucherMessage(status: VoucherStatus, t: any) {
   if (status === 'COMING_SOON') {
-    return 'Ưu đãi này sẽ được bật khi backend thanh toán/voucher sẵn sàng.';
+    return t('booking.voucherSoonMsg');
   }
 
   if (status === 'EXPIRED') {
-    return 'Ưu đãi này đã hết hạn, vui lòng chọn mã khác.';
+    return t('booking.voucherExpiredMsg');
   }
 
   if (status === 'USED') {
-    return 'Ưu đãi này đã được sử dụng.';
+    return t('booking.voucherUsedMsg');
   }
 
-  return 'Ưu đãi này chưa thể áp dụng.';
+  return t('booking.voucherUnavailableMsg');
 }
 
-function getPaymentMethodLabel(method: PaymentMethod) {
+function getPaymentMethodLabel(method: PaymentMethod, t: any) {
   if (method === 'MOMO') {
     return 'MoMo';
   }
@@ -906,7 +905,7 @@ function getPaymentMethodLabel(method: PaymentMethod) {
     return 'VNPay';
   }
 
-  return 'Tiền mặt';
+  return t('booking.cash');
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -916,10 +915,10 @@ type RoutePoints = {
   dropoff: LocationPoint | null;
 };
 
-function resolveRouteFromParams(params: SearchParams): RoutePoints {
+function resolveRouteFromParams(params: SearchParams, t: (key: string) => string): RoutePoints {
   return {
-    pickup: parseLocationPointParam(params.pickup) ?? parseLegacyLocation(params, 'pickup'),
-    dropoff: parseLocationPointParam(params.dropoff) ?? parseLegacyLocation(params, 'dest'),
+    pickup: parseLocationPointParam(params.pickup) ?? parseLegacyLocation(params, 'pickup', t),
+    dropoff: parseLocationPointParam(params.dropoff) ?? parseLegacyLocation(params, 'dest', t),
   };
 }
 
@@ -949,7 +948,7 @@ function parseLocationPointParam(value: string | string[] | undefined): Location
   return null;
 }
 
-function parseLegacyLocation(params: SearchParams, prefix: 'pickup' | 'dest'): LocationPoint | null {
+function parseLegacyLocation(params: SearchParams, prefix: 'pickup' | 'dest', t: (key: string) => string): LocationPoint | null {
   const lat = Number(readParam(params[`${prefix}Lat`]));
   const lng = Number(readParam(params[`${prefix}Lng`]));
   const label = readParam(params[`${prefix}Label`]);
@@ -961,8 +960,8 @@ function parseLegacyLocation(params: SearchParams, prefix: 'pickup' | 'dest'): L
   return {
     lat,
     lng,
-    address: label || (prefix === 'pickup' ? 'Điểm đón đã chọn' : 'Điểm đến đã chọn'),
-    label: label || (prefix === 'pickup' ? 'Điểm đón' : 'Điểm đến'),
+    address: label || (prefix === 'pickup' ? t('booking.pickupLabel') : t('booking.destinationLabel')),
+    label: label || (prefix === 'pickup' ? t('booking.pickupLabel') : t('booking.destinationLabel')),
   };
 }
 

@@ -1,5 +1,6 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
+import { useLanguage } from '@/lib/i18n';
 import {
   ActivityIndicator,
   Animated,
@@ -45,6 +46,7 @@ export function ThreeWordSearchModal({
   onClose,
   onSelectResult,
 }: ThreeWordSearchModalProps) {
+  const { t } = useLanguage();
   const [addressInput, setAddressInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export function ThreeWordSearchModal({
     const trimmed = addressInput.trim();
 
     if (!isValidThreeWordAddress(trimmed)) {
-      setErrorMessage('Nhập hoặc nói đúng dạng 3 từ, ví dụ hoa.la.cay.');
+      setErrorMessage(t('driver.threeWordErrorFormat'));
       return;
     }
 
@@ -144,7 +146,7 @@ export function ThreeWordSearchModal({
       const message =
         err instanceof Error
           ? err.message
-          : 'Dịch vụ tra tọa độ tạm thời không khả dụng.';
+          : t('driver.threeWordErrorService');
       setErrorMessage(message);
     } finally {
       setLoading(false);
@@ -176,7 +178,7 @@ export function ThreeWordSearchModal({
                   size={rs(26)}
                   color={palette.primary}
                 />
-                <Text style={styles.headerTitle}>Tìm bằng địa chỉ 3 từ</Text>
+                <Text style={styles.headerTitle}>{t('driver.threeWordTitle')}</Text>
               </View>
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -189,8 +191,8 @@ export function ThreeWordSearchModal({
 
             <Text style={styles.description}>
               {voiceSupported
-                ? <>Gõ 3 từ hoặc <Text style={styles.boldText}>nói trực tiếp bằng giọng nói</Text> (ví dụ: hoa lá cây).</>
-                : <>Gõ 3 từ (ví dụ: <Text style={styles.boldText}>hoa.la.cay</Text>).</>}
+                ? t('driver.threeWordDescWithVoice')
+                : t('driver.threeWordDesc')}
             </Text>
 
             {/* Voice Listening Banner */}
@@ -200,13 +202,13 @@ export function ThreeWordSearchModal({
                   <Ionicons name="mic" size={rs(22)} color="#ffffff" />
                 </Animated.View>
                 <View style={styles.listeningCopy}>
-                  <Text style={styles.listeningTitle}>Đang lắng nghe...</Text>
+                  <Text style={styles.listeningTitle}>{t('driver.threeWordListeningTitle')}</Text>
                   <Text style={styles.listeningTranscript} numberOfLines={1}>
-                    {transcript ? `"${transcript}"` : 'Hãy nói 3 từ (ví dụ: hoa lá cây)...'}
+                    {transcript ? `"${transcript}"` : t('driver.threeWordPlaceholderVoice')}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={stopListening} style={styles.stopListeningBtn}>
-                  <Text style={styles.stopListeningText}>Dừng</Text>
+                  <Text style={styles.stopListeningText}>{t('driver.threeWordStopBtn')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -272,7 +274,7 @@ export function ThreeWordSearchModal({
                 ) : (
                   <>
                     <Ionicons name="search" size={rs(20)} color="#ffffff" />
-                    <Text style={styles.searchButtonText}>Tra tọa độ</Text>
+                    <Text style={styles.searchButtonText}>{t('driver.threeWordSearchBtn')}</Text>
                   </>
                 )}
               </Pressable>

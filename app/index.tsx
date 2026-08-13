@@ -5,6 +5,9 @@ import React from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useLanguage } from '@/lib/i18n';
+import { LanguageToggle } from '@/components/ui/language-toggle';
+
 const colors = {
   background: '#FCF8FF',
   white: '#FFFFFF',
@@ -27,6 +30,7 @@ const shadow = {
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -39,49 +43,54 @@ export default function RoleSelectionScreen() {
         <View style={styles.routeDot} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        bounces={false}
+      >
         <View style={styles.content}>
           <View style={styles.brandRow}>
             <View style={styles.brandMark}>
-              <MaterialCommunityIcons name="map-marker-path" size={rs(40)} color={colors.purple} />
+              <MaterialCommunityIcons name="map-marker-path" size={rs(32)} color={colors.purple} />
             </View>
             <View>
               <Text style={styles.brandName}>GoRide</Text>
-              <Text style={styles.brandTagline}>Đi đâu cũng tiện</Text>
+              <Text style={styles.brandTagline}>{t('roleSelection.tagline')}</Text>
             </View>
+            <LanguageToggle />
           </View>
 
           <View style={styles.hero}>
             <View style={styles.eyebrow}>
               <View style={styles.liveDot} />
-              <Text style={styles.eyebrowText}>SẴN SÀNG ĐỒNG HÀNH</Text>
+              <Text style={styles.eyebrowText}>{t('roleSelection.eyebrow')}</Text>
             </View>
-            <Text style={styles.title}>Bạn muốn sử dụng{'\n'}GoRide như thế nào?</Text>
-            <Text style={styles.subtitle}>Chọn vai trò phù hợp để bắt đầu hành trình của bạn.</Text>
+            <Text style={styles.title}>{t('roleSelection.title')}</Text>
+            <Text style={styles.subtitle}>{t('roleSelection.subtitle')}</Text>
           </View>
 
           <View style={styles.roleList}>
             <RoleCard
               variant="customer"
-              badge="ĐẶT CHUYẾN"
-              title="Tôi là khách hàng"
-              description="Đặt xe nhanh chóng, theo dõi hành trình và thanh toán thuận tiện."
-              action="Tiếp tục đặt xe"
+              badge={t('roleSelection.customerBadge')}
+              title={t('roleSelection.customerTitle')}
+              description={t('roleSelection.customerDesc')}
+              action={t('roleSelection.customerAction')}
               onPress={() => router.push('/(customer)/login')}
             />
             <RoleCard
               variant="driver"
-              badge="ĐỐI TÁC TÀI XẾ"
-              title="Tôi là tài xế"
-              description="Chủ động thời gian, nhận cuốc phù hợp và theo dõi thu nhập mỗi ngày."
-              action="Tiếp tục nhận cuốc"
+              badge={t('roleSelection.driverBadge')}
+              title={t('roleSelection.driverTitle')}
+              description={t('roleSelection.driverDesc')}
+              action={t('roleSelection.driverAction')}
               onPress={() => router.push('/(driver)/login' as never)}
             />
           </View>
 
           <View style={styles.footerNote}>
-            <MaterialCommunityIcons name="shield-check-outline" size={rs(27)} color={colors.muted} />
-            <Text style={styles.footerText}>Thông tin của bạn luôn được bảo mật trên GoRide</Text>
+            <MaterialCommunityIcons name="shield-check-outline" size={rs(22)} color={colors.muted} />
+            <Text style={styles.footerText}>{t('roleSelection.securityNote')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -105,12 +114,13 @@ function RoleCard({
   onPress: () => void;
 }) {
   const isCustomer = variant === 'customer';
+  const { t } = useLanguage();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Tiếp tục với vai trò ${isCustomer ? 'khách hàng' : 'tài xế'}`}
-      accessibilityHint={isCustomer ? 'Mở màn hình đăng nhập để đặt xe' : 'Mở màn hình đăng nhập dành cho đối tác tài xế'}
+      accessibilityLabel={t(isCustomer ? 'roleSelection.customerA11yLabel' : 'roleSelection.driverA11yLabel')}
+      accessibilityHint={t(isCustomer ? 'roleSelection.customerA11yHint' : 'roleSelection.driverA11yHint')}
       android_ripple={{ color: isCustomer ? 'rgba(255,255,255,0.18)' : 'rgba(0,184,117,0.12)' }}
       onPress={onPress}
       style={({ pressed }) => [
@@ -125,13 +135,13 @@ function RoleCard({
         <View style={[styles.roleIcon, isCustomer ? styles.customerIcon : styles.driverIcon]}>
           <MaterialCommunityIcons
             name={isCustomer ? 'account-outline' : 'steering'}
-            size={rs(45)}
+            size={rs(44)}
             color={isCustomer ? colors.purple : colors.greenDark}
           />
         </View>
         <View style={[styles.roleBadge, isCustomer ? styles.customerBadge : styles.driverBadge]}>
           {isCustomer ? (
-            <MaterialCommunityIcons name="motorbike" size={rs(24)} color={colors.white} />
+            <MaterialCommunityIcons name="motorbike" size={rs(23)} color={colors.white} />
           ) : (
             <View style={styles.driverDot} />
           )}
@@ -169,150 +179,155 @@ const styles = StyleSheet.create({
   },
   purpleGlow: {
     position: 'absolute',
-    top: rvs(-130),
-    right: rs(-120),
-    width: rs(360),
-    height: rs(360),
-    borderRadius: rs(180),
+    top: rvs(-90),
+    right: rs(-80),
+    width: rs(340),
+    height: rs(340),
+    borderRadius: rs(170),
     backgroundColor: '#EEE7FB',
   },
   greenGlow: {
     position: 'absolute',
-    bottom: rvs(-170),
-    left: rs(-150),
-    width: rs(420),
-    height: rs(420),
-    borderRadius: rs(210),
+    bottom: rvs(-110),
+    left: rs(-100),
+    width: rs(360),
+    height: rs(360),
+    borderRadius: rs(180),
     backgroundColor: '#E0F7EC',
   },
   routeLine: {
     position: 'absolute',
-    top: rvs(52),
-    right: rs(70),
-    width: rs(90),
-    height: rs(90),
+    top: rvs(46),
+    right: rs(58),
+    width: rs(76),
+    height: rs(76),
     borderLeftWidth: rs(2),
     borderBottomWidth: rs(2),
     borderColor: 'rgba(29,7,150,0.08)',
-    borderBottomLeftRadius: rs(48),
+    borderBottomLeftRadius: rs(40),
     transform: [{ rotate: '-18deg' }],
   },
   routeDot: {
     position: 'absolute',
-    top: rvs(139),
-    right: rs(147),
-    width: rs(10),
-    height: rs(10),
-    borderRadius: rs(5),
+    top: rvs(118),
+    right: rs(125),
+    width: rs(8),
+    height: rs(8),
+    borderRadius: rs(4),
     backgroundColor: 'rgba(29,7,150,0.13)',
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: rs(36),
-    paddingTop: rvs(26),
-    paddingBottom: rvs(30),
+    paddingHorizontal: rs(28),
+    paddingTop: rvs(14),
+    paddingBottom: rvs(16),
   },
   content: {
     width: '100%',
-    maxWidth: rs(680),
-    flexGrow: 1,
+    maxWidth: rs(640),
+    flex: 1,
     alignSelf: 'center',
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   brandMark: {
-    width: rs(76),
-    height: rs(76),
-    marginRight: rs(18),
-    borderRadius: rs(24),
+    width: rs(58),
+    height: rs(58),
+    marginRight: rs(14),
+    borderRadius: rs(18),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.white,
     borderWidth: rs(1),
     borderColor: '#DDD3F4',
     ...shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.09,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 3,
   },
   brandName: {
     color: colors.purple,
-    fontSize: rf(31),
-    lineHeight: rf(34),
+    fontSize: rf(29),
+    lineHeight: rf(32),
     fontWeight: '900',
-    letterSpacing: -0.6,
+    letterSpacing: -0.5,
   },
   brandTagline: {
-    marginTop: rvs(2),
+    marginTop: rvs(1),
     color: colors.muted,
-    fontSize: rf(20),
+    fontSize: rf(17),
     fontWeight: '600',
   },
   hero: {
-    marginTop: rvs(52),
-    marginBottom: rvs(38),
+    marginTop: rvs(18),
+    marginBottom: rvs(18),
   },
   eyebrow: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: rs(18),
-    paddingVertical: rvs(10),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(6),
     borderRadius: rs(99),
     backgroundColor: colors.purpleSoft,
   },
   liveDot: {
-    width: rs(10),
-    height: rs(10),
-    marginRight: rs(11),
-    borderRadius: rs(5),
+    width: rs(8),
+    height: rs(8),
+    marginRight: rs(9),
+    borderRadius: rs(4),
     backgroundColor: colors.green,
   },
   eyebrowText: {
     color: colors.purple,
-    fontSize: rf(18),
+    fontSize: rf(15),
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 0.7,
   },
   title: {
-    marginTop: rvs(18),
+    marginTop: rvs(10),
     color: colors.ink,
-    fontSize: rf(52),
-    lineHeight: rf(62),
+    fontSize: rf(40),
+    lineHeight: rf(48),
     fontWeight: '900',
-    letterSpacing: -1.6,
+    letterSpacing: -1.1,
   },
   subtitle: {
-    marginTop: rvs(14),
+    marginTop: rvs(6),
     maxWidth: rs(560),
     color: colors.muted,
-    fontSize: rf(25),
-    lineHeight: rf(36),
+    fontSize: rf(20),
+    lineHeight: rf(28),
     fontWeight: '500',
   },
   roleList: {
-    gap: rvs(24),
+    gap: rvs(58),
   },
   roleCard: {
     position: 'relative',
     overflow: 'hidden',
-    minHeight: rvs(285),
-    padding: rs(30),
-    borderRadius: rs(36),
+    paddingHorizontal: rs(32),
+    paddingVertical: rvs(28),
+    borderRadius: rs(30),
     ...shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.11,
+    shadowRadius: 22,
+    elevation: 6,
   },
   customerCard: {
     backgroundColor: colors.purple,
   },
   driverCard: {
     backgroundColor: colors.white,
-    borderWidth: rs(2),
+    borderWidth: rs(1.5),
     borderColor: '#BDEBD7',
     shadowColor: '#3D8065',
-    shadowOpacity: 0.09,
+    shadowOpacity: 0.08,
   },
   pressedCard: {
     opacity: 0.93,
@@ -320,8 +335,8 @@ const styles = StyleSheet.create({
   },
   cardGlow: {
     position: 'absolute',
-    top: rs(-80),
-    right: rs(-55),
+    top: rs(-70),
+    right: rs(-45),
     width: rs(260),
     height: rs(260),
     borderRadius: rs(130),
@@ -333,9 +348,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   roleIcon: {
-    width: rs(78),
-    height: rs(78),
-    borderRadius: rs(25),
+    width: rs(72),
+    height: rs(72),
+    borderRadius: rs(22),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -348,9 +363,9 @@ const styles = StyleSheet.create({
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(9),
+    gap: rs(8),
     paddingHorizontal: rs(16),
-    paddingVertical: rvs(10),
+    paddingVertical: rvs(8),
     borderRadius: rs(99),
   },
   customerBadge: {
@@ -368,7 +383,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: rf(17),
     fontWeight: '800',
-    letterSpacing: 0.7,
+    letterSpacing: 0.6,
   },
   customerBadgeText: {
     color: colors.white,
@@ -377,19 +392,19 @@ const styles = StyleSheet.create({
     color: colors.greenDark,
   },
   cardCopy: {
-    marginTop: rvs(24),
+    marginTop: rvs(16),
   },
   cardTitle: {
     fontSize: rf(34),
     lineHeight: rf(42),
     fontWeight: '900',
-    letterSpacing: -0.6,
+    letterSpacing: -0.5,
   },
   cardDescription: {
-    marginTop: rvs(8),
+    marginTop: rvs(6),
     maxWidth: rs(540),
-    fontSize: rf(22),
-    lineHeight: rf(32),
+    fontSize: rf(20),
+    lineHeight: rf(28),
     fontWeight: '500',
   },
   customerText: {
@@ -399,25 +414,25 @@ const styles = StyleSheet.create({
     color: colors.greenDark,
   },
   customerDescription: {
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.78)',
   },
   driverDescription: {
     color: colors.muted,
   },
   actionRow: {
-    marginTop: rvs(24),
+    marginTop: rvs(18),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   actionText: {
-    fontSize: rf(22),
+    fontSize: rf(21),
     fontWeight: '800',
   },
   arrow: {
-    width: rs(50),
-    height: rs(50),
-    borderRadius: rs(17),
+    width: rs(46),
+    height: rs(46),
+    borderRadius: rs(15),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -429,16 +444,17 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     marginTop: 'auto',
-    paddingTop: rvs(32),
+    paddingTop: rvs(18),
+    paddingBottom: rvs(8),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   footerText: {
-    marginLeft: rs(10),
+    marginLeft: rs(8),
     color: colors.muted,
-    fontSize: rf(19),
-    lineHeight: rf(26),
+    fontSize: rf(15),
+    lineHeight: rf(22),
     fontWeight: '600',
     textAlign: 'center',
   },

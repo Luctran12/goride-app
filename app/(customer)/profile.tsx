@@ -1,6 +1,8 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { logout as logoutAuth } from '@/lib/auth-api';
 import { getMyProfile, type UserProfile } from '@/lib/user-api';
+import { useLanguage } from '@/lib/i18n';
+import { LanguageSelectorModal } from '@/components/ui/language-toggle';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Href, useRouter } from 'expo-router';
@@ -39,18 +41,10 @@ const shadow = {
   elevation: 5,
 };
 
-const menuItems: MenuItemProps[] = [
-  { icon: 'account-outline', label: 'Thông tin cá nhân', route: '/(customer)/personal' },
-  { icon: 'history', label: 'Lịch sử chuyến đi', route: '/(customer)/activity' },
-  { icon: 'cash-multiple', label: 'Thanh toán', route: '/(customer)/billing' },
-  { icon: 'ticket-percent-outline', label: 'Voucher của tôi' },
-  { icon: 'heart-outline', label: 'Địa chỉ yêu thích' },
-  { icon: 'cog-outline', label: 'Cài đặt' },
-  { icon: 'help-circle-outline', label: 'Trung tâm trợ giúp' },
-];
-
 export default function ProfileScreen() {
   const router = useRouter();
+  const { t, language } = useLanguage();
+  const [languageModalVisible, setLanguageModalVisible] = React.useState(false);
   const mountedRef = React.useRef(false);
   const hasLoadedProfileRef = React.useRef(false);
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
@@ -76,7 +70,7 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       if (mountedRef.current) {
-        setProfileError(getErrorMessage(error));
+        setProfileError(getErrorMessage(error, t));
       }
     } finally {
       if (mountedRef.current) {
@@ -118,9 +112,9 @@ export default function ProfileScreen() {
     setLoggingOut(false);
   }
 
-  const displayName = profile?.fullName?.trim() || (profileLoading ? 'Đang tải...' : 'Khách GoRide');
-  const displayPhone = profile?.phone?.trim() || 'Chưa cập nhật số điện thoại';
-  const displayEmail = profile?.email?.trim() || 'Chưa cập nhật email';
+  const displayName = profile?.fullName?.trim() || (profileLoading ? t('common.loading') : t('personal.defaultGuest'));
+  const displayPhone = profile?.phone?.trim() || t('profile.noPhone');
+  const displayEmail = profile?.email?.trim() || t('profile.noEmail');
   const avatarUrl = profile?.avatarUrl?.trim();
 
   return (
@@ -131,7 +125,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <Text style={styles.title}>Cá Nhân</Text>
+        <Text style={styles.title}>{t('profile.title')}</Text>
 
         <View style={styles.profileCard}>
           {avatarUrl ? (
@@ -159,7 +153,7 @@ export default function ProfileScreen() {
               <TouchableOpacity activeOpacity={0.82} style={styles.profileRetry} onPress={() => void loadProfile()}>
                 <Feather name="alert-circle" size={rs(22)} color={palette.danger} />
                 <Text style={styles.profileRetryText} numberOfLines={1}>
-                  Không tải được hồ sơ. Thử lại
+                  {t('profile.loadErrorRetry')}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -170,21 +164,35 @@ export default function ProfileScreen() {
           <View style={styles.syncPill}>
             <ActivityIndicator color={palette.primary} size="small" />
             <Text style={styles.syncText} selectable>
-              Đang đồng bộ hồ sơ mới nhất...
+              {t('profile.syncing')}
             </Text>
           </View>
         ) : null}
 
         <View style={styles.menuCard}>
-          {menuItems.map((item, index) => {
+          {[
+            { icon: 'account-outline' as const, label: t('profile.menuPersonal'), route: '/(customer)/personal' as Href },
+            { icon: 'history' as const, label: t('profile.menuActivity'), route: '/(customer)/activity' as Href },
+            { icon: 'cash-multiple' as const, label: t('profile.menuBilling'), route: '/(customer)/billing' as Href },
+            { icon: 'ticket-percent-outline' as const, label: t('profile.menuVouchers') },
+            { icon: 'heart-outline' as const, label: t('profile.menuSavedPlaces') },
+            { icon: 'cog-outline' as const, label: t('profile.menuSettings') },
+            { 
+              icon: 'translate' as const, 
+              label: t('profile.menuLanguage'), 
+              extra: language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English',
+              onPress: () => setLanguageModalVisible(true)
+            },
+            { icon: 'help-circle-outline' as const, label: t('profile.menuHelpCenter') },
+          ].map((item, index, arr) => {
             const route = item.route;
 
             return (
               <MenuItem
                 key={item.label}
                 {...item}
-                isLast={index === menuItems.length - 1}
-                onPress={route ? () => router.push(route) : undefined}
+                isLast={index === arr.length - 1}
+                onPress={item.onPress || (route ? () => router.push(route) : undefined)}
               />
             );
           })}
@@ -198,7 +206,7 @@ export default function ProfileScreen() {
             <View style={[styles.menuIcon, styles.logoutIcon]}>
               <MaterialCommunityIcons name="logout" size={rs(34)} color={palette.danger} />
             </View>
-            <Text style={styles.logoutText}>{loggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}</Text>
+            <Text style={styles.logoutText}>{loggingOut ? t('profile.loggingOut') : t('profile.logout')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -218,6 +226,7 @@ export default function ProfileScreen() {
           <Text style={styles.navActiveText}>Profile</Text>
         </TouchableOpacity>
       </View>
+      <LanguageSelectorModal visible={languageModalVisible} onClose={() => setLanguageModalVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -229,12 +238,12 @@ function getInitials(name: string) {
   return initials.toUpperCase() || 'GR';
 }
 
-function getErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown, t: any) {
   if (error instanceof Error && error.message) {
     return error.message;
   }
 
-  return 'Vui lòng kiểm tra kết nối và thử lại.';
+  return t('common.networkError');
 }
 
 type MenuItemProps = {
@@ -242,10 +251,11 @@ type MenuItemProps = {
   label: string;
   route?: Href;
   isLast?: boolean;
+  extra?: string;
   onPress?: () => void;
 };
 
-function MenuItem({ icon, label, isLast = false, onPress }: MenuItemProps) {
+function MenuItem({ icon, label, isLast = false, extra, onPress }: MenuItemProps) {
   return (
     <TouchableOpacity
       activeOpacity={0.82}
@@ -256,6 +266,7 @@ function MenuItem({ icon, label, isLast = false, onPress }: MenuItemProps) {
         <MaterialCommunityIcons name={icon} size={rs(34)} color={palette.primary} />
       </View>
       <Text style={styles.menuText}>{label}</Text>
+      {extra ? <Text style={styles.menuExtra}>{extra}</Text> : null}
       <Feather name="chevron-right" size={rs(34)} color="#777582" />
     </TouchableOpacity>
   );
@@ -407,6 +418,13 @@ const styles = StyleSheet.create({
     fontSize: rf(29),
     lineHeight: rf(37),
     fontWeight: '800',
+  },
+  menuExtra: {
+    color: palette.muted,
+    fontSize: rf(25),
+    lineHeight: rf(33),
+    fontWeight: '500',
+    marginRight: rs(10),
   },
   logoutRow: {
     minHeight: rvs(90),

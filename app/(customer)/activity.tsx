@@ -4,6 +4,7 @@ import type { TripDetail, TripRating, TripStatus } from '@/types/ride';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import { useLanguage } from '@/lib/i18n';
 import {
   ActivityIndicator,
   Modal,
@@ -50,6 +51,7 @@ const PAGE_SIZE = 20;
 
 export default function ActivityScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [trips, setTrips] = React.useState<TripDetail[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
@@ -74,7 +76,7 @@ export default function ActivityScreen() {
       setTotal(page.total);
       setUpdatedAt(new Date().toISOString());
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Không thể tải lịch sử chuyến đi.';
+      const message = loadError instanceof Error ? loadError.message : t('activity.loadError');
       setError(message);
     } finally {
       setLoading(false);
@@ -137,8 +139,8 @@ export default function ActivityScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerCopy}>
-            <Text style={styles.title}>Hoạt động</Text>
-            <Text style={styles.subtitle}>Theo dõi các chuyến GoRide của bạn</Text>
+            <Text style={styles.title}>{t('activity.title')}</Text>
+            <Text style={styles.subtitle}>{t('activity.subtitle')}</Text>
           </View>
 
           <TouchableOpacity activeOpacity={0.82} style={styles.headerButton} onPress={handleRefresh}>
@@ -152,38 +154,38 @@ export default function ActivityScreen() {
             <MaterialCommunityIcons name="map-clock-outline" size={rs(46)} color="#ffffff" />
           </View>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroKicker}>Lịch sử chuyến đi</Text>
-            <Text style={styles.heroTitle}>{total} chuyến gần đây</Text>
-            <Text style={styles.heroText}>{updatedAt ? `Cập nhật ${formatShortTime(updatedAt)}` : 'Kéo xuống để làm mới dữ liệu'}</Text>
+            <Text style={styles.heroKicker}>{t('activity.heroKicker')}</Text>
+            <Text style={styles.heroTitle}>{t('activity.heroTitle', { total: total.toString() })}</Text>
+            <Text style={styles.heroText}>{updatedAt ? t('activity.updatedAt', { time: formatShortTime(updatedAt) }) : t('activity.pullToRefresh')}</Text>
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          <StatCard icon="check-circle-outline" label="Hoàn tất" value={completedCount.toString()} tone="green" />
-          <StatCard icon="close-circle-outline" label="Đã hủy" value={cancelledCount.toString()} tone="danger" />
-          <StatCard icon="receipt-text-outline" label="Tổng" value={total.toString()} tone="primary" />
+          <StatCard icon="check-circle-outline" label={t('activity.statCompleted')} value={completedCount.toString()} tone="green" />
+          <StatCard icon="close-circle-outline" label={t('activity.statCancelled')} value={cancelledCount.toString()} tone="danger" />
+          <StatCard icon="receipt-text-outline" label={t('activity.statTotal')} value={total.toString()} tone="primary" />
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Chuyến đi của bạn</Text>
-          <Text style={styles.sectionHint}>Trang 1/{PAGE_SIZE}</Text>
+          <Text style={styles.sectionTitle}>{t('activity.sectionTitle')}</Text>
+          <Text style={styles.sectionHint}>{t('activity.pageHint', { page: '1', total: PAGE_SIZE.toString() })}</Text>
         </View>
 
         {loading ? (
           <View style={styles.stateCard}>
             <ActivityIndicator color={palette.primary} size="large" />
-            <Text style={styles.stateTitle}>Đang tải lịch sử...</Text>
-            <Text style={styles.stateText}>GoRide đang lấy các chuyến mới nhất.</Text>
+            <Text style={styles.stateTitle}>{t('activity.loadingTitle')}</Text>
+            <Text style={styles.stateText}>{t('activity.loadingText')}</Text>
           </View>
         ) : error ? (
           <View style={styles.stateCard}>
             <View style={[styles.stateIcon, styles.stateIconDanger]}>
               <Feather name="alert-triangle" size={rs(34)} color={palette.danger} />
             </View>
-            <Text style={styles.stateTitle}>Chưa tải được lịch sử</Text>
+            <Text style={styles.stateTitle}>{t('activity.errorTitle')}</Text>
             <Text selectable style={styles.stateText}>{error}</Text>
             <TouchableOpacity activeOpacity={0.84} style={styles.retryButton} onPress={() => loadHistory()}>
-              <Text style={styles.retryText}>Thử lại</Text>
+              <Text style={styles.retryText}>{t('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : trips.length === 0 ? (
@@ -191,10 +193,10 @@ export default function ActivityScreen() {
             <View style={styles.stateIcon}>
               <MaterialCommunityIcons name="map-search-outline" size={rs(38)} color={palette.primary} />
             </View>
-            <Text style={styles.stateTitle}>Chưa có chuyến đi</Text>
-            <Text style={styles.stateText}>Khi bạn đặt chuyến đầu tiên, lịch sử sẽ xuất hiện ở đây.</Text>
+            <Text style={styles.stateTitle}>{t('activity.emptyTitle')}</Text>
+            <Text style={styles.stateText}>{t('activity.emptyText')}</Text>
             <TouchableOpacity activeOpacity={0.84} style={styles.retryButton} onPress={() => router.push('/(customer)/booking/pickup')}>
-              <Text style={styles.retryText}>Đặt chuyến ngay</Text>
+              <Text style={styles.retryText}>{t('activity.bookNow')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -229,6 +231,7 @@ export default function ActivityScreen() {
 }
 
 function TripCard({ trip, onPress }: { trip: TripDetail; onPress: () => void }) {
+  const { t } = useLanguage();
   const fare = trip.finalFare ?? trip.estimatedFare;
 
   return (
@@ -236,7 +239,7 @@ function TripCard({ trip, onPress }: { trip: TripDetail; onPress: () => void }) 
       <View style={styles.compactRouteBlock}>
         <RouteLineDot color={palette.green} />
         <View style={styles.routeCopy}>
-          <Text style={styles.routeLabel}>Điểm đón</Text>
+          <Text style={styles.routeLabel}>{t('activity.pickup')}</Text>
           <Text selectable style={styles.routeAddress} numberOfLines={2}>{trip.pickup.address}</Text>
         </View>
       </View>
@@ -246,7 +249,7 @@ function TripCard({ trip, onPress }: { trip: TripDetail; onPress: () => void }) 
       <View style={styles.compactRouteBlock}>
         <RouteLineDot color={palette.primary} />
         <View style={styles.routeCopy}>
-          <Text style={styles.routeLabel}>Điểm đến</Text>
+          <Text style={styles.routeLabel}>{t('activity.dropoff')}</Text>
           <Text selectable style={styles.routeAddress} numberOfLines={2}>{trip.dropoff.address}</Text>
         </View>
       </View>
@@ -254,10 +257,10 @@ function TripCard({ trip, onPress }: { trip: TripDetail; onPress: () => void }) 
       <View style={styles.compactFooter}>
         <View style={styles.compactMetaItem}>
           <MaterialCommunityIcons name="calendar-clock" size={rs(26)} color={palette.primary} />
-          <Text style={styles.compactMetaText}>{formatTripDate(trip.requestedAt)}</Text>
+          <Text style={styles.compactMetaText}>{formatTripDate(trip.requestedAt, t)}</Text>
         </View>
         <View style={styles.compactFareWrap}>
-          <Text style={styles.compactFare}>{formatCurrency(fare)}</Text>
+          <Text style={styles.compactFare}>{formatCurrency(fare, t)}</Text>
           <Feather name="chevron-right" size={rs(26)} color={palette.muted} />
         </View>
       </View>
@@ -276,11 +279,13 @@ function TripDetailModal({
   onRebook: (trip: TripDetail) => void;
   onRatingSubmitted: (tripId: number, rating: TripRating) => void;
 }) {
+  const { t } = useLanguage();
+
   if (!trip) {
     return null;
   }
 
-  const statusMeta = getStatusMeta(trip.status);
+  const statusMeta = getStatusMeta(trip.status, t);
   const fare = trip.finalFare ?? trip.estimatedFare;
 
   return (
@@ -292,8 +297,8 @@ function TripDetailModal({
             <View style={styles.modalGrabber} />
             <View style={styles.modalHeader}>
               <View>
-                <Text selectable style={styles.modalTitle}>Mã chuyến #{trip.tripId}</Text>
-                <Text style={styles.modalSubtitle}>{formatTripDate(trip.requestedAt)}</Text>
+                <Text selectable style={styles.modalTitle}>{t('activity.tripId', { id: trip.tripId.toString() })}</Text>
+                <Text style={styles.modalSubtitle}>{formatTripDate(trip.requestedAt, t)}</Text>
               </View>
               <View style={[styles.statusPill, { backgroundColor: statusMeta.background }]}>
                 <MaterialCommunityIcons name={statusMeta.icon} size={rs(24)} color={statusMeta.color} />
@@ -302,11 +307,11 @@ function TripDetailModal({
             </View>
 
             <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Lộ trình di chuyển</Text>
+              <Text style={styles.detailSectionTitle}>{t('activity.routeTitle')}</Text>
               <View style={styles.routeBlock}>
                 <RouteLineDot color={palette.green} />
                 <View style={styles.routeCopy}>
-                  <Text style={styles.routeLabel}>Điểm đón</Text>
+                  <Text style={styles.routeLabel}>{t('activity.pickup')}</Text>
                   <Text selectable style={styles.routeAddress} numberOfLines={3}>{trip.pickup.address}</Text>
                 </View>
               </View>
@@ -314,31 +319,31 @@ function TripDetailModal({
               <View style={styles.routeBlock}>
                 <RouteLineDot color={palette.primary} />
                 <View style={styles.routeCopy}>
-                  <Text style={styles.routeLabel}>Điểm đến</Text>
+                  <Text style={styles.routeLabel}>{t('activity.dropoff')}</Text>
                   <Text selectable style={styles.routeAddress} numberOfLines={3}>{trip.dropoff.address}</Text>
                 </View>
               </View>
             </View>
 
             <View style={styles.detailGrid}>
-              <InfoTile icon="cash" label="Giá tiền" value={formatCurrency(fare)} />
-              <InfoTile icon="map-marker-distance" label="Quãng đường" value={formatDistance(trip.estimatedDistance)} />
-              <InfoTile icon="clock-outline" label="Thời gian" value={formatDuration(trip.estimatedDuration)} />
-              <InfoTile icon="receipt-text-outline" label="Trạng thái" value={statusMeta.label} />
+              <InfoTile icon="cash" label={t('activity.fareLabel')} value={formatCurrency(fare, t)} />
+              <InfoTile icon="map-marker-distance" label={t('activity.distanceLabel')} value={formatDistance(trip.estimatedDistance, t)} />
+              <InfoTile icon="clock-outline" label={t('activity.durationLabel')} value={formatDuration(trip.estimatedDuration, t)} />
+              <InfoTile icon="receipt-text-outline" label={t('activity.statusLabel')} value={statusMeta.label} />
             </View>
 
             <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Thông tin tài xế</Text>
-              <InfoRow icon="account-outline" label="Tài xế" value={trip.driver?.fullName ?? 'Chưa có tài xế'} />
-              <InfoRow icon="car-info" label="Biển số" value={trip.driver?.vehiclePlate ?? '--'} />
-              <InfoRow icon="star-outline" label="Điểm tài xế" value={formatDriverRating(trip.driver?.averageRating)} />
+              <Text style={styles.detailSectionTitle}>{t('activity.driverInfoTitle')}</Text>
+              <InfoRow icon="account-outline" label={t('activity.driverLabel')} value={trip.driver?.fullName ?? t('activity.noDriver')} />
+              <InfoRow icon="car-info" label={t('activity.plateLabel')} value={trip.driver?.vehiclePlate ?? '--'} />
+              <InfoRow icon="star-outline" label={t('activity.driverRatingLabel')} value={formatDriverRating(trip.driver?.averageRating)} />
             </View>
 
             <RatingPanel trip={trip} onRatingSubmitted={onRatingSubmitted} />
 
             <TouchableOpacity activeOpacity={0.88} style={styles.rebookButton} onPress={() => onRebook(trip)}>
               <MaterialCommunityIcons name="repeat" size={rs(30)} color="#ffffff" />
-              <Text style={styles.rebookText}>Đặt lại</Text>
+              <Text style={styles.rebookText}>{t('activity.rebook')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -392,6 +397,8 @@ function RatingPanel({
   trip: TripDetail;
   onRatingSubmitted: (tripId: number, rating: TripRating) => void;
 }) {
+  const { t } = useLanguage();
+
   if (trip.passengerRating) {
     return <RatingSummary rating={trip.passengerRating} />;
   }
@@ -399,8 +406,8 @@ function RatingPanel({
   if (trip.status !== 'COMPLETED') {
     return (
       <View style={styles.detailSection}>
-        <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
-        <Text style={styles.emptyRatingText}>Bạn có thể gửi đánh giá sau khi chuyến đi hoàn tất.</Text>
+        <Text style={styles.detailSectionTitle}>{t('activity.ratingTitle')}</Text>
+        <Text style={styles.emptyRatingText}>{t('activity.ratingNotCompletedText')}</Text>
       </View>
     );
   }
@@ -415,6 +422,7 @@ function RatingForm({
   tripId: number;
   onSubmitted: (tripId: number, rating: TripRating) => void;
 }) {
+  const { t } = useLanguage();
   const [score, setScore] = React.useState(5);
   const [comment, setComment] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
@@ -440,7 +448,7 @@ function RatingForm({
         createdAt: new Date().toISOString(),
       });
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : 'Không thể gửi đánh giá lúc này.';
+      const message = submitError instanceof Error ? submitError.message : t('activity.ratingSubmitError');
       setError(message);
     } finally {
       setSubmitting(false);
@@ -449,8 +457,8 @@ function RatingForm({
 
   return (
     <View style={styles.detailSection}>
-      <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
-      <Text style={styles.ratingPrompt}>Bạn thấy chuyến đi này thế nào?</Text>
+      <Text style={styles.detailSectionTitle}>{t('activity.ratingTitle')}</Text>
+      <Text style={styles.ratingPrompt}>{t('activity.ratingPrompt')}</Text>
 
       <View style={styles.ratingSelectRow}>
         {Array.from({ length: 5 }).map((_, index) => {
@@ -480,7 +488,7 @@ function RatingForm({
         editable={!submitting}
         value={comment}
         onChangeText={setComment}
-        placeholder="Chia sẻ thêm về tài xế hoặc chuyến đi"
+        placeholder={t('activity.ratingPlaceholder')}
         placeholderTextColor="#9c96a8"
         style={styles.ratingInput}
       />
@@ -494,25 +502,27 @@ function RatingForm({
         onPress={handleSubmit}
       >
         {submitting ? <ActivityIndicator color="#ffffff" /> : null}
-        <Text style={styles.submitRatingText}>{submitting ? 'Đang gửi...' : 'Gửi đánh giá'}</Text>
+        <Text style={styles.submitRatingText}>{submitting ? t('activity.submittingRating') : t('activity.submitRating')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 function RatingSummary({ rating }: { rating?: TripRating }) {
+  const { t } = useLanguage();
+
   if (!rating) {
     return (
       <View style={styles.detailSection}>
-        <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
-        <Text style={styles.emptyRatingText}>Bạn chưa gửi đánh giá cho chuyến đi này.</Text>
+        <Text style={styles.detailSectionTitle}>{t('activity.ratingTitle')}</Text>
+        <Text style={styles.emptyRatingText}>{t('activity.noRatingText')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.detailSection}>
-      <Text style={styles.detailSectionTitle}>Đánh giá chuyến đi</Text>
+      <Text style={styles.detailSectionTitle}>{t('activity.ratingTitle')}</Text>
       <View style={styles.ratingRow}>
         {Array.from({ length: 5 }).map((_, index) => (
           <MaterialCommunityIcons
@@ -588,7 +598,7 @@ function NavItem({
   );
 }
 
-function getStatusMeta(status: TripStatus): {
+function getStatusMeta(status: TripStatus, t: any): {
   label: string;
   color: string;
   background: string;
@@ -596,33 +606,36 @@ function getStatusMeta(status: TripStatus): {
 } {
   switch (status) {
     case 'COMPLETED':
-      return { label: 'Hoàn tất', color: palette.green, background: palette.greenSoft, icon: 'check-circle-outline' };
+      return { label: t('activity.statusCompleted'), color: palette.green, background: palette.greenSoft, icon: 'check-circle-outline' };
     case 'CANCELLED':
-      return { label: 'Đã hủy', color: palette.danger, background: palette.dangerSoft, icon: 'close-circle-outline' };
+      return { label: t('activity.statusCancelled'), color: palette.danger, background: palette.dangerSoft, icon: 'close-circle-outline' };
     case 'NO_DRIVER':
-      return { label: 'Không có tài xế', color: palette.danger, background: palette.dangerSoft, icon: 'account-off-outline' };
+      return { label: t('activity.statusNoDriver'), color: palette.danger, background: palette.dangerSoft, icon: 'account-off-outline' };
     case 'ACCEPTED':
-      return { label: 'Đã nhận', color: palette.blue, background: palette.blueSoft, icon: 'account-check-outline' };
+      return { label: t('activity.statusAccepted'), color: palette.blue, background: palette.blueSoft, icon: 'account-check-outline' };
     case 'ARRIVED':
-      return { label: 'Tài xế đã đến', color: palette.blue, background: palette.blueSoft, icon: 'map-marker-check-outline' };
+      return { label: t('activity.statusArrived'), color: palette.blue, background: palette.blueSoft, icon: 'map-marker-check-outline' };
     case 'IN_PROGRESS':
-      return { label: 'Đang đi', color: palette.amber, background: palette.amberSoft, icon: 'navigation-variant-outline' };
+      return { label: t('activity.statusInProgress'), color: palette.amber, background: palette.amberSoft, icon: 'navigation-variant-outline' };
     case 'SEARCHING':
     default:
-      return { label: 'Đang tìm', color: palette.amber, background: palette.amberSoft, icon: 'radar' };
+      return { label: t('activity.statusSearching'), color: palette.amber, background: palette.amberSoft, icon: 'radar' };
   }
 }
 
-function formatCurrency(value: number) {
-  return `${Math.round(value).toLocaleString('vi-VN')}đ`;
+function formatCurrency(value: number, t?: any) {
+  const formatted = Math.round(value).toLocaleString('vi-VN');
+  return t ? t('activity.currency', { value: formatted }) : `${formatted}đ`;
 }
 
-function formatDistance(value?: number) {
-  return typeof value === 'number' ? `${value.toFixed(1)} km` : '--';
+function formatDistance(value?: number, t?: any) {
+  if (typeof value !== 'number') return '--';
+  return t ? t('activity.distanceKm', { value: value.toFixed(1) }) : `${value.toFixed(1)} km`;
 }
 
-function formatDuration(value?: number) {
-  return typeof value === 'number' ? `${Math.round(value)} phút` : '--';
+function formatDuration(value?: number, t?: any) {
+  if (typeof value !== 'number') return '--';
+  return t ? t('activity.durationMins', { value: Math.round(value).toString() }) : `${Math.round(value)} phút`;
 }
 
 function formatDriverRating(value?: number) {
@@ -636,9 +649,9 @@ function formatShortTime(value: string) {
   }).format(new Date(value));
 }
 
-function formatTripDate(value?: string) {
+function formatTripDate(value?: string, t?: any) {
   if (!value) {
-    return 'Chưa có thời gian';
+    return t ? t('activity.noTime') : 'Chưa có thời gian';
   }
 
   return new Intl.DateTimeFormat('vi-VN', {

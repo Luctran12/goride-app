@@ -1,6 +1,7 @@
-import { rf, rs, rvs } from '@/constants/responsive';
-import { getMyProfile, updateMyProfile, type UserProfile, type UserProfileUpdateDraft } from '@/lib/user-api';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
+import { getMyProfile, updateMyProfile, type UserProfile, type UserProfileUpdateDraft } from '@/lib/user-api';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -44,6 +45,7 @@ const cardShadow = {
 };
 
 export default function PersonalScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mountedRef = React.useRef(false);
@@ -72,7 +74,7 @@ export default function PersonalScreen() {
       }
     } catch (profileError) {
       if (mountedRef.current) {
-        setError(getErrorMessage(profileError));
+        setError(getErrorMessage(profileError, t));
       }
     } finally {
       if (mountedRef.current) {
@@ -90,7 +92,7 @@ export default function PersonalScreen() {
     };
   }, [loadProfile]);
 
-  const displayName = profile?.fullName?.trim() || (loading ? 'Đang tải' : 'Khách GoRide');
+  const displayName = profile?.fullName?.trim() || (loading ? t('personal.loadingName') : t('personal.defaultGuest'));
   const avatarUrl = profile?.avatarUrl?.trim();
 
   function handleBack() {
@@ -137,11 +139,11 @@ export default function PersonalScreen() {
       return;
     }
 
-    const validation = validateProfileForm(formValues);
+    const validation = validateProfileForm(formValues, t);
     setFieldErrors(validation);
 
     if (Object.values(validation).some(Boolean)) {
-      setSaveError('Vui lòng kiểm tra lại các thông tin được đánh dấu.');
+      setSaveError(t('personal.validationError'));
       return;
     }
 
@@ -156,11 +158,11 @@ export default function PersonalScreen() {
         setProfile(updatedProfile);
         setFormValues(createProfileFormValues(updatedProfile));
         setEditing(false);
-        setSuccessMessage('Hồ sơ đã được cập nhật thành công.');
+        setSuccessMessage(t('personal.updateSuccess'));
       }
     } catch (profileError) {
       if (mountedRef.current) {
-        setSaveError(getErrorMessage(profileError));
+        setSaveError(getErrorMessage(profileError, t));
       }
     } finally {
       if (mountedRef.current) {
@@ -185,7 +187,7 @@ export default function PersonalScreen() {
           <TouchableOpacity activeOpacity={0.78} style={styles.backButton} onPress={handleBack}>
             <Feather name="arrow-left" size={rs(36)} color={palette.text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Thông tin cá nhân</Text>
+          <Text style={styles.title}>{t('personal.title')}</Text>
         </View>
 
         <View style={styles.hero}>
@@ -213,14 +215,14 @@ export default function PersonalScreen() {
 
           <View style={styles.memberPill}>
             <MaterialCommunityIcons name="star-circle-outline" size={rs(27)} color={palette.primarySoftText} />
-            <Text style={styles.memberText}>{formatMembership(profile)}</Text>
+            <Text style={styles.memberText}>{formatMembership(profile, t)}</Text>
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          <StatCard value={formatTripCount(profile)} label="CHUYẾN ĐI" />
-          <StatCard value={formatRating(profile)} label="ĐÁNH GIÁ" hasStar={Boolean(getAverageRating(profile))} />
-          <StatCard value={formatSavedPlaces(profile)} label="ĐÃ LƯU" />
+          <StatCard value={formatTripCount(profile)} label={t('personal.statTrips')} />
+          <StatCard value={formatRating(profile, t)} label={t('personal.statRating')} hasStar={Boolean(getAverageRating(profile))} />
+          <StatCard value={formatSavedPlaces(profile)} label={t('personal.statSaved')} />
         </View>
 
         {error ? (
@@ -229,12 +231,12 @@ export default function PersonalScreen() {
               <Feather name="alert-circle" size={rs(28)} color={palette.danger} />
             </View>
             <View style={styles.errorCopy}>
-              <Text style={styles.errorTitle}>Không tải được hồ sơ</Text>
+              <Text style={styles.errorTitle}>{t('personal.loadErrorTitle')}</Text>
               <Text style={styles.errorText} numberOfLines={2} selectable>
                 {error}
               </Text>
             </View>
-            <Text style={styles.retryText}>Thử lại</Text>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -249,27 +251,27 @@ export default function PersonalScreen() {
 
         {editing ? (
           <View style={styles.detailCard}>
-            <Text style={styles.detailHeading}>Chỉnh sửa hồ sơ</Text>
+            <Text style={styles.detailHeading}>{t('personal.editTitle')}</Text>
             <Text style={styles.editHelper} selectable>
-              Cập nhật thông tin hiển thị trong app. Các thay đổi sẽ được lưu qua PUT /api/users/me.
+              {t('personal.editHelper')}
             </Text>
 
             <View style={styles.formList}>
               <ProfileInput
                 error={fieldErrors.fullName}
                 icon="user"
-                label="Họ và tên"
+                label={t('personal.fullNameLabel')}
                 onChangeText={(value) => updateFormValue('fullName', value)}
-                placeholder="Nhập họ và tên"
+                placeholder={t('personal.fullNamePlaceholder')}
                 value={formValues.fullName}
               />
               <ProfileInput
                 error={fieldErrors.phone}
                 icon="phone"
                 keyboardType="phone-pad"
-                label="Số điện thoại"
+                label={t('personal.phoneLabel')}
                 onChangeText={(value) => updateFormValue('phone', value)}
-                placeholder="Nhập số điện thoại"
+                placeholder={t('personal.phonePlaceholder')}
                 value={formValues.phone}
               />
               <ProfileInput
@@ -277,9 +279,9 @@ export default function PersonalScreen() {
                 error={fieldErrors.email}
                 icon="mail"
                 keyboardType="email-address"
-                label="Email"
+                label={t('personal.emailLabel')}
                 onChangeText={(value) => updateFormValue('email', value)}
-                placeholder="Nhập email"
+                placeholder={t('personal.emailPlaceholder')}
                 value={formValues.email}
               />
               <ProfileInput
@@ -287,7 +289,7 @@ export default function PersonalScreen() {
                 error={fieldErrors.avatarUrl}
                 icon="image"
                 keyboardType="url"
-                label="Ảnh đại diện URL"
+                label={t('personal.avatarUrlLabel')}
                 onChangeText={(value) => updateFormValue('avatarUrl', value)}
                 placeholder="https://..."
                 value={formValues.avatarUrl}
@@ -305,13 +307,13 @@ export default function PersonalScreen() {
           </View>
         ) : (
           <View style={styles.detailCard}>
-            <Text style={styles.detailHeading}>Thông tin chi tiết</Text>
+            <Text style={styles.detailHeading}>{t('personal.detailTitle')}</Text>
 
             <View style={styles.detailList}>
-              <DetailItem icon="phone" label="Số điện thoại" value={profile?.phone || 'Chưa cập nhật'} />
-              <DetailItem icon="mail" label="Email" value={profile?.email || 'Chưa cập nhật'} />
-              <DetailItem icon="calendar" label="Ngày sinh" value={formatDate(profile?.dateOfBirth)} />
-              <DetailItem icon="user" label="Giới tính" value={formatGender(profile?.gender)} />
+              <DetailItem icon="phone" label={t('personal.phoneLabel')} value={profile?.phone || t('personal.notUpdated')} />
+              <DetailItem icon="mail" label={t('personal.emailLabel')} value={profile?.email || t('personal.notUpdated')} />
+              <DetailItem icon="calendar" label={t('personal.dateOfBirth')} value={formatDate(profile?.dateOfBirth, t)} />
+              <DetailItem icon="user" label={t('personal.gender')} value={formatGender(profile?.gender, t)} />
             </View>
           </View>
         )}
@@ -326,7 +328,7 @@ export default function PersonalScreen() {
               onPress={handleCancelEdit}
               style={[styles.secondaryButton, saving && styles.disabledButton]}
             >
-              <Text style={styles.secondaryButtonText}>Hủy</Text>
+              <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.88}
@@ -335,13 +337,13 @@ export default function PersonalScreen() {
               style={[styles.saveButton, saving && styles.disabledButton]}
             >
               {saving ? <ActivityIndicator color="#ffffff" size="small" /> : <Feather name="check" size={rs(34)} color="#ffffff" />}
-              <Text style={styles.editButtonText}>{saving ? 'Đang lưu' : 'Lưu'}</Text>
+              <Text style={styles.editButtonText}>{saving ? t('personal.saving') : t('personal.save')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity activeOpacity={0.88} style={styles.editButton} onPress={handleEditProfile}>
             <Feather name="edit-2" size={rs(34)} color="#ffffff" />
-            <Text style={styles.editButtonText}>Chỉnh sửa thông tin</Text>
+            <Text style={styles.editButtonText}>{t('personal.editButton')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -376,7 +378,7 @@ function createUpdateDraft(values: ProfileFormValues): UserProfileUpdateDraft {
   };
 }
 
-function validateProfileForm(values: ProfileFormValues): ProfileFieldErrors {
+function validateProfileForm(values: ProfileFormValues, t: any): ProfileFieldErrors {
   const errors: ProfileFieldErrors = {};
   const fullName = values.fullName.trim();
   const phone = values.phone.trim();
@@ -384,21 +386,21 @@ function validateProfileForm(values: ProfileFormValues): ProfileFieldErrors {
   const avatarUrl = values.avatarUrl.trim();
 
   if (!fullName) {
-    errors.fullName = 'Vui lòng nhập họ và tên.';
+    errors.fullName = t('personal.errFullNameRequired');
   } else if (fullName.length < 2) {
-    errors.fullName = 'Họ và tên cần có ít nhất 2 ký tự.';
+    errors.fullName = t('personal.errFullNameLength');
   }
 
   if (phone && !/^[+\d][\d\s().-]{7,19}$/.test(phone)) {
-    errors.phone = 'Số điện thoại chưa đúng định dạng.';
+    errors.phone = t('personal.errPhoneFormat');
   }
 
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.email = 'Email chưa đúng định dạng.';
+    errors.email = t('personal.errEmailFormat');
   }
 
   if (avatarUrl && !/^https?:\/\/\S+$/i.test(avatarUrl)) {
-    errors.avatarUrl = 'URL ảnh cần bắt đầu bằng http:// hoặc https://.';
+    errors.avatarUrl = t('personal.errAvatarUrlInvalid');
   }
 
   return errors;
@@ -501,20 +503,20 @@ function getInitials(name: string) {
   return initials.toUpperCase() || 'GR';
 }
 
-function formatMembership(profile: UserProfile | null) {
+function formatMembership(profile: UserProfile | null, t: any) {
   if (profile?.status === 'SUSPENDED') {
-    return 'Tài khoản tạm khóa';
+    return t('personal.statusSuspended');
   }
 
   if (profile?.roles?.includes('ADMIN')) {
-    return 'Quản trị viên';
+    return t('personal.roleAdmin');
   }
 
   if (profile?.roles?.includes('DRIVER')) {
-    return 'Đối tác tài xế';
+    return t('personal.roleDriver');
   }
 
-  return 'Thành viên Vàng';
+  return t('personal.roleGold');
 }
 
 function formatTripCount(profile: UserProfile | null) {
@@ -527,19 +529,19 @@ function getAverageRating(profile: UserProfile | null) {
   return typeof rating === 'number' && Number.isFinite(rating) && rating > 0 ? rating : undefined;
 }
 
-function formatRating(profile: UserProfile | null) {
+function formatRating(profile: UserProfile | null, t: any) {
   const rating = getAverageRating(profile);
 
-  return rating ? rating.toFixed(1) : 'Mới';
+  return rating ? rating.toFixed(1) : t('personal.ratingNew');
 }
 
 function formatSavedPlaces(profile: UserProfile | null) {
   return String(profile?.savedPlacesCount ?? profile?.savedLocationsCount ?? 0);
 }
 
-function formatDate(value?: string) {
+function formatDate(value: string | undefined, t: any) {
   if (!value) {
-    return 'Chưa cập nhật';
+    return t('personal.notUpdated');
   }
 
   const date = new Date(value);
@@ -555,34 +557,34 @@ function formatDate(value?: string) {
   });
 }
 
-function formatGender(value?: string) {
+function formatGender(value: string | undefined, t: any) {
   if (!value) {
-    return 'Chưa cập nhật';
+    return t('personal.notUpdated');
   }
 
   const normalized = value.toUpperCase();
 
   if (normalized === 'MALE' || normalized === 'NAM') {
-    return 'Nam';
+    return t('personal.genderMale');
   }
 
   if (normalized === 'FEMALE' || normalized === 'NU' || normalized === 'NỮ') {
-    return 'Nữ';
+    return t('personal.genderFemale');
   }
 
   if (normalized === 'OTHER' || normalized === 'KHAC' || normalized === 'KHÁC') {
-    return 'Khác';
+    return t('personal.genderOther');
   }
 
   return value;
 }
 
-function getErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown, t: any) {
   if (error instanceof Error && error.message) {
     return error.message;
   }
 
-  return 'Vui lòng kiểm tra kết nối và thử lại.';
+  return t('common.networkError');
 }
 
 const styles = StyleSheet.create({

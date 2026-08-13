@@ -10,6 +10,7 @@ import type { PassengerPaymentMethod, PassengerVoucher, PaymentMethod } from '@/
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import { useLanguage } from '@/lib/i18n';
 import {
   ActivityIndicator,
   Alert,
@@ -51,6 +52,7 @@ const shadow = {
 
 export default function PaymentScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const mountedRef = React.useRef(false);
   const [paymentMethods, setPaymentMethods] = React.useState<PassengerPaymentMethod[]>([]);
   const [vouchers, setVouchers] = React.useState<PassengerVoucher[]>([]);
@@ -109,11 +111,11 @@ export default function PaymentScreen() {
     setError(null);
 
     try {
-      await addPaymentMethod({ method: 'CASH', title: 'Tiền mặt' });
+      await addPaymentMethod({ method: 'CASH', title: t('billing.cashTitle') });
       await loadBillingData({ silent: true });
-      Alert.alert('Phương thức thanh toán', 'Tiền mặt đã sẵn sàng. MoMo/VNPay sẽ được mở khi backend thanh toán online hoàn tất.');
+      Alert.alert(t('billing.methodsSectionTitle'), t('billing.cashReadyMsg'));
     } catch (addError) {
-      Alert.alert('Không thể thêm phương thức', getErrorMessage(addError));
+      Alert.alert(t('billing.addMethodErrorTitle', 'Không thể thêm phương thức'), getErrorMessage(addError));
     } finally {
       if (mountedRef.current) {
         setAddingMethod(false);
@@ -127,12 +129,12 @@ export default function PaymentScreen() {
     }
 
     if (method.status !== 'ACTIVE') {
-      Alert.alert(method.title, 'Phương thức này đang ở trạng thái coming soon, chưa thể dùng trong bản MVP.');
+      Alert.alert(method.title, t('billing.comingSoonMsg'));
       return;
     }
 
     if (method.isDefault) {
-      Alert.alert(method.title, 'Đây đã là phương thức thanh toán mặc định của bạn.');
+      Alert.alert(method.title, t('billing.alreadyDefaultMsg'));
       return;
     }
 
@@ -143,7 +145,7 @@ export default function PaymentScreen() {
       await setDefaultPaymentMethod(method.id);
       await loadBillingData({ silent: true });
     } catch (methodError) {
-      Alert.alert('Không thể đặt mặc định', getErrorMessage(methodError));
+      Alert.alert(t('billing.setDefaultErrorTitle', 'Không thể đặt mặc định'), getErrorMessage(methodError));
     } finally {
       if (mountedRef.current) {
         setActionMethodId(null);
@@ -157,19 +159,19 @@ export default function PaymentScreen() {
     }
 
     if (method.method === 'CASH') {
-      Alert.alert('Không thể xóa tiền mặt', 'GoRide luôn giữ tiền mặt làm phương thức thanh toán dự phòng.');
+      Alert.alert(t('billing.cannotRemoveCashTitle', 'Không thể xóa tiền mặt'), t('billing.cannotRemoveCashMsg'));
       return;
     }
 
     Alert.alert(
-      'Xóa phương thức thanh toán?',
+      t('billing.removeConfirmTitle'),
       method.isDefault
-        ? `${method.title} đang là phương thức mặc định. Sau khi xóa, GoRide sẽ chuyển về phương thức còn lại nếu có.`
-        : `Bạn có chắc muốn xóa ${method.title} khỏi ví GoRide?`,
+        ? t('billing.removeDefaultConfirmMsg', { title: method.title })
+        : t('billing.removeConfirmMsg', { title: method.title }),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Xóa',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             void removeSelectedPaymentMethod(method);
@@ -186,9 +188,9 @@ export default function PaymentScreen() {
     try {
       await removePaymentMethod(method.id);
       await loadBillingData({ silent: true });
-      Alert.alert('Đã xóa phương thức', `${method.title} đã được gỡ khỏi ví GoRide.`);
+      Alert.alert(t('billing.methodRemovedTitle', 'Đã xóa phương thức'), t('billing.methodRemovedMsg', { title: method.title }));
     } catch (removeError) {
-      Alert.alert('Không thể xóa phương thức', getErrorMessage(removeError));
+      Alert.alert(t('billing.removeMethodErrorTitle', 'Không thể xóa phương thức'), getErrorMessage(removeError));
     } finally {
       if (mountedRef.current) {
         setActionMethodId(null);
@@ -198,11 +200,11 @@ export default function PaymentScreen() {
 
   function handleVoucherPress(voucher: PassengerVoucher) {
     if (voucher.status !== 'AVAILABLE') {
-      Alert.alert(voucher.code, 'Ưu đãi này chưa thể dùng trong bản MVP hiện tại.');
+      Alert.alert(voucher.code, t('billing.voucherUnavailableMsg'));
       return;
     }
 
-    Alert.alert('Ưu đãi khả dụng', `Mã ${voucher.code} đã sẵn sàng. Bạn có thể chọn mã này ở màn hình đặt xe.`);
+    Alert.alert(t('billing.voucherAvailableTitle', 'Ưu đãi khả dụng'), t('billing.voucherAvailableMsg', { code: voucher.code }));
   }
 
   const availableVoucherCount = vouchers.filter((voucher) => voucher.status === 'AVAILABLE').length;
@@ -221,7 +223,7 @@ export default function PaymentScreen() {
             <Feather name="menu" size={rs(34)} color={palette.primary} />
           </TouchableOpacity>
 
-          <Text style={styles.title}>Thanh toán</Text>
+          <Text style={styles.title}>{t('billing.title')}</Text>
 
           <TouchableOpacity activeOpacity={0.82} style={styles.avatarWrap} onPress={() => router.push('/(customer)/profile')}>
             <Image
@@ -239,23 +241,23 @@ export default function PaymentScreen() {
               <TouchableOpacity activeOpacity={0.84} style={styles.errorBanner} onPress={() => loadBillingData()}>
                 <Feather name="alert-circle" size={rs(28)} color={palette.danger} />
                 <View style={styles.errorCopy}>
-                  <Text style={styles.errorTitle}>Không tải được dữ liệu thanh toán</Text>
+                  <Text style={styles.errorTitle}>{t('billing.loadErrorTitle')}</Text>
                   <Text style={styles.errorText} selectable>{error}</Text>
                 </View>
-                <Text style={styles.retryText}>Thử lại</Text>
+                <Text style={styles.retryText}>{t('common.retry', 'Thử lại')}</Text>
               </TouchableOpacity>
             ) : null}
 
             {refreshing ? (
               <View style={styles.syncPill}>
                 <ActivityIndicator color={palette.primary} size="small" />
-                <Text style={styles.syncText}>Đang đồng bộ ví và ưu đãi...</Text>
+                <Text style={styles.syncText}>{t('billing.syncing')}</Text>
               </View>
             ) : null}
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
-              <Text style={styles.sectionMeta}>{paymentMethods.length} mục</Text>
+              <Text style={styles.sectionTitle}>{t('billing.methodsSectionTitle')}</Text>
+              <Text style={styles.sectionMeta}>{t('billing.itemCount', { count: paymentMethods.length })}</Text>
             </View>
 
             <View style={styles.methodList}>
@@ -270,7 +272,7 @@ export default function PaymentScreen() {
                   />
                 ))
               ) : (
-                <EmptyCard title="Chưa có phương thức" description="GoRide sẽ luôn giữ tiền mặt làm phương thức dự phòng." />
+                <EmptyCard title={t('billing.emptyMethodsTitle')} description={t('billing.emptyMethodsDesc', 'GoRide sẽ luôn giữ tiền mặt làm phương thức dự phòng.')} />
               )}
             </View>
 
@@ -280,16 +282,16 @@ export default function PaymentScreen() {
               ) : (
                 <Feather name="plus-circle" size={rs(34)} color={palette.primary} />
               )}
-              <Text style={styles.addMethodText}>{addingMethod ? 'Đang kiểm tra' : 'Thêm phương thức thanh toán'}</Text>
+              <Text style={styles.addMethodText}>{addingMethod ? t('billing.checking', 'Đang kiểm tra') : t('billing.addMethod')}</Text>
             </TouchableOpacity>
 
             <View style={styles.couponHeader}>
               <View>
-                <Text style={styles.sectionTitle}>Mã ưu đãi của tôi</Text>
-                <Text style={styles.sectionSubtitle}>{availableVoucherCount} mã có thể dùng ngay</Text>
+                <Text style={styles.sectionTitle}>{t('billing.vouchersSectionTitle')}</Text>
+                <Text style={styles.sectionSubtitle}>{t('billing.availableVouchersCount', { count: availableVoucherCount })}</Text>
               </View>
               <TouchableOpacity activeOpacity={0.82} onPress={() => loadBillingData({ silent: true })}>
-                <Text style={styles.viewAll}>Làm mới</Text>
+                <Text style={styles.viewAll}>{t('common.refresh')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -299,7 +301,7 @@ export default function PaymentScreen() {
                   <VoucherCard key={voucher.id} voucher={voucher} onPress={() => handleVoucherPress(voucher)} />
                 ))
               ) : (
-                <EmptyCard title="Chưa có ưu đãi" description="Các voucher khả dụng sẽ xuất hiện ở đây khi backend trả dữ liệu." />
+                <EmptyCard title={t('billing.emptyVouchersTitle')} description={t('billing.emptyVouchersDesc', 'Các voucher khả dụng sẽ xuất hiện ở đây khi backend trả dữ liệu.')} />
               )}
             </View>
           </>
@@ -333,8 +335,9 @@ type PaymentMethodProps = {
 };
 
 function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethodProps) {
+  const { t } = useLanguage();
   const icon = getPaymentIcon(method.method);
-  const status = getPaymentStatusCopy(method);
+  const status = getPaymentStatusCopy(method, t);
   const removable = method.method !== 'CASH';
 
   return (
@@ -353,15 +356,15 @@ function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethod
           <ActivityIndicator color={palette.primary} size="small" />
         ) : method.isDefault ? (
           <View style={styles.defaultPill}>
-            <Text style={styles.defaultText}>Mặc định</Text>
+            <Text style={styles.defaultText}>{t('billing.defaultBadge')}</Text>
           </View>
         ) : method.status === 'ACTIVE' ? (
           <View style={styles.actionPill}>
-            <Text style={styles.actionPillText}>Đặt mặc định</Text>
+            <Text style={styles.actionPillText}>{t('billing.setDefaultBtn')}</Text>
           </View>
         ) : (
           <View style={styles.comingSoonPill}>
-            <Text style={styles.comingSoonText}>Coming soon</Text>
+            <Text style={styles.comingSoonText}>{t('common.comingSoon', 'Coming soon')}</Text>
           </View>
         )}
 
@@ -376,7 +379,7 @@ function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethod
             }}
           >
             <Feather name="trash-2" size={rs(20)} color={palette.danger} />
-            <Text style={styles.removeMethodText}>Xóa</Text>
+            <Text style={styles.removeMethodText}>{t('common.delete')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -385,7 +388,8 @@ function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethod
 }
 
 function VoucherCard({ voucher, onPress }: { voucher: PassengerVoucher; onPress: () => void }) {
-  const status = getVoucherStatusCopy(voucher);
+  const { t } = useLanguage();
+  const status = getVoucherStatusCopy(voucher, t);
 
   return (
     <TouchableOpacity
@@ -403,13 +407,13 @@ function VoucherCard({ voucher, onPress }: { voucher: PassengerVoucher; onPress:
         <Text style={[styles.couponCode, voucher.status !== 'AVAILABLE' && styles.couponTextMuted]} selectable>{voucher.code}</Text>
         <Text style={[styles.couponDetail, voucher.status !== 'AVAILABLE' && styles.couponTextMuted]} selectable>{voucher.description}</Text>
         <Text style={[styles.couponMeta, voucher.status !== 'AVAILABLE' && styles.couponTextMuted]}>
-          {formatVoucherMeta(voucher)}
+          {formatVoucherMeta(voucher, t)}
         </Text>
       </View>
 
       <View style={[styles.useButton, voucher.status !== 'AVAILABLE' && styles.useButtonDisabled]}>
         <Text style={[styles.useButtonText, voucher.status !== 'AVAILABLE' && styles.useButtonTextDisabled]}>
-          {voucher.status === 'AVAILABLE' ? 'Dùng' : 'Sau'}
+          {voucher.status === 'AVAILABLE' ? t('billing.useVoucher') : t('common.later', 'Sau')}
         </Text>
       </View>
     </TouchableOpacity>
@@ -417,11 +421,12 @@ function VoucherCard({ voucher, onPress }: { voucher: PassengerVoucher; onPress:
 }
 
 function BillingLoadingState() {
+  const { t } = useLanguage();
   return (
     <View style={styles.loadingState}>
       <ActivityIndicator color={palette.primary} size="large" />
-      <Text style={styles.loadingTitle}>Đang tải ví GoRide</Text>
-      <Text style={styles.loadingDescription}>Mình đang lấy phương thức thanh toán và mã ưu đãi mới nhất.</Text>
+      <Text style={styles.loadingTitle}>{t('billing.loadingTitle')}</Text>
+      <Text style={styles.loadingDescription}>{t('billing.loadingDesc', 'Mình đang lấy phương thức thanh toán và mã ưu đãi mới nhất.')}</Text>
     </View>
   );
 }
@@ -467,18 +472,18 @@ function getPaymentIcon(method: PaymentMethod): keyof typeof MaterialCommunityIc
   return 'cash';
 }
 
-function getPaymentStatusCopy(method: PassengerPaymentMethod) {
+function getPaymentStatusCopy(method: PassengerPaymentMethod, t: (key: string, fallback?: string) => string) {
   if (method.status === 'COMING_SOON') {
     return {
       color: palette.amber,
-      detail: method.detail || 'Sắp hỗ trợ',
+      detail: method.detail || t('common.comingSoon', 'Sắp có'),
     };
   }
 
   if (method.status === 'DISABLED') {
     return {
       color: palette.danger,
-      detail: method.detail || 'Tạm khóa',
+      detail: method.detail || t('billing.lockedStatus', 'Tạm khóa'),
     };
   }
 
@@ -488,30 +493,30 @@ function getPaymentStatusCopy(method: PassengerPaymentMethod) {
   };
 }
 
-function getVoucherStatusCopy(voucher: PassengerVoucher) {
+function getVoucherStatusCopy(voucher: PassengerVoucher, t: (key: string, fallback?: string) => string) {
   if (voucher.status === 'AVAILABLE') {
-    return { backgroundColor: '#e2f8ee', color: palette.green, label: 'Có thể dùng' };
+    return { backgroundColor: '#e2f8ee', color: palette.green, label: t('billing.availableStatus', 'Có thể dùng') };
   }
 
   if (voucher.status === 'COMING_SOON') {
-    return { backgroundColor: palette.amberSoft, color: palette.amber, label: 'Coming soon' };
+    return { backgroundColor: palette.amberSoft, color: palette.amber, label: t('common.comingSoon', 'Sắp có') };
   }
 
   if (voucher.status === 'EXPIRED') {
-    return { backgroundColor: palette.dangerSoft, color: palette.danger, label: 'Hết hạn' };
+    return { backgroundColor: palette.dangerSoft, color: palette.danger, label: t('billing.expiredStatus', 'Hết hạn') };
   }
 
-  return { backgroundColor: palette.primarySoft, color: palette.primary, label: 'Đã dùng' };
+  return { backgroundColor: palette.primarySoft, color: palette.primary, label: t('billing.usedStatus', 'Đã dùng') };
 }
 
-function formatVoucherMeta(voucher: PassengerVoucher) {
+function formatVoucherMeta(voucher: PassengerVoucher, t: (key: string, options?: any) => string) {
   const parts = [
-    voucher.minFare ? `Tối thiểu ${formatVnd(voucher.minFare)}` : undefined,
-    voucher.maxDiscount ? `Tối đa ${formatVnd(voucher.maxDiscount)}` : undefined,
-    voucher.expiresAt ? `HSD ${formatDate(voucher.expiresAt)}` : undefined,
+    voucher.minFare ? t('billing.minFare', `Tối thiểu ${formatVnd(voucher.minFare)}`) : undefined,
+    voucher.maxDiscount ? t('billing.maxDiscount', `Tối đa ${formatVnd(voucher.maxDiscount)}`) : undefined,
+    voucher.expiresAt ? t('billing.expiresAt', `HSD ${formatDate(voucher.expiresAt)}`) : undefined,
   ].filter(Boolean);
 
-  return parts.join(' · ') || 'Không giới hạn điều kiện';
+  return parts.join(' · ') || t('billing.noConditions');
 }
 
 function formatDate(value: string) {

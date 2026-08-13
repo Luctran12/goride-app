@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import { submitTripRating } from '@/lib/ride-api';
 import type { TripRating } from '@/types/ride';
 
@@ -43,8 +44,6 @@ export type TripCompletionCardProps = {
   onRatingSubmitted?: (rating: TripRating) => void;
 };
 
-const ratingTags = ['Lái xe an toàn', 'Đúng giờ', 'Thân thiện', 'Xe sạch'];
-
 export function TripCompletionCard({
   visible,
   tripId,
@@ -59,6 +58,17 @@ export function TripCompletionCard({
   initialRating,
   onRatingSubmitted,
 }: TripCompletionCardProps) {
+  const { t } = useLanguage();
+  const ratingTags = useMemo(
+    () => [
+      t('booking.safeDriver', 'Lái xe an toàn'),
+      t('booking.punctual', 'Đúng giờ'),
+      t('booking.friendly', 'Thân thiện'),
+      t('booking.cleanVehicle', 'Xe sạch'),
+    ],
+    [t],
+  );
+
   const [rating, setRating] = useState(5);
   const [selectedTag, setSelectedTag] = useState(ratingTags[0]);
   const [submitting, setSubmitting] = useState(false);
@@ -66,14 +76,14 @@ export function TripCompletionCard({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const receiptRows = useMemo(
     () => [
-      { label: 'Tổng tiền', value: formatFare(fare ?? estimatedFare), highlight: true },
-      { label: 'Phương thức', value: paymentLabel },
-      { label: 'Quãng đường', value: formatDistance(distance) },
-      { label: 'Thời gian', value: formatDuration(duration) },
-      { label: 'Ưu đãi', value: promoCode ?? 'Không áp dụng' },
-      { label: 'Hoàn thành', value: formatDateTime(completedAt) },
+      { label: t('booking.totalFare', 'Tổng tiền'), value: formatFare(fare ?? estimatedFare), highlight: true },
+      { label: t('booking.paymentMethod', 'Phương thức'), value: paymentLabel },
+      { label: t('booking.distance', 'Quãng đường'), value: formatDistance(distance) },
+      { label: t('booking.durationLabel', 'Thời gian'), value: formatDuration(duration) },
+      { label: t('booking.promo', 'Ưu đãi'), value: promoCode ?? t('booking.notApplicable', 'Không áp dụng') },
+      { label: t('booking.completedAt', 'Hoàn thành'), value: formatDateTime(completedAt) },
     ],
-    [completedAt, distance, duration, estimatedFare, fare, paymentLabel, promoCode],
+    [completedAt, distance, duration, estimatedFare, fare, paymentLabel, promoCode, t],
   );
 
   useEffect(() => {
@@ -99,7 +109,7 @@ export function TripCompletionCard({
     const numericTripId = Number(tripId);
 
     if (!Number.isFinite(numericTripId) || numericTripId <= 0) {
-      setSubmitError('Mã chuyến chưa hợp lệ, vui lòng đồng bộ lại chuyến đi trước khi đánh giá.');
+      setSubmitError(t('booking.invalidTripIdForRating', 'Mã chuyến chưa hợp lệ, vui lòng đồng bộ lại chuyến đi trước khi đánh giá.'));
       return;
     }
 
@@ -122,7 +132,7 @@ export function TripCompletionCard({
       setSubmittedRating(nextRating);
       onRatingSubmitted?.(nextRating);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể gửi đánh giá lúc này.';
+      const message = error instanceof Error ? error.message : t('booking.cannotSubmitRating', 'Không thể gửi đánh giá lúc này.');
       setSubmitError(message);
     } finally {
       setSubmitting(false);
@@ -136,10 +146,10 @@ export function TripCompletionCard({
           <MaterialCommunityIcons name="receipt-text-check-outline" size={rs(32)} color={palette.green} />
         </View>
         <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>Hoàn tất chuyến đi</Text>
-          <Text style={styles.title}>Hóa đơn tạm tính & đánh giá</Text>
+          <Text style={styles.eyebrow}>{t('booking.tripCompletedEyebrow', 'Hoàn tất chuyến đi')}</Text>
+          <Text style={styles.title}>{t('booking.receiptAndRating', 'Hóa đơn tạm tính & đánh giá')}</Text>
           <Text style={styles.subtitle}>
-            {driverName ? `Cảm ơn bạn đã đi cùng ${driverName}.` : 'Cảm ơn bạn đã sử dụng GoRide.'}
+            {driverName ? t('booking.thanksDriver', { driverName }, `Cảm ơn bạn đã đi cùng ${driverName}.`) : t('booking.thanksGoRide', 'Cảm ơn bạn đã sử dụng GoRide.')}
           </Text>
         </View>
       </View>
@@ -154,14 +164,13 @@ export function TripCompletionCard({
           </View>
         ))}
         <Text style={styles.receiptNote}>
-          Mã chuyến {tripId ? `#${tripId}` : 'đang đồng bộ'} sẽ dùng để đối soát thanh toán khi backend trả hóa đơn
-          thật.
+          {t('booking.receiptNote', 'Mã chuyến {tripId} sẽ dùng để đối soát thanh toán khi backend trả hóa đơn thật.', { tripId: tripId ? `#${tripId}` : t('booking.syncing', 'đang đồng bộ') })}
         </Text>
       </View>
 
       <View style={styles.ratingBox}>
         <View style={styles.ratingHeader}>
-          <Text style={styles.ratingTitle}>Bạn đánh giá chuyến này thế nào?</Text>
+          <Text style={styles.ratingTitle}>{t('booking.howDoYouRate', 'Bạn đánh giá chuyến này thế nào?')}</Text>
           <Text style={styles.ratingScore}>{submittedRating?.score ?? rating}/5</Text>
         </View>
 
@@ -171,9 +180,9 @@ export function TripCompletionCard({
               <MaterialCommunityIcons name="check-bold" size={rs(24)} color={palette.card} />
             </View>
             <View style={styles.successCopy}>
-              <Text style={styles.successTitle}>Đã gửi đánh giá</Text>
+              <Text style={styles.successTitle}>{t('booking.ratingSubmitted', 'Đã gửi đánh giá')}</Text>
               <Text style={styles.successText}>
-                Cảm ơn bạn đã phản hồi {submittedRating.score}/5 sao cho chuyến đi này.
+                {t('booking.ratingThanksMessage', 'Cảm ơn bạn đã phản hồi {score}/5 sao cho chuyến đi này.', { score: submittedRating.score })}
               </Text>
             </View>
           </View>
@@ -231,7 +240,7 @@ export function TripCompletionCard({
               ) : (
                 <MaterialCommunityIcons name="send-check-outline" size={rs(24)} color={palette.card} />
               )}
-              <Text style={styles.submitText}>{submitting ? 'Đang gửi...' : 'Gửi đánh giá'}</Text>
+              <Text style={styles.submitText}>{submitting ? t('booking.submitting', 'Đang gửi...') : t('booking.submitRating', 'Gửi đánh giá')}</Text>
             </TouchableOpacity>
           </>
         )}

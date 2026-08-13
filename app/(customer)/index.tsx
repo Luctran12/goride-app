@@ -2,6 +2,7 @@ import { rf, rs, rvs } from '@/constants/responsive';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import { useLanguage } from '@/lib/i18n';
 import {
   Image,
   SafeAreaView,
@@ -38,6 +39,7 @@ const shadow = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -57,7 +59,7 @@ export default function HomeScreen() {
               <View style={styles.onlineBadge} />
             </View>
             <View style={styles.profileText}>
-              <Text style={styles.hello}>Xin chào 👋</Text>
+              <Text style={styles.hello}>{t('customer.greeting')}</Text>
               <Text style={styles.name}>Thiện</Text>
             </View>
           </View>
@@ -74,8 +76,8 @@ export default function HomeScreen() {
               <Feather name="search" size={rs(32)} color={palette.card} />
             </View>
             <View style={styles.searchCopy}>
-              <Text style={styles.searchText}>Bạn muốn đi đâu hôm nay?</Text>
-              <Text style={styles.searchSubtext}>Nhập điểm đến để nhận báo giá ưu đãi</Text>
+              <Text style={styles.searchText}>{t('customer.searchPlaceholder')}</Text>
+              <Text style={styles.searchSubtext}>{t('customer.searchSubtext')}</Text>
             </View>
             <Feather name="chevron-right" size={rs(28)} color={palette.muted} />
           </TouchableOpacity>
@@ -83,20 +85,20 @@ export default function HomeScreen() {
           <View style={styles.actionRow}>
             <ActionButton
               icon="motorbike"
-              label={'Đặt xe\nmáy'}
+              label={t('customer.bookMotorbike')}
               active
               onPress={() => router.push('/(customer)/booking/pickup')}
             />
             <ActionButton
               icon="car"
-              label={'Đặt xe\nô tô'}
+              label={t('customer.bookCar')}
               active
               onPress={() => router.push('/(customer)/booking/pickup')}
             />
-            <ActionButton icon="history" label={'Lịch\nsử'} onPress={() => router.push('/(customer)/activity')} />
+            <ActionButton icon="history" label={t('customer.history')} onPress={() => router.push('/(customer)/activity')} />
             <ActionButton
               icon="wallet-outline"
-              label={'Thanh\ntoán'}
+              label={t('customer.payment')}
               onPress={() => router.push('/(customer)/billing')}
             />
           </View>
@@ -104,9 +106,9 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Khuyến mãi cho bạn</Text>
+            <Text style={styles.sectionTitle}>{t('customer.promotionsForYou')}</Text>
             <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/(customer)/billing')}>
-              <Text style={styles.seeAllText}>Xem tất cả</Text>
+              <Text style={styles.seeAllText}>{t('customer.seeAll')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -121,8 +123,8 @@ export default function HomeScreen() {
               <View style={styles.codePill}>
                 <Text style={styles.codeText}>Mã: GORIDE50</Text>
               </View>
-              <Text style={styles.promoTitle}>Giảm 50% chuyến đầu</Text>
-              <Text style={styles.promoText}>Tối đa 30k cho khách hàng mới • HSD: 30/11</Text>
+              <Text style={styles.promoTitle}>{t('customer.promoFirstTripTitle')}</Text>
+              <Text style={styles.promoText}>{t('customer.promoFirstTripDesc')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity activeOpacity={0.9} style={styles.promoCardAlt}>
@@ -130,14 +132,14 @@ export default function HomeScreen() {
               <View style={styles.codePillAlt}>
                 <Text style={styles.codeTextAlt}>Mã: PEAKHOUR</Text>
               </View>
-              <Text style={styles.promoTitleAlt}>Đồng giá 15k Xe máy</Text>
-              <Text style={styles.promoTextAlt}>Áp dụng khung giờ vàng 17h-19h hàng ngày</Text>
+              <Text style={styles.promoTitleAlt}>{t('customer.promoPeakHourTitle')}</Text>
+              <Text style={styles.promoTextAlt}>{t('customer.promoPeakHourDesc')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
 
         <View style={styles.recentCard}>
-          <Text style={styles.recentHeading}>Địa điểm gần đây</Text>
+          <Text style={styles.recentHeading}>{t('customer.recentPlaces')}</Text>
           <RecentPlace
             icon="location"
             title="Landmark 81"
@@ -146,7 +148,7 @@ export default function HomeScreen() {
           <View style={styles.divider} />
           <RecentPlace
             icon="home"
-            title="Nhà riêng"
+            title={t('customer.home')}
             detail="123 Nguyễn Thị Minh Khai, Quận 1, TP.HCM"
           />
         </View>
@@ -157,17 +159,17 @@ export default function HomeScreen() {
       <View style={styles.bottomNav}>
         <TouchableOpacity activeOpacity={0.84} style={styles.navActive}>
           <Feather name="home" size={rs(30)} color={palette.card} />
-          <Text style={styles.navActiveText}>Trang chủ</Text>
+          <Text style={styles.navActiveText}>{t('customer.navHome')}</Text>
         </TouchableOpacity>
-        <NavItem icon="history" label="Hoạt động" onPress={() => router.push('/(customer)/activity')} />
+        <NavItem icon="history" label={t('customer.navActivity')} onPress={() => router.push('/(customer)/activity')} />
         <NavItem
           icon="wallet-outline"
-          label="Ví & Thẻ"
+          label={t('customer.navBilling')}
           onPress={() => router.push('/(customer)/billing')}
         />
         <NavItem
           icon="account-outline"
-          label="Tài khoản"
+          label={t('customer.navAccount')}
           onPress={() => router.push('/(customer)/profile')}
         />
       </View>

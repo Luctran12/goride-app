@@ -1,6 +1,7 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { ApiError } from '@/lib/api';
 import { login as loginWithPhone, registerPassenger } from '@/lib/auth-api';
+import { useLanguage } from '@/lib/i18n';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -40,10 +41,9 @@ const shadow = {
 
 type AuthMode = 'login' | 'register';
 
-const INVALID_LOGIN_MESSAGE = 'Tài khoản hoặc mật khẩu không đúng!';
-
 export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const isRegister = mode === 'register';
   const [fullName, setFullName] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -56,10 +56,10 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
   const [error, setError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
 
-  const title = isRegister ? 'Tạo tài khoản' : 'Đăng nhập';
+  const title = isRegister ? t('auth.createAccount') : t('auth.login');
   const subtitle = isRegister
-    ? 'Bắt đầu đặt xe với số điện thoại của bạn.'
-    : 'Tiếp tục đặt xe cùng GoRide.';
+    ? t('auth.registerSubtitle')
+    : t('auth.loginSubtitle');
 
   async function handleSubmit() {
     if (submitting) {
@@ -67,28 +67,28 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
     }
 
     if (!phone.trim() || !password.trim()) {
-      setError('Vui lòng nhập số điện thoại và mật khẩu.');
+      setError(t('auth.errPhonePassRequired'));
       return;
     }
 
     if (isRegister) {
       if (!fullName.trim() || !email.trim()) {
-        setError('Vui lòng nhập họ tên và email.');
+        setError(t('auth.errNameEmailRequired'));
         return;
       }
 
       if (password.length < 8) {
-        setError('Mật khẩu cần tối thiểu 8 ký tự.');
+        setError(t('auth.errPasswordLength'));
         return;
       }
 
       if (password !== confirmPassword) {
-        setError('Mật khẩu xác nhận không khớp.');
+        setError(t('auth.errPasswordMismatch'));
         return;
       }
 
       if (!acceptedTerms) {
-        setError('Vui lòng đồng ý với điều khoản sử dụng.');
+        setError(t('auth.errTermsRequired'));
         return;
       }
     }
@@ -113,7 +113,7 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
 
       router.replace('/(customer)');
     } catch (submitError) {
-      setError(getAuthErrorMessage(submitError, isRegister));
+      setError(getAuthErrorMessage(submitError, isRegister, t));
     } finally {
       setSubmitting(false);
     }
@@ -145,7 +145,7 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
         <View style={styles.hero}>
           <View style={styles.badge}>
             <MaterialCommunityIcons name="account-circle-outline" size={rs(27)} color={palette.primary} />
-            <Text style={styles.badgeText}>User</Text>
+            <Text style={styles.badgeText}>{t('auth.roleUserBadge')}</Text>
           </View>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
@@ -155,9 +155,9 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
           {isRegister ? (
             <Field
               icon="account-outline"
-              label="Họ và tên"
+              label={t('auth.fullNameLabel')}
               value={fullName}
-              placeholder="Nguyễn Văn A"
+              placeholder={t('auth.fullNamePlaceholder')}
               onChangeText={setFullName}
               autoCapitalize="words"
             />
@@ -165,7 +165,7 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
 
           <Field
             icon="phone-outline"
-            label="Số điện thoại"
+            label={t('auth.phoneLabel')}
             value={phone}
             placeholder="0901234567"
             onChangeText={setPhone}
@@ -175,7 +175,7 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
           {isRegister ? (
             <Field
               icon="email-outline"
-              label="Email"
+              label={t('auth.emailLabel')}
               value={email}
               placeholder="user@example.com"
               onChangeText={setEmail}
@@ -186,9 +186,9 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
 
           <Field
             icon="lock-outline"
-            label="Mật khẩu"
+            label={t('auth.passwordLabel')}
             value={password}
-            placeholder="Nhập mật khẩu"
+            placeholder={t('auth.passwordPlaceholder')}
             onChangeText={setPassword}
             secureTextEntry={hidePassword}
             trailing={
@@ -205,9 +205,9 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
           {isRegister ? (
             <Field
               icon="shield-check-outline"
-              label="Xác nhận mật khẩu"
+              label={t('auth.confirmPasswordLabel')}
               value={confirmPassword}
-              placeholder="Nhập lại mật khẩu"
+              placeholder={t('auth.confirmPasswordPlaceholder')}
               onChangeText={setConfirmPassword}
               secureTextEntry={hidePassword}
             />
@@ -217,19 +217,16 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
             <ToggleRow
               active={acceptedTerms}
               onPress={() => setAcceptedTerms((value) => !value)}
-              label="Tôi đồng ý với điều khoản sử dụng"
+              label={t('auth.acceptTerms')}
             />
           ) : (
             <View style={styles.loginMetaRow}>
               <ToggleRow
                 active={rememberMe}
                 onPress={() => setRememberMe((value) => !value)}
-                label="Ghi nhớ"
+                label={t('auth.rememberMe')}
                 compact
               />
-              <TouchableOpacity activeOpacity={0.76}>
-                <Text style={styles.forgotText}>Quên mật khẩu?</Text>
-              </TouchableOpacity>
             </View>
           )}
 
@@ -247,7 +244,7 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
             onPress={handleSubmit}
           >
             <Text style={styles.primaryButtonText}>
-              {submitting ? 'Đang xử lý...' : isRegister ? 'Đăng ký' : 'Đăng nhập'}
+              {submitting ? t('auth.processing') : isRegister ? t('auth.registerBtn') : t('auth.login')}
             </Text>
             <Feather name="arrow-right" size={rs(30)} color="#ffffff" />
           </TouchableOpacity>
@@ -255,13 +252,13 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
 
         <View style={styles.switchCard}>
           <Text style={styles.switchText}>
-            {isRegister ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}
+            {isRegister ? t('auth.alreadyHaveAccount') : t('auth.dontHaveAccount')}
           </Text>
           <TouchableOpacity
             activeOpacity={0.76}
             onPress={() => router.push(isRegister ? '/(customer)/login' : '/(customer)/register')}
           >
-            <Text style={styles.switchLink}>{isRegister ? 'Đăng nhập' : 'Đăng ký ngay'}</Text>
+            <Text style={styles.switchLink}>{isRegister ? t('auth.login') : t('auth.registerLink')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -269,10 +266,10 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
   );
 }
 
-function getAuthErrorMessage(error: unknown, isRegister: boolean) {
+function getAuthErrorMessage(error: unknown, isRegister: boolean, t: any) {
   if (error instanceof ApiError) {
     if (!isRegister && isInvalidLoginError(error)) {
-      return INVALID_LOGIN_MESSAGE;
+      return t('auth.errInvalidLogin');
     }
 
     return error.message;
@@ -282,7 +279,7 @@ function getAuthErrorMessage(error: unknown, isRegister: boolean) {
     return error.message;
   }
 
-  return isRegister ? 'Không thể đăng ký lúc này.' : 'Không thể đăng nhập lúc này.';
+  return isRegister ? t('auth.errRegisterFailed') : t('auth.errLoginFailed');
 }
 
 function isInvalidLoginError(error: ApiError) {

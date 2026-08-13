@@ -20,7 +20,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LanguageSelectorModal } from '@/components/ui/language-toggle';
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 
 const palette = {
   background: '#f7faf8',
@@ -43,6 +45,8 @@ const palette = {
 export default function DriverAccountScreen() {
   const router = useRouter();
   const { height } = useWindowDimensions();
+  const { t, language } = useLanguage();
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
@@ -68,7 +72,7 @@ export default function DriverAccountScreen() {
 
   async function handleQuickApprove() {
     setMockDriverApproved(true);
-    Alert.alert('Thành công', 'Đã duyệt hồ sơ tài xế (Demo). Bạn có thể quay lại dashboard và bật online.');
+    Alert.alert(t('driverAccount.successTitle'), t('driverAccount.quickApproveMsg'));
     loadData();
   }
 
@@ -83,15 +87,15 @@ export default function DriverAccountScreen() {
   const documents = [
     {
       id: 'license',
-      title: `GPLX (${driverProfile?.licenseNumber ?? 'Chưa rõ'})`,
-      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? 'Chưa rõ',
-      status: driverProfile?.approvalStatus === 'APPROVED' ? 'Đã duyệt' : driverProfile?.approvalStatus === 'PENDING' ? 'Chờ duyệt' : 'Bị từ chối'
+      title: `GPLX (${driverProfile?.licenseNumber ?? t('driverAccount.unknown')})`,
+      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? t('driverAccount.unknown'),
+      status: driverProfile?.approvalStatus === 'APPROVED' ? t('driverAccount.approvedTitle') : driverProfile?.approvalStatus === 'PENDING' ? t('driverAccount.pendingTitle') : t('driverAccount.rejectedTitle')
     },
     {
       id: 'identity',
-      title: `CCCD (${driverProfile?.idCardNumber ?? 'Chưa rõ'})`,
-      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? 'Chưa rõ',
-      status: driverProfile?.approvalStatus === 'APPROVED' ? 'Đã duyệt' : driverProfile?.approvalStatus === 'PENDING' ? 'Chờ duyệt' : 'Bị từ chối'
+      title: `CCCD (${driverProfile?.idCardNumber ?? t('driverAccount.unknown')})`,
+      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? t('driverAccount.unknown'),
+      status: driverProfile?.approvalStatus === 'APPROVED' ? t('driverAccount.approvedTitle') : driverProfile?.approvalStatus === 'PENDING' ? t('driverAccount.pendingTitle') : t('driverAccount.rejectedTitle')
     },
   ];
 
@@ -107,7 +111,7 @@ export default function DriverAccountScreen() {
         <View style={styles.header}>
           <View style={styles.headerTitleWrap}>
             <Image source={{ uri: userProfile?.avatarUrl ?? 'https://i.pravatar.cc/160?img=12' }} style={styles.headerAvatar} contentFit="cover" />
-            <Text style={styles.headerTitle}>Tài khoản</Text>
+            <Text style={styles.headerTitle}>{t('driverAccount.title')}</Text>
           </View>
 
           <Pressable accessibilityRole="button" style={({ pressed }) => [styles.iconButton, pressed ? styles.pressedButton : null]}>
@@ -123,15 +127,15 @@ export default function DriverAccountScreen() {
               color={driverProfile?.approvalStatus === 'APPROVED' ? palette.green : driverProfile?.approvalStatus === 'PENDING' ? palette.amber : palette.danger}
             />
             <Text style={[styles.approvalTitle, driverProfile?.approvalStatus === 'PENDING' && { color: palette.amber }, driverProfile?.approvalStatus === 'REJECTED' && { color: palette.danger }]}>
-              {driverProfile?.approvalStatus === 'APPROVED' ? 'Hồ sơ đã được duyệt' : driverProfile?.approvalStatus === 'PENDING' ? 'Hồ sơ đang chờ duyệt' : 'Hồ sơ bị từ chối'}
+              {driverProfile?.approvalStatus === 'APPROVED' ? t('driverAccount.approvedTitle') : driverProfile?.approvalStatus === 'PENDING' ? t('driverAccount.pendingTitle') : t('driverAccount.rejectedTitle')}
             </Text>
           </View>
           <Text style={styles.approvalText}>
             {driverProfile?.approvalStatus === 'APPROVED'
-              ? 'Bạn có thể bật online để nhận cuốc ngay bây giờ.'
+              ? t('driverAccount.approvedMsg')
               : driverProfile?.approvalStatus === 'PENDING'
-              ? 'Hồ sơ của bạn đang được kiểm duyệt. Vui lòng chờ phê duyệt.'
-              : 'Hồ sơ của bạn bị từ chối. Vui lòng liên hệ hỗ trợ.'}
+              ? t('driverAccount.pendingMsg')
+              : t('driverAccount.rejectedMsg')}
           </Text>
           {USE_MOCK_API && driverProfile?.approvalStatus === 'PENDING' ? (
             <Pressable
@@ -139,7 +143,7 @@ export default function DriverAccountScreen() {
               style={({ pressed }) => [styles.quickApproveButton, pressed && styles.pressedButton]}
             >
               <MaterialCommunityIcons name="check-decagram" size={rs(20)} color="#ffffff" />
-              <Text style={styles.quickApproveText}>Duyệt hồ sơ nhanh (Demo)</Text>
+              <Text style={styles.quickApproveText}>{t('driverAccount.quickApproveBtn')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -147,30 +151,30 @@ export default function DriverAccountScreen() {
         <View style={styles.profileCard}>
           <Image source={{ uri: userProfile?.avatarUrl ?? 'https://i.pravatar.cc/160?img=12' }} style={styles.profileAvatar} contentFit="cover" />
           <View style={styles.profileCopy}>
-            <Text selectable style={styles.profileName}>{userProfile?.fullName ?? 'Chưa cập nhật'}</Text>
-            <Text selectable style={styles.profilePhone}>{userProfile?.phone ?? 'Chưa cập nhật'}</Text>
+            <Text selectable style={styles.profileName}>{userProfile?.fullName ?? t('driverAccount.notUpdated')}</Text>
+            <Text selectable style={styles.profilePhone}>{userProfile?.phone ?? t('driverAccount.notUpdated')}</Text>
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          <StatCard value={(userProfile?.averageRating ?? 5.0).toFixed(1)} label="Đánh giá" showStar />
-          <StatCard value={(userProfile?.tripCount ?? userProfile?.totalTrips ?? 0).toString()} label="Tổng cuốc" />
+          <StatCard value={(userProfile?.averageRating ?? 5.0).toFixed(1)} label={t('driverAccount.statsRating')} showStar />
+          <StatCard value={(userProfile?.tripCount ?? userProfile?.totalTrips ?? 0).toString()} label={t('driverAccount.statsTotalTrips')} />
         </View>
 
         <View style={styles.infoCard}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="motorbike" size={rs(25)} color={palette.blueInk} />
-            <Text style={styles.sectionTitle}>Thông tin phương tiện</Text>
+            <Text style={styles.sectionTitle}>{t('driverAccount.vehicleInfoTitle')}</Text>
           </View>
-          <InfoRow label="Loại xe" value={driverProfile?.vehicleType === 'MOTORBIKE' ? 'Xe máy' : driverProfile?.vehicleType === 'CAR_4_SEAT' ? 'Ô tô 4 chỗ' : driverProfile?.vehicleType === 'CAR_7_SEAT' ? 'Ô tô 7 chỗ' : 'Chưa rõ'} />
-          <InfoRow label="Dòng xe" value={`${driverProfile?.vehicleBrand ?? ''} ${driverProfile?.vehicleModel ?? 'Chưa rõ'}`} />
-          <InfoRow label="Biển số" value={driverProfile?.vehiclePlate ?? 'Chưa rõ'} badge />
+          <InfoRow label={t('driverAccount.vehicleType')} value={driverProfile?.vehicleType === 'MOTORBIKE' ? t('driverAccount.motorbike') : driverProfile?.vehicleType === 'CAR_4_SEAT' ? t('driverAccount.car4') : driverProfile?.vehicleType === 'CAR_7_SEAT' ? t('driverAccount.car7') : t('driverAccount.unknown')} />
+          <InfoRow label={t('driverAccount.vehicleModel')} value={`${driverProfile?.vehicleBrand ?? ''} ${driverProfile?.vehicleModel ?? t('driverAccount.unknown')}`.trim()} />
+          <InfoRow label={t('driverAccount.vehiclePlate')} value={driverProfile?.vehiclePlate ?? t('driverAccount.unknown')} badge />
         </View>
 
         <View style={styles.infoCard}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="file-document-outline" size={rs(25)} color={palette.blueInk} />
-            <Text style={styles.sectionTitle}>Giấy tờ tùy thân</Text>
+            <Text style={styles.sectionTitle}>{t('driverAccount.documentsTitle')}</Text>
           </View>
           {documents.map((document, index) => (
             <DocumentRow
@@ -181,6 +185,20 @@ export default function DriverAccountScreen() {
               divided={index > 0}
             />
           ))}
+        </View>
+
+        <View style={styles.infoCard}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="translate" size={rs(25)} color={palette.blueInk} />
+            <Text style={styles.sectionTitle}>{t('common.language')}</Text>
+          </View>
+          <Pressable 
+            onPress={() => setLanguageModalVisible(true)}
+            style={({ pressed }) => [styles.infoRow, pressed ? styles.pressedButton : null, { borderTopWidth: 0, minHeight: rvs(40) }]}
+          >
+            <Text style={styles.infoLabel}>{language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={rs(20)} color={palette.muted} />
+          </Pressable>
         </View>
 
         <Pressable
@@ -196,9 +214,11 @@ export default function DriverAccountScreen() {
           style={({ pressed }) => [styles.logoutButton, pressed ? styles.pressedButton : null]}
         >
           <MaterialCommunityIcons name="logout" size={rs(24)} color={palette.danger} />
-          <Text style={styles.logoutText}>Đăng xuất</Text>
+          <Text style={styles.logoutText}>{t('driverAccount.logout')}</Text>
         </Pressable>
       </ScrollView>
+
+      <LanguageSelectorModal visible={languageModalVisible} onClose={() => setLanguageModalVisible(false)} />
 
       <View style={styles.bottomNav}>
         <DriverNavItem icon="home-variant-outline" label="Home" onPress={() => router.push('/(driver)')} />
@@ -248,11 +268,12 @@ function DocumentRow({
   status: string;
   divided?: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <View style={[styles.documentRow, divided ? styles.documentRowDivided : null]}>
       <View style={styles.documentCopy}>
         <Text style={styles.documentTitle}>{title}</Text>
-        <Text style={styles.documentDate}>Cập nhật: {updatedAt}</Text>
+        <Text style={styles.documentDate}>{t('driverAccount.updatedAt', { updatedAt })}</Text>
       </View>
       <View style={styles.documentStatus}>
         <MaterialCommunityIcons name="check-decagram" size={rs(16)} color={palette.greenDark} />

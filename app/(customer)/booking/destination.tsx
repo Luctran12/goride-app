@@ -1,6 +1,8 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
+
+import { useLanguage } from '@/lib/i18n';
 import {
   ActivityIndicator,
   ScrollView,
@@ -40,10 +42,11 @@ const shadow = {
 };
 
 export default function DestinationScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const { pickup, usedFallbackPickup } = useMemo(() => resolvePickupFromParams(params), [params]);
+  const { pickup, usedFallbackPickup } = useMemo(() => resolvePickupFromParams(params, t), [params, t]);
   const [dropoff, setDropoff] = useState<LocationPoint | null>(null);
   const [query, setQuery] = useState('');
   const [resolvingAddress, setResolvingAddress] = useState(false);
@@ -110,7 +113,7 @@ export default function DestinationScreen() {
           </TouchableOpacity>
           <View style={styles.headerCopy}>
             <Text style={styles.eyebrow}>GoRide Passenger</Text>
-            <Text style={styles.title}>Chọn điểm đến</Text>
+            <Text style={styles.title}>{t('booking.destinationTitle')}</Text>
           </View>
         </View>
 
@@ -119,7 +122,7 @@ export default function DestinationScreen() {
             <MaterialCommunityIcons name="map-marker-path" size={rs(36)} color={palette.primary} />
           </View>
           <View style={styles.routeCopy}>
-            <Text style={styles.routeTitle}>Từ điểm đón đến nơi bạn muốn tới</Text>
+            <Text style={styles.routeTitle}>{t('booking.routeCardTitle')}</Text>
             <Text style={styles.routeText} numberOfLines={2} selectable>
               {pickup.address}
             </Text>
@@ -127,8 +130,8 @@ export default function DestinationScreen() {
         </View>
 
         <AddressSearch
-          label="Tìm điểm đến"
-          placeholder="Bạn muốn đi đâu?"
+          label={t('booking.searchDestinationLabel')}
+          placeholder={t('booking.searchDestinationPlaceholder')}
           value={query}
           onChangeText={setQuery}
           onSelect={handleSearchSelect}
@@ -167,27 +170,27 @@ export default function DestinationScreen() {
           <View style={styles.pickupDot} />
           <View style={styles.summaryLine} />
           <View style={[styles.pickupDot, styles.dropoffDot]} />
-          <Text style={styles.summaryTitle}>Lộ trình đã chọn</Text>
+          <Text style={styles.summaryTitle}>{t('booking.selectedRouteTitle')}</Text>
         </View>
 
         {resolvingAddress && (
           <View style={styles.resolvingBadge}>
             <ActivityIndicator size="small" color={palette.primary} />
-            <Text style={styles.resolvingText}>Đang nhận diện địa chỉ</Text>
+            <Text style={styles.resolvingText}>{t('booking.resolvingAddress')}</Text>
           </View>
         )}
 
         <View style={styles.addressBlock}>
-          <Text style={styles.addressLabel}>Điểm đón</Text>
+          <Text style={styles.addressLabel}>{t('booking.pickupLabel')}</Text>
           <Text style={styles.addressValue} numberOfLines={1} selectable>
             {pickup.address}
           </Text>
         </View>
 
         <View style={styles.addressBlock}>
-          <Text style={styles.addressLabel}>Điểm đến</Text>
+          <Text style={styles.addressLabel}>{t('booking.destinationLabel')}</Text>
           <Text style={[styles.addressValue, !dropoff && styles.placeholderText]} numberOfLines={2} selectable>
-            {dropoff?.address ?? 'Chọn điểm đến bằng search hoặc chạm trên bản đồ'}
+            {dropoff?.address ?? t('booking.chooseDestinationPlaceholder')}
           </Text>
           {dropoff && (
             <Text style={styles.summaryMeta} selectable>
@@ -202,7 +205,7 @@ export default function DestinationScreen() {
           style={[styles.primaryButton, !dropoff && styles.primaryButtonDisabled]}
           onPress={handleConfirm}
         >
-          <Text style={styles.primaryButtonText}>Xác nhận điểm đến</Text>
+          <Text style={styles.primaryButtonText}>{t('booking.confirmDestination')}</Text>
           <Feather name="check" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
         </TouchableOpacity>
       </View>
@@ -212,14 +215,14 @@ export default function DestinationScreen() {
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-function resolvePickupFromParams(params: SearchParams) {
+function resolvePickupFromParams(params: SearchParams, t: (key: string) => string) {
   const parsedPickup = parseLocationPointParam(params.pickup);
 
   if (parsedPickup) {
     return { pickup: parsedPickup, usedFallbackPickup: false };
   }
 
-  const legacyPickup = parseLegacyPickup(params);
+  const legacyPickup = parseLegacyPickup(params, t);
 
   if (legacyPickup) {
     return { pickup: legacyPickup, usedFallbackPickup: false };
@@ -254,7 +257,7 @@ function parseLocationPointParam(value: string | string[] | undefined): Location
   return null;
 }
 
-function parseLegacyPickup(params: SearchParams): LocationPoint | null {
+function parseLegacyPickup(params: SearchParams, t: (key: string) => string): LocationPoint | null {
   const lat = Number(readParam(params.pickupLat));
   const lng = Number(readParam(params.pickupLng));
   const label = readParam(params.pickupLabel);
@@ -266,8 +269,8 @@ function parseLegacyPickup(params: SearchParams): LocationPoint | null {
   return {
     lat,
     lng,
-    address: label || 'Điểm đón đã chọn',
-    label: label || 'Điểm đón',
+    address: label || t('booking.pickupLabel'),
+    label: label || t('booking.pickupLabel'),
   };
 }
 

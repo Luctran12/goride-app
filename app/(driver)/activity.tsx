@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import { listBookings } from '@/lib/ride-api';
 import type { TripDetail } from '@/types/ride';
 
@@ -60,16 +61,18 @@ type ActivityDataset = {
   trips: DriverActivity[];
 };
 
-const periodOptions: { key: ActivityPeriod; label: string }[] = [
-  { key: 'today', label: 'Hôm nay' },
-  { key: 'week', label: '7 ngày' },
-  { key: 'month', label: '30 ngày' },
-];
 
 export default function DriverActivityScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const { height } = useWindowDimensions();
   const [selectedPeriod, setSelectedPeriod] = React.useState<ActivityPeriod>('today');
+  
+  const periodOptions = React.useMemo<{ key: ActivityPeriod; label: string }[]>(() => [
+    { key: 'today', label: t('driverActivity.periodToday') },
+    { key: 'week', label: t('driverActivity.periodWeek') },
+    { key: 'month', label: t('driverActivity.periodMonth') },
+  ], [t]);
   const [trips, setTrips] = React.useState<TripDetail[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -128,9 +131,17 @@ export default function DriverActivityScreen() {
         const diffMs = now.getTime() - reqDate.getTime();
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
         if (diffDays === 1) {
-          timeStr = 'Hôm qua';
+          timeStr = t('driverActivity.yesterday');
         } else {
-          const dayNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+          const dayNames = [
+            t('driverActivity.sunday'),
+            t('driverActivity.monday'),
+            t('driverActivity.tuesday'),
+            t('driverActivity.wednesday'),
+            t('driverActivity.thursday'),
+            t('driverActivity.friday'),
+            t('driverActivity.saturday'),
+          ];
           timeStr = dayNames[reqDate.getDay()];
         }
       } else {
@@ -147,9 +158,9 @@ export default function DriverActivityScreen() {
         fare: trip.finalFare ?? trip.estimatedFare,
         originalFare: trip.status === 'CANCELLED' ? trip.estimatedFare : undefined,
         status: completed ? 'completed' : 'cancelled',
-        statusLabel: completed ? 'Hoàn thành' : (trip.status === 'CANCELLED' ? 'Khách hủy' : 'Hủy chuyến'),
-        pickup: trip.pickup.address || 'Điểm đón',
-        dropoff: trip.dropoff.address || 'Điểm đến',
+        statusLabel: completed ? t('driverActivity.statusCompleted') : (trip.status === 'CANCELLED' ? t('driverActivity.statusPassengerCancelled') : t('driverActivity.statusDriverCancelled')),
+        pickup: trip.pickup.address || t('driverActivity.pickupLabel'),
+        dropoff: trip.dropoff.address || t('driverActivity.dropoffLabel'),
         rating: trip.passengerRating?.score,
       };
     };
@@ -172,7 +183,7 @@ export default function DriverActivityScreen() {
       week: filterAndSummarize((date) => isWithinDays(date, 7)),
       month: filterAndSummarize((date) => isWithinDays(date, 30)),
     };
-  }, [trips]);
+  }, [trips, t]);
 
   const dataset = activityData[selectedPeriod];
 
@@ -206,8 +217,8 @@ export default function DriverActivityScreen() {
         </View>
 
         <View style={styles.titleBlock}>
-          <Text style={styles.screenTitle}>Hoạt động</Text>
-          <Text style={styles.subtitle}>Lịch sử chuyến đi và thu nhập</Text>
+          <Text style={styles.screenTitle}>{t('driverActivity.title')}</Text>
+          <Text style={styles.subtitle}>{t('driverActivity.subtitle')}</Text>
         </View>
 
         <View style={styles.segmentedControl}>
@@ -238,20 +249,20 @@ export default function DriverActivityScreen() {
         ) : (
           <>
             <View style={styles.statsRow}>
-              <SummaryCard label="Tổng chuyến" value={dataset.totalTrips} tone="blue" />
-              <SummaryCard label="Hoàn thành" value={dataset.completedTrips} tone="green" featured />
-              <SummaryCard label="Đã hủy" value={dataset.cancelledTrips} tone="danger" />
+              <SummaryCard label={t('driverActivity.totalTrips')} value={dataset.totalTrips} tone="blue" />
+              <SummaryCard label={t('driverActivity.statusCompleted')} value={dataset.completedTrips} tone="green" featured />
+              <SummaryCard label={t('driverActivity.cancelledTrips')} value={dataset.cancelledTrips} tone="danger" />
             </View>
 
             <View style={styles.tripList}>
               {dataset.trips.length === 0 ? (
                 <View style={styles.emptyState}>
                   <MaterialCommunityIcons name="history" size={rs(48)} color={palette.muted} />
-                  <Text style={styles.emptyStateText}>Không có hoạt động nào trong khoảng thời gian này</Text>
+                  <Text style={styles.emptyStateText}>{t('driverActivity.noActivity')}</Text>
                 </View>
               ) : (
                 dataset.trips.map((trip) => (
-                  <ActivityTripCard key={trip.id} trip={trip} />
+                  <ActivityTripCard key={trip.id} trip={trip} t={t} />
                 ))
               )}
             </View>
@@ -292,7 +303,7 @@ function SummaryCard({
   );
 }
 
-function ActivityTripCard({ trip }: { trip: DriverActivity }) {
+function ActivityTripCard({ trip, t }: { trip: DriverActivity, t: any }) {
   const completed = trip.status === 'completed';
   const statusStyle = completed ? styles.statusCompleted : styles.statusCancelled;
   const statusTextStyle = completed ? styles.statusTextCompleted : styles.statusTextCancelled;
@@ -329,14 +340,14 @@ function ActivityTripCard({ trip }: { trip: DriverActivity }) {
       </View>
 
       <View style={styles.routeBlock}>
-        <RoutePoint label="Điểm đón" address={trip.pickup} tone={routeTone} first />
+        <RoutePoint label={t('driverActivity.pickupLabel')} address={trip.pickup} tone={routeTone} first />
         <View style={[styles.routeConnector, !completed ? styles.routeConnectorMuted : null]} />
-        <RoutePoint label="Điểm đến" address={trip.dropoff} tone={routeTone} />
+        <RoutePoint label={t('driverActivity.dropoffLabel')} address={trip.dropoff} tone={routeTone} />
       </View>
 
       {completed && trip.rating ? (
         <View style={styles.ratingRow}>
-          <Text style={styles.ratingLabel}>Đánh giá chuyến đi</Text>
+          <Text style={styles.ratingLabel}>{t('driverActivity.ratingLabel')}</Text>
           <View style={styles.ratingValueRow}>
             <MaterialCommunityIcons name="star" size={rs(19)} color={palette.amber} />
             <Text selectable style={styles.ratingValue}>

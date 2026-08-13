@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import { HAS_GOOGLE_MAPS_API_KEY } from '@/lib/config';
 import { getPlaceDetails, searchPlaces } from '@/lib/location-service';
 import type { Coordinates, LocationPoint } from '@/types/ride';
@@ -49,7 +50,7 @@ export type AddressSearchProps = {
 };
 
 export function AddressSearch({
-  placeholder = 'Nhập địa chỉ hoặc địa điểm',
+  placeholder,
   value,
   onChangeText,
   onSelect,
@@ -64,6 +65,9 @@ export function AddressSearch({
   style,
   inputProps,
 }: AddressSearchProps) {
+  const { t } = useLanguage();
+  const effectivePlaceholder = placeholder ?? t('booking.searchAddressPlaceholder', 'Nhập địa chỉ hoặc địa điểm');
+
   const [results, setResults] = useState<LocationPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectingPlaceId, setSelectingPlaceId] = useState<string | null>(null);
@@ -89,9 +93,9 @@ export function AddressSearch({
     }
 
     return HAS_GOOGLE_MAPS_API_KEY
-      ? 'Tìm kiếm bằng Google Places, ưu tiên khu vực gần bạn.'
-      : 'Đang dùng tìm kiếm giới hạn vì chưa có Google Maps API key.';
-  }, [helperText]);
+      ? t('booking.searchGooglePlaces', 'Tìm kiếm bằng Google Places, ưu tiên khu vực gần bạn.')
+      : t('booking.searchLimited', 'Đang dùng tìm kiếm giới hạn vì chưa có Google Maps API key.');
+  }, [helperText, t]);
 
   useEffect(() => {
     requestIdRef.current += 1;
@@ -126,7 +130,7 @@ export function AddressSearch({
 
         setResults([]);
         setHasSearched(true);
-        setError(searchError instanceof Error ? searchError.message : 'Không thể tìm địa chỉ');
+        setError(searchError instanceof Error ? searchError.message : t('booking.searchAddressError', 'Không thể tìm địa chỉ'));
       } finally {
         if (requestIdRef.current === currentRequestId) {
           setLoading(false);
@@ -160,7 +164,7 @@ export function AddressSearch({
         Keyboard.dismiss();
       }
     } catch (detailsError) {
-      setError(detailsError instanceof Error ? detailsError.message : 'Không thể lấy chi tiết địa điểm');
+      setError(detailsError instanceof Error ? detailsError.message : t('booking.placeDetailsError', 'Không thể lấy chi tiết địa điểm'));
     } finally {
       setSelectingPlaceId(null);
     }
@@ -185,7 +189,7 @@ export function AddressSearch({
           value={value}
           editable={!disabled}
           autoFocus={autoFocus}
-          placeholder={placeholder}
+          placeholder={effectivePlaceholder}
           placeholderTextColor={palette.muted}
           returnKeyType="search"
           style={styles.input}
@@ -204,7 +208,7 @@ export function AddressSearch({
         ) : value.length > 0 ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Xóa địa chỉ"
+            accessibilityLabel={t('booking.clearAddress', 'Xóa địa chỉ')}
             hitSlop={rs(10)}
             onPress={handleClear}
             style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
@@ -228,23 +232,23 @@ export function AddressSearch({
           {error ? (
             <StateRow
               icon="warning-outline"
-              title="Không tìm được địa chỉ"
+              title={t('booking.addressNotFound', 'Không tìm được địa chỉ')}
               message={error}
               tone="danger"
             />
           ) : !canSearch ? (
             <StateRow
               icon="text-outline"
-              title="Nhập thêm địa chỉ"
-              message={`Nhập ít nhất ${minQueryLength} ký tự để bắt đầu tìm kiếm.`}
+              title={t('booking.enterMoreAddress', 'Nhập thêm địa chỉ')}
+              message={t('booking.enterMinChars', 'Nhập ít nhất {minQueryLength} ký tự để bắt đầu tìm kiếm.', { minQueryLength })}
             />
           ) : loading && results.length === 0 ? (
-            <StateRow icon="navigate-outline" title="Đang tìm kiếm" message="GoRide đang gợi ý địa điểm gần bạn." />
+            <StateRow icon="navigate-outline" title={t('booking.searching', 'Đang tìm kiếm')} message={t('booking.searchingHint', 'GoRide đang gợi ý địa điểm gần bạn.')} />
           ) : hasSearched && results.length === 0 ? (
             <StateRow
               icon="map-outline"
-              title="Chưa có kết quả"
-              message="Thử nhập tên đường, tòa nhà hoặc quận gần hơn."
+              title={t('booking.noResults', 'Chưa có kết quả')}
+              message={t('booking.tryAnotherKeyword', 'Thử nhập tên đường, tòa nhà hoặc quận gần hơn.')}
             />
           ) : (
             results.map((point) => (
@@ -253,6 +257,7 @@ export function AddressSearch({
                 point={point}
                 loading={selectingPlaceId === point.placeId}
                 onPress={() => handleSelect(point)}
+                t={t}
               />
             ))
           )}
@@ -266,15 +271,17 @@ function ResultRow({
   point,
   loading,
   onPress,
+  t,
 }: {
   point: LocationPoint;
   loading: boolean;
   onPress: () => void;
+  t: any;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Chọn ${point.label ?? point.address}`}
+      accessibilityLabel={t('booking.selectAddress', 'Chọn {address}', { address: point.label ?? point.address })}
       disabled={loading}
       onPress={onPress}
       style={({ pressed }) => [styles.resultRow, pressed && styles.resultRowPressed]}

@@ -1,6 +1,7 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { ApiError } from '@/lib/api';
 import { login as loginWithPhone, registerDriver } from '@/lib/auth-api';
+import { useLanguage } from '@/lib/i18n';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -40,9 +41,8 @@ const shadow = {
 
 type AuthMode = 'login' | 'register';
 
-const INVALID_LOGIN_MESSAGE = 'Tài khoản hoặc mật khẩu không đúng!';
-
 export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const isRegister = mode === 'register';
   const [fullName, setFullName] = React.useState('');
@@ -56,10 +56,10 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
   const [error, setError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
 
-  const title = isRegister ? 'Tạo tài khoản' : 'Đăng nhập';
+  const title = isRegister ? t('driverAuth.createAccount') : t('driverAuth.login');
   const subtitle = isRegister
-    ? 'Đăng ký trở thành đối tác tài xế GoRide.'
-    : 'Tiếp tục nhận cuốc cùng GoRide.';
+    ? t('driverAuth.registerSubtitle')
+    : t('driverAuth.loginSubtitle');
 
   async function handleSubmit() {
     if (submitting) {
@@ -67,28 +67,28 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
     }
 
     if (!phone.trim() || !password.trim()) {
-      setError('Vui lòng nhập số điện thoại và mật khẩu.');
+      setError(t('driverAuth.errPhonePassRequired'));
       return;
     }
 
     if (isRegister) {
       if (!fullName.trim() || !email.trim()) {
-        setError('Vui lòng nhập họ tên và email.');
+        setError(t('driverAuth.errNameEmailRequired'));
         return;
       }
 
       if (password.length < 8) {
-        setError('Mật khẩu cần tối thiểu 8 ký tự.');
+        setError(t('driverAuth.errPasswordLength'));
         return;
       }
 
       if (password !== confirmPassword) {
-        setError('Mật khẩu xác nhận không khớp.');
+        setError(t('driverAuth.errPasswordMismatch'));
         return;
       }
 
       if (!acceptedTerms) {
-        setError('Vui lòng đồng ý với điều khoản sử dụng.');
+        setError(t('driverAuth.errAcceptTerms'));
         return;
       }
     }
@@ -113,7 +113,7 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
 
       router.replace('/(driver)');
     } catch (submitError) {
-      setError(getAuthErrorMessage(submitError, isRegister));
+      setError(getAuthErrorMessage(submitError, isRegister, t));
     } finally {
       setSubmitting(false);
     }
@@ -145,7 +145,7 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
         <View style={styles.hero}>
           <View style={styles.badge}>
             <MaterialCommunityIcons name="motorbike" size={rs(27)} color={palette.primary} />
-            <Text style={styles.badgeText}>Tài xế</Text>
+            <Text style={styles.badgeText}>{t('driverAuth.roleBadge')}</Text>
           </View>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
@@ -155,9 +155,9 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
           {isRegister ? (
             <Field
               icon="account-outline"
-              label="Họ và tên"
+              label={t('driverAuth.fullNameLabel')}
               value={fullName}
-              placeholder="Nguyễn Văn A"
+              placeholder={t('driverAuth.fullNamePlaceholder')}
               onChangeText={setFullName}
               autoCapitalize="words"
             />
@@ -165,9 +165,9 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
 
           <Field
             icon="phone-outline"
-            label="Số điện thoại"
+            label={t('driverAuth.phoneLabel')}
             value={phone}
-            placeholder="0901234567"
+            placeholder={t('driverAuth.phonePlaceholder')}
             onChangeText={setPhone}
             keyboardType="phone-pad"
           />
@@ -175,9 +175,9 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
           {isRegister ? (
             <Field
               icon="email-outline"
-              label="Email"
+              label={t('driverAuth.emailLabel')}
               value={email}
-              placeholder="driver@example.com"
+              placeholder={t('driverAuth.emailPlaceholder')}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
@@ -186,9 +186,9 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
 
           <Field
             icon="lock-outline"
-            label="Mật khẩu"
+            label={t('driverAuth.passwordLabel')}
             value={password}
-            placeholder="Nhập mật khẩu"
+            placeholder={t('driverAuth.passwordPlaceholder')}
             onChangeText={setPassword}
             secureTextEntry={hidePassword}
             trailing={
@@ -205,9 +205,9 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
           {isRegister ? (
             <Field
               icon="shield-check-outline"
-              label="Xác nhận mật khẩu"
+              label={t('driverAuth.confirmPasswordLabel')}
               value={confirmPassword}
-              placeholder="Nhập lại mật khẩu"
+              placeholder={t('driverAuth.confirmPasswordPlaceholder')}
               onChangeText={setConfirmPassword}
               secureTextEntry={hidePassword}
             />
@@ -217,18 +217,18 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
             <ToggleRow
               active={acceptedTerms}
               onPress={() => setAcceptedTerms((value) => !value)}
-              label="Tôi đồng ý với điều khoản dịch vụ tài xế"
+              label={t('driverAuth.acceptTerms')}
             />
           ) : (
             <View style={styles.loginMetaRow}>
               <ToggleRow
                 active={rememberMe}
                 onPress={() => setRememberMe((value) => !value)}
-                label="Ghi nhớ"
+                label={t('driverAuth.rememberMe')}
                 compact
               />
               <TouchableOpacity activeOpacity={0.76}>
-                <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+                <Text style={styles.forgotText}>{t('driverAuth.forgotPassword')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -247,7 +247,7 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
             onPress={handleSubmit}
           >
             <Text style={styles.primaryButtonText}>
-              {submitting ? 'Đang xử lý...' : isRegister ? 'Đăng ký' : 'Đăng nhập'}
+              {submitting ? t('driverAuth.processing') : isRegister ? t('driverAuth.registerBtn') : t('driverAuth.login')}
             </Text>
             <Feather name="arrow-right" size={rs(30)} color="#ffffff" />
           </TouchableOpacity>
@@ -255,13 +255,13 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
 
         <View style={styles.switchCard}>
           <Text style={styles.switchText}>
-            {isRegister ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}
+            {isRegister ? t('driverAuth.alreadyHaveAccount') : t('driverAuth.dontHaveAccount')}
           </Text>
           <TouchableOpacity
             activeOpacity={0.76}
             onPress={() => router.push(isRegister ? ('/(driver)/login' as any) : ('/(driver)/register' as any))}
           >
-            <Text style={styles.switchLink}>{isRegister ? 'Đăng nhập' : 'Đăng ký ngay'}</Text>
+            <Text style={styles.switchLink}>{isRegister ? t('driverAuth.loginLink') : t('driverAuth.registerLink')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -269,10 +269,10 @@ export function DriverAuthScreen({ mode }: { mode: AuthMode }) {
   );
 }
 
-function getAuthErrorMessage(error: unknown, isRegister: boolean) {
+function getAuthErrorMessage(error: unknown, isRegister: boolean, t: any) {
   if (error instanceof ApiError) {
     if (!isRegister && isInvalidLoginError(error)) {
-      return INVALID_LOGIN_MESSAGE;
+      return t('driverAuth.invalidLogin');
     }
 
     return error.message;
@@ -282,7 +282,7 @@ function getAuthErrorMessage(error: unknown, isRegister: boolean) {
     return error.message;
   }
 
-  return isRegister ? 'Không thể đăng ký lúc này.' : 'Không thể đăng nhập lúc này.';
+  return isRegister ? t('driverAuth.errRegisterFailed') : t('driverAuth.errLoginFailed');
 }
 
 function isInvalidLoginError(error: ApiError) {

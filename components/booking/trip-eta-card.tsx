@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import type { DriverLocationUpdate, TripStatus } from '@/types/ride';
 
 const palette = {
@@ -46,7 +47,8 @@ export function TripEtaCard({
   lastUpdatedAt = null,
   style,
 }: TripEtaCardProps) {
-  const copy = getEtaCopy(status, estimatedDuration, driverLocation);
+  const { t } = useLanguage();
+  const copy = getEtaCopy(status, t, estimatedDuration, driverLocation);
 
   return (
     <View style={[styles.card, style]}>
@@ -61,8 +63,8 @@ export function TripEtaCard({
       </View>
 
       <View style={styles.metricsRow}>
-        <EtaMetric icon="map-marker-distance" label="Quãng đường" value={formatDistance(estimatedDistance)} />
-        <EtaMetric icon="clock-outline" label="Cập nhật" value={formatLastUpdated(lastUpdatedAt)} />
+        <EtaMetric icon="map-marker-distance" label={t('booking.distance', 'Quãng đường')} value={formatDistance(estimatedDistance)} />
+        <EtaMetric icon="clock-outline" label={t('booking.lastUpdated', 'Cập nhật')} value={formatLastUpdated(lastUpdatedAt)} />
       </View>
     </View>
   );
@@ -90,12 +92,12 @@ function EtaMetric({
   );
 }
 
-function getEtaCopy(status: TripStatus, estimatedDuration?: number | null, driverLocation?: DriverLocationUpdate | null) {
+function getEtaCopy(status: TripStatus, t: any, estimatedDuration?: number | null, driverLocation?: DriverLocationUpdate | null) {
   if (status === 'SEARCHING') {
     return {
-      label: 'Đang ghép chuyến',
-      value: '1-2 phút',
-      description: 'GoRide đang tìm tài xế phù hợp quanh điểm đón của bạn.',
+      label: t('booking.searchingDriver', 'Đang ghép chuyến'),
+      value: t('booking.searchingDriverValue', '1-2 phút'),
+      description: t('booking.searchingDriverDesc', 'GoRide đang tìm tài xế phù hợp quanh điểm đón của bạn.'),
       icon: 'radar' as const,
       color: palette.primary,
       background: palette.primarySoft,
@@ -104,11 +106,11 @@ function getEtaCopy(status: TripStatus, estimatedDuration?: number | null, drive
 
   if (status === 'ACCEPTED') {
     return {
-      label: 'Tài xế tới điểm đón',
+      label: t('booking.driverAccepted', 'Tài xế tới điểm đón'),
       value: formatMinutes(getPickupEta(estimatedDuration, Boolean(driverLocation))),
       description: driverLocation
-        ? 'Tài xế đang di chuyển tới điểm đón. Theo dõi xe trên bản đồ để chuẩn bị lên xe.'
-        : 'Đã có tài xế nhận chuyến. Vị trí tài xế sẽ được đồng bộ trong giây lát.',
+        ? t('booking.driverAcceptedDescWithLocation', 'Tài xế đang di chuyển tới điểm đón. Theo dõi xe trên bản đồ để chuẩn bị lên xe.')
+        : t('booking.driverAcceptedDescNoLocation', 'Đã có tài xế nhận chuyến. Vị trí tài xế sẽ được đồng bộ trong giây lát.'),
       icon: 'car-clock' as const,
       color: palette.green,
       background: palette.greenSoft,
@@ -117,9 +119,9 @@ function getEtaCopy(status: TripStatus, estimatedDuration?: number | null, drive
 
   if (status === 'ARRIVED') {
     return {
-      label: 'Tài xế đã đến',
-      value: 'Đang chờ bạn',
-      description: 'Kiểm tra biển số, chào tài xế và bắt đầu chuyến đi khi bạn sẵn sàng.',
+      label: t('booking.driverArrived', 'Tài xế đã đến'),
+      value: t('booking.waitingForYou', 'Đang chờ bạn'),
+      description: t('booking.driverArrivedDesc', 'Kiểm tra biển số, chào tài xế và bắt đầu chuyến đi khi bạn sẵn sàng.'),
       icon: 'map-marker-check-outline' as const,
       color: palette.green,
       background: palette.greenSoft,
@@ -128,9 +130,9 @@ function getEtaCopy(status: TripStatus, estimatedDuration?: number | null, drive
 
   if (status === 'IN_PROGRESS') {
     return {
-      label: 'Tới điểm đến',
+      label: t('booking.inProgress', 'Tới điểm đến'),
       value: formatMinutes(estimatedDuration),
-      description: 'Chuyến đi đang diễn ra. ETA là ước tính dựa trên tuyến đường đã chọn.',
+      description: t('booking.inProgressDesc', 'Chuyến đi đang diễn ra. ETA là ước tính dựa trên tuyến đường đã chọn.'),
       icon: 'navigation-variant' as const,
       color: palette.primary,
       background: palette.primarySoft,
@@ -139,9 +141,9 @@ function getEtaCopy(status: TripStatus, estimatedDuration?: number | null, drive
 
   if (status === 'COMPLETED') {
     return {
-      label: 'Đã hoàn thành',
-      value: 'Cảm ơn bạn',
-      description: 'Chuyến đi đã kết thúc. Hóa đơn và đánh giá sẽ được xử lý ở bước tiếp theo.',
+      label: t('booking.completed', 'Đã hoàn thành'),
+      value: t('booking.thankYou', 'Cảm ơn bạn'),
+      description: t('booking.completedDesc', 'Chuyến đi đã kết thúc. Hóa đơn và đánh giá sẽ được xử lý ở bước tiếp theo.'),
       icon: 'check-decagram-outline' as const,
       color: palette.green,
       background: palette.greenSoft,
@@ -150,9 +152,9 @@ function getEtaCopy(status: TripStatus, estimatedDuration?: number | null, drive
 
   if (status === 'NO_DRIVER') {
     return {
-      label: 'Chưa có tài xế',
-      value: 'Thử lại sau',
-      description: 'Hiện chưa có tài xế phù hợp quanh bạn. Bạn có thể hủy và đặt lại chuyến.',
+      label: t('booking.noDriver', 'Chưa có tài xế'),
+      value: t('booking.tryAgainLater', 'Thử lại sau'),
+      description: t('booking.noDriverDesc', 'Hiện chưa có tài xế phù hợp quanh bạn. Bạn có thể hủy và đặt lại chuyến.'),
       icon: 'account-search-outline' as const,
       color: palette.amber,
       background: palette.amberSoft,
@@ -160,9 +162,9 @@ function getEtaCopy(status: TripStatus, estimatedDuration?: number | null, drive
   }
 
   return {
-    label: 'Chuyến đã hủy',
-    value: 'Đã dừng',
-    description: 'Yêu cầu đặt xe đã hủy. Bạn có thể quay lại trang chủ để tạo chuyến mới.',
+    label: t('booking.cancelled', 'Chuyến đã hủy'),
+    value: t('booking.stopped', 'Đã dừng'),
+    description: t('booking.cancelledDesc', 'Yêu cầu đặt xe đã hủy. Bạn có thể quay lại trang chủ để tạo chuyến mới.'),
     icon: 'close-circle-outline' as const,
     color: palette.danger,
     background: palette.dangerSoft,

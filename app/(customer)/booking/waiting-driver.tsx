@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DriverInfoCard, MapPicker, TripCompletionCard, TripEtaCard, TripStatusTimeline } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import { fetchRoute } from '@/lib/location-service';
 import { cancelTrip, getDriverLocation, getTrip } from '@/lib/ride-api';
 import { getLocationToWords } from '@/lib/three-word-location-api';
@@ -86,6 +87,7 @@ function getDistanceBetweenPoints(lat1: number, lon1: number, lat2: number, lon2
 export default function WaitingDriverScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { t } = useLanguage();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const tripId = readParam(params.tripId);

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '@/lib/i18n';
 
 import { ApiError } from '@/lib/api';
 import { initializeAuthSession } from '@/lib/auth-api';
@@ -54,11 +55,12 @@ const INITIAL_SYNC_LIMIT = 50;
 const RECONNECT_SYNC_LIMIT = 100;
 
 export function TripChatScreen({ role }: TripChatScreenProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const params = useLocalSearchParams();
   const tripId = parseTripId(readParam(params.tripId));
   const routeStatus = normalizeTripStatus(readParam(params.status));
-  const participantName = readParam(params.participantName) ?? (role === 'DRIVER' ? 'Hành khách' : 'Tài xế');
+  const participantName = readParam(params.participantName) ?? (role === 'DRIVER' ? t('chat.passenger') : t('chat.driver'));
   const listRef = useRef<FlatList<ChatMessage> | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const currentUserIdRef = useRef<number | null>(null);
@@ -128,7 +130,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
   const syncMessages = useCallback(async () => {
     if (!tripId) {
       setLoading(false);
-      setSyncError('Mã chuyến đi không hợp lệ.');
+      setSyncError(t('chat.invalidTripId'));
       return;
     }
 
@@ -169,7 +171,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
         if (error instanceof ApiError && error.code === 'FORBIDDEN') {
           setAccessDenied(true);
         }
-        setSyncError(getErrorMessage(error, 'Không thể đồng bộ hội thoại.'));
+        setSyncError(getErrorMessage(error, t('chat.syncError')));
       } finally {
         setLoading(false);
       }
@@ -305,7 +307,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
               ? {
                   ...message,
                   deliveryStatus: 'failed',
-                  errorMessage: getErrorMessage(error, 'Gửi thất bại. Chạm để thử lại.'),
+                  errorMessage: getErrorMessage(error, t('chat.sendFailed')),
                 }
               : message,
           ),
@@ -401,7 +403,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
       mergeMessages(result.items);
       setHasOlder(result.hasMore);
     } catch (error) {
-      setSyncError(getErrorMessage(error, 'Không thể tải tin nhắn cũ hơn.'));
+      setSyncError(getErrorMessage(error, t('chat.loadOlderError')));
     } finally {
       setLoadingOlder(false);
     }
@@ -427,10 +429,10 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.invalidState}>
           <MaterialCommunityIcons name="message-alert-outline" size={48} color="#cf3d4f" />
-          <Text style={styles.invalidTitle}>Không thể mở hội thoại</Text>
-          <Text style={styles.invalidCopy}>Mã chuyến đi bị thiếu hoặc không hợp lệ.</Text>
+          <Text style={styles.invalidTitle}>{t('chat.invalidStateTitle')}</Text>
+          <Text style={styles.invalidCopy}>{t('chat.invalidStateDesc')}</Text>
           <Pressable style={styles.primaryButton} onPress={() => router.back()}>
-            <Text style={styles.primaryButtonText}>Quay lại</Text>
+            <Text style={styles.primaryButtonText}>{t('chat.backBtn')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -442,10 +444,10 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.invalidState}>
           <MaterialCommunityIcons name="shield-lock-outline" size={48} color="#cf3d4f" />
-          <Text style={styles.invalidTitle}>Không có quyền truy cập</Text>
-          <Text style={styles.invalidCopy}>Bạn không phải hành khách hoặc tài xế được gán cho chuyến này.</Text>
+          <Text style={styles.invalidTitle}>{t('chat.accessDeniedTitle')}</Text>
+          <Text style={styles.invalidCopy}>{t('chat.accessDeniedDesc')}</Text>
           <Pressable style={styles.primaryButton} onPress={() => router.back()}>
-            <Text style={styles.primaryButtonText}>Rời hội thoại</Text>
+            <Text style={styles.primaryButtonText}>{t('chat.leaveChatBtn')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -467,7 +469,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
             <View style={styles.connectionRow}>
               <View style={[styles.connectionDot, connectionStatus === 'connected' && styles.connectionDotOnline]} />
               <Text style={styles.headerSubtitle}>
-                {getConnectionCopy(connectionStatus)} · Chuyến #{tripId}
+                {getConnectionCopy(connectionStatus, t)} · {t('chat.tripLabel')} #{tripId}
               </Text>
             </View>
           </View>
@@ -478,21 +480,21 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
 
         {initialUnreadCount > 0 ? (
           <View style={styles.unreadBanner}>
-            <Text style={styles.unreadBannerText}>{initialUnreadCount} tin nhắn mới</Text>
+            <Text style={styles.unreadBannerText}>{t('chat.newMessages', { count: initialUnreadCount })}</Text>
           </View>
         ) : null}
 
         {syncError ? (
           <Pressable style={styles.errorBanner} onPress={() => void syncMessages()}>
             <MaterialCommunityIcons name="cloud-alert" size={20} color="#a62336" />
-            <Text style={styles.errorBannerText} numberOfLines={2}>{syncError} Chạm để thử lại.</Text>
+            <Text style={styles.errorBannerText} numberOfLines={2}>{syncError} {t('chat.tapToRetry')}</Text>
           </Pressable>
         ) : null}
 
         {loading ? (
           <View style={styles.loadingState}>
             <ActivityIndicator color="#008e62" />
-            <Text style={styles.loadingCopy}>Đang đồng bộ hội thoại...</Text>
+            <Text style={styles.loadingCopy}>{t('chat.syncing')}</Text>
           </View>
         ) : (
           <FlatList
@@ -505,7 +507,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
               hasOlder ? (
                 <Pressable style={styles.loadOlderButton} disabled={loadingOlder} onPress={() => void handleLoadOlder()}>
                   {loadingOlder ? <ActivityIndicator size="small" color="#008e62" /> : null}
-                  <Text style={styles.loadOlderText}>{loadingOlder ? 'Đang tải...' : 'Tải tin nhắn cũ hơn'}</Text>
+                  <Text style={styles.loadOlderText}>{loadingOlder ? t('chat.loadingOlder') : t('chat.loadOlderBtn')}</Text>
                 </Pressable>
               ) : null
             }
@@ -514,8 +516,8 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
                 <View style={styles.emptyIcon}>
                   <MaterialCommunityIcons name="message-text-outline" size={34} color="#008e62" />
                 </View>
-                <Text style={styles.emptyTitle}>Bắt đầu trò chuyện</Text>
-                <Text style={styles.emptyCopy}>Nhắn thông tin điểm đón hoặc cập nhật tình trạng di chuyển.</Text>
+                <Text style={styles.emptyTitle}>{t('chat.startChatTitle')}</Text>
+                <Text style={styles.emptyCopy}>{t('chat.startChatDesc')}</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -542,9 +544,9 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
                     </View>
                   </View>
                   {item.deliveryStatus === 'failed' ? (
-                    <Text style={styles.failedText}>{item.errorMessage ?? 'Gửi thất bại.'} Chạm để thử lại.</Text>
+                    <Text style={styles.failedText}>{item.errorMessage ?? t('chat.sendFailed')} {t('chat.tapToRetry')}</Text>
                   ) : showReadReceipt ? (
-                    <Text style={styles.readReceipt}>Đã xem</Text>
+                    <Text style={styles.readReceipt}>{t('chat.readReceipt')}</Text>
                   ) : null}
                 </Pressable>
               );
@@ -555,13 +557,13 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
         {!canSend ? (
           <View style={styles.lockedBanner}>
             <MaterialCommunityIcons name="lock-outline" size={18} color="#705b18" />
-            <Text style={styles.lockedText}>{getLockedCopy(tripStatus)}</Text>
+            <Text style={styles.lockedText}>{getLockedCopy(tripStatus, t)}</Text>
           </View>
         ) : null}
 
         {isRateLimited ? (
           <View style={styles.rateLimitBanner}>
-            <Text style={styles.rateLimitText}>Bạn đang gửi quá nhanh. Thử lại sau {cooldownSeconds}s.</Text>
+            <Text style={styles.rateLimitText}>{t('chat.rateLimit', { seconds: cooldownSeconds })}</Text>
           </View>
         ) : null}
 
@@ -572,7 +574,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
             editable={canSend && !isRateLimited}
             multiline
             maxLength={1000}
-            placeholder={canSend ? 'Nhập tin nhắn...' : 'Chat đang tạm khóa'}
+            placeholder={canSend ? t('chat.inputPlaceholder') : t('chat.inputLocked')}
             placeholderTextColor="#8b948f"
             style={styles.input}
           />
@@ -676,20 +678,20 @@ function clearCooldownTimer(
   }
 }
 
-function getConnectionCopy(status: RealtimeConnectionStatus) {
-  if (status === 'connected') return 'Đang kết nối trực tiếp';
-  if (status === 'connecting') return 'Đang kết nối';
-  if (status === 'reconnecting') return 'Đang nối lại';
-  if (status === 'error') return 'Đồng bộ qua REST';
-  return 'Ngoại tuyến';
+function getConnectionCopy(status: RealtimeConnectionStatus, t: any) {
+  if (status === 'connected') return t('chat.connDirect');
+  if (status === 'connecting') return t('chat.connConnecting');
+  if (status === 'reconnecting') return t('chat.connReconnecting');
+  if (status === 'error') return t('chat.connRest');
+  return t('chat.connOffline');
 }
 
-function getLockedCopy(status: TripStatus | null) {
-  if (!status) return 'Đang kiểm tra trạng thái chuyến đi.';
-  if (status === 'SEARCHING') return 'Bạn có thể nhắn sau khi tài xế nhận chuyến.';
-  if (status === 'COMPLETED') return 'Chuyến đi đã hoàn thành. Bạn vẫn có thể xem lịch sử chat.';
-  if (status === 'CANCELLED' || status === 'NO_DRIVER') return 'Chuyến đi không còn hoạt động.';
-  return 'Chat hiện không khả dụng cho chuyến này.';
+function getLockedCopy(status: TripStatus | null, t: any) {
+  if (!status) return t('chat.lockChecking');
+  if (status === 'SEARCHING') return t('chat.lockSearching');
+  if (status === 'COMPLETED') return t('chat.lockCompleted');
+  if (status === 'CANCELLED' || status === 'NO_DRIVER') return t('chat.lockCancelled');
+  return t('chat.lockUnavailable');
 }
 
 function getErrorMessage(error: unknown, fallback: string) {

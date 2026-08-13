@@ -1,3 +1,4 @@
+import { useLanguage } from '@/lib/i18n';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -80,6 +81,7 @@ const ACTIVE_TRIP_STEPS: { label: string; status: TripStatus }[] = [
 
 export default function DriverScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { height } = useWindowDimensions();
   const [isOnline, setIsOnline] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);

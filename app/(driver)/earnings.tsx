@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import { listBookings } from '@/lib/ride-api';
 import type { TripDetail } from '@/types/ride';
 
@@ -49,6 +50,7 @@ type RecentTrip = {
 };
 
 export default function DriverEarningsScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const { height } = useWindowDimensions();
   const [trips, setTrips] = useState<TripDetail[]>([]);
@@ -162,9 +164,9 @@ export default function DriverEarningsScreen() {
         </View>
 
         <View style={styles.titleRow}>
-          <Text style={styles.screenTitle}>Thu nhập</Text>
+          <Text style={styles.screenTitle}>{t('driverEarnings.title')}</Text>
           <Pressable accessibilityRole="button" style={({ pressed }) => [styles.periodPill, pressed ? styles.pressedButton : null]}>
-            <Text style={styles.periodText}>Hôm nay</Text>
+            <Text style={styles.periodText}>{t('driverEarnings.periodToday')}</Text>
             <MaterialCommunityIcons name="chevron-down" size={rs(18)} color={palette.ink} />
           </Pressable>
         </View>
@@ -172,27 +174,27 @@ export default function DriverEarningsScreen() {
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={palette.green} />
-            <Text style={styles.loadingText}>Đang tải thu nhập...</Text>
+            <Text style={styles.loadingText}>{t('driverEarnings.loading')}</Text>
           </View>
         ) : (
           <>
             <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>Tổng thu nhập hôm nay</Text>
+              <Text style={styles.totalLabel}>{t('driverEarnings.totalTodayLabel')}</Text>
               <Text selectable style={styles.totalValue}>
                 {formatCurrency(earningsSummary.totalToday)}
               </Text>
             </View>
 
             <View style={styles.metricsRow}>
-              <MetricCard icon="check-circle-outline" label="Hoàn thành" value={`${earningsSummary.completedTrips} chuyến`} />
-              <MetricCard icon="timer-outline" label="Thời gian" value={`${earningsSummary.onlineHours} giờ online`} />
+              <MetricCard icon="check-circle-outline" label={t('driverEarnings.completedLabel')} value={t('driverEarnings.tripCount', { count: earningsSummary.completedTrips })} />
+              <MetricCard icon="timer-outline" label={t('driverEarnings.onlineTimeLabel')} value={t('driverEarnings.hoursOnline', { count: earningsSummary.onlineHours })} />
             </View>
 
             <View style={styles.acceptanceCard}>
               <View style={styles.acceptanceTopRow}>
                 <View style={styles.acceptanceLabelRow}>
                   <MaterialCommunityIcons name="percent-outline" size={rs(22)} color={palette.muted} />
-                  <Text style={styles.acceptanceLabel}>Tỷ lệ nhận</Text>
+                  <Text style={styles.acceptanceLabel}>{t('driverEarnings.acceptanceRateLabel')}</Text>
                 </View>
                 <Text selectable style={styles.acceptanceValue}>
                   {earningsSummary.acceptanceRate}%
@@ -203,26 +205,26 @@ export default function DriverEarningsScreen() {
 
             <View style={styles.detailCard}>
               <View style={styles.detailHeader}>
-                <Text style={styles.detailTitle}>Chi tiết thu nhập</Text>
+                <Text style={styles.detailTitle}>{t('driverEarnings.earningsDetailsTitle')}</Text>
               </View>
-              <EarningsRow label="Tiền mặt đã thu" value={earningsSummary.collectedCash} />
+              <EarningsRow label={t('driverEarnings.collectedCash')} value={earningsSummary.collectedCash} />
               {earningsSummary.bonus > 0 ? (
-                <EarningsRow label="Thưởng" value={earningsSummary.bonus} positive />
+                <EarningsRow label={t('driverEarnings.bonus')} value={earningsSummary.bonus} positive />
               ) : null}
               {earningsSummary.platformFee !== 0 ? (
-                <EarningsRow label="Phí nền tảng ước tính" value={earningsSummary.platformFee} negative />
+                <EarningsRow label={t('driverEarnings.platformFee')} value={earningsSummary.platformFee} negative />
               ) : null}
             </View>
 
             <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Chuyến đi gần đây</Text>
+              <Text style={styles.sectionTitle}>{t('driverEarnings.recentTripsTitle')}</Text>
             </View>
 
             <View style={styles.tripList}>
               {recentTripsList.length === 0 ? (
                 <View style={styles.emptyCard}>
                   <MaterialCommunityIcons name="motorbike-off" size={rs(36)} color={palette.muted} />
-                  <Text style={styles.emptyText}>Chưa có chuyến đi nào hoàn thành hôm nay</Text>
+                  <Text style={styles.emptyText}>{t('driverEarnings.noTripsToday')}</Text>
                 </View>
               ) : (
                 recentTripsList.map((trip) => (
@@ -236,7 +238,7 @@ export default function DriverEarningsScreen() {
               onPress={() => router.push('/(driver)/activity')}
               style={({ pressed }) => [styles.viewAllButton, pressed ? styles.pressedButton : null]}
             >
-              <Text style={styles.viewAllText}>XEM TẤT CẢ CHUYẾN ĐI</Text>
+              <Text style={styles.viewAllText}>{t('driverEarnings.viewAllTripsBtn')}</Text>
             </Pressable>
           </>
         )}

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { rf, rs, rvs } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import type { BookingEstimate, LocationPoint } from '@/types/ride';
 
 const palette = {
@@ -55,17 +56,20 @@ export function RoutePreview({
   estimatedDistance = null,
   estimatedDuration = null,
   estimatedFare = null,
-  title = 'Lộ trình dự kiến',
+  title,
   subtitle,
   loading = false,
   error = null,
   compact = false,
   showFare = true,
-  paymentLabel = 'Tiền mặt',
+  paymentLabel,
   footer,
   style,
   onRetry,
 }: RoutePreviewProps) {
+  const { t } = useLanguage();
+  const effectiveTitle = title ?? t('booking.expectedRoute', 'Lộ trình dự kiến');
+  const effectivePaymentLabel = paymentLabel ?? t('booking.cash', 'Tiền mặt');
   const distance = estimate?.estimatedDistance ?? estimatedDistance;
   const duration = estimate?.estimatedDuration ?? estimatedDuration;
   const fare = estimate?.estimatedFare ?? estimatedFare;
@@ -79,7 +83,7 @@ export function RoutePreview({
             <MaterialCommunityIcons name="map-marker-path" size={rs(30)} color={palette.primary} />
           </View>
           <View style={styles.headerCopy}>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.title}>{effectiveTitle}</Text>
             {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
           </View>
         </View>
@@ -87,11 +91,11 @@ export function RoutePreview({
         {loading ? (
           <View style={styles.loadingBadge}>
             <ActivityIndicator size="small" color={palette.primary} />
-            <Text style={styles.loadingText}>Đang tính</Text>
+            <Text style={styles.loadingText}>{t('booking.calculating', 'Đang tính')}</Text>
           </View>
         ) : (
           <View style={styles.distanceBadge}>
-            <Text style={styles.distanceText}>{formatDistance(distance)}</Text>
+            <Text style={styles.distanceText}>{formatDistance(distance, t)}</Text>
           </View>
         )}
       </View>
@@ -102,7 +106,7 @@ export function RoutePreview({
           <Text style={styles.errorText}>{error}</Text>
           {onRetry && (
             <Pressable onPress={onRetry} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
-              <Text style={styles.retryText}>Thử lại</Text>
+              <Text style={styles.retryText}>{t('booking.retry', 'Thử lại')}</Text>
             </Pressable>
           )}
         </View>
@@ -111,37 +115,37 @@ export function RoutePreview({
       <View style={styles.routeBody}>
         <RoutePointRow
           tone="pickup"
-          label="Điểm đón"
+          label={t('booking.pickupPoint', 'Điểm đón')}
           point={pickup}
-          placeholder="Chưa chọn điểm đón"
+          placeholder={t('booking.notSelectedPickup', 'Chưa chọn điểm đón')}
           showConnector
         />
         <RoutePointRow
           tone="dropoff"
-          label="Điểm đến"
+          label={t('booking.dropoffPoint', 'Điểm đến')}
           point={dropoff}
-          placeholder="Chưa chọn điểm đến"
+          placeholder={t('booking.notSelectedDropoff', 'Chưa chọn điểm đến')}
         />
       </View>
 
       <View style={[styles.metricsGrid, compact && styles.metricsGridCompact]}>
         <MetricPill
           icon="map-outline"
-          label="Khoảng cách"
-          value={formatDistance(distance)}
+          label={t('booking.distanceLabel', 'Khoảng cách')}
+          value={formatDistance(distance, t)}
           muted={!distance}
         />
         <MetricPill
           icon="time-outline"
-          label="Thời gian"
-          value={formatDuration(duration)}
+          label={t('booking.durationLabel', 'Thời gian')}
+          value={formatDuration(duration, t)}
           muted={!duration}
         />
         {showFare && (
           <MetricPill
             icon="cash-outline"
-            label="Giá ước tính"
-            value={formatFare(fare)}
+            label={t('booking.estimatedFareLabel', 'Giá ước tính')}
+            value={formatFare(fare, t)}
             muted={!fare}
             highlight
           />
@@ -153,8 +157,8 @@ export function RoutePreview({
           <View style={styles.paymentIcon}>
             <MaterialCommunityIcons name="cash" size={rs(24)} color={palette.green} />
           </View>
-          <Text style={styles.paymentText}>Thanh toán: {paymentLabel}</Text>
-          {!hasRoute && <Text style={styles.routeHint}>Chọn đủ 2 điểm để tính giá</Text>}
+          <Text style={styles.paymentText}>{t('booking.paymentPrefix', 'Thanh toán: ')}{effectivePaymentLabel}</Text>
+          {!hasRoute && <Text style={styles.routeHint}>{t('booking.select2Points', 'Chọn đủ 2 điểm để tính giá')}</Text>}
         </View>
       )}
 
@@ -220,31 +224,31 @@ function MetricPill({
   );
 }
 
-function formatDistance(distance?: number | null) {
+function formatDistance(distance: number | null | undefined, t: any) {
   if (!distance || distance <= 0) {
-    return '-- km';
+    return t('booking.dashKm', '-- km');
   }
 
   return `${distance.toFixed(distance < 10 ? 1 : 0)} km`;
 }
 
-function formatDuration(duration?: number | null) {
+function formatDuration(duration: number | null | undefined, t: any) {
   if (!duration || duration <= 0) {
-    return '-- phút';
+    return t('booking.dashMinutes', '-- phút');
   }
 
   if (duration < 60) {
-    return `${Math.round(duration)} phút`;
+    return t('booking.etaMinutes', '{minutes} phút', { minutes: Math.round(duration) });
   }
 
   const hours = Math.floor(duration / 60);
   const minutes = Math.round(duration % 60);
-  return minutes ? `${hours} giờ ${minutes} phút` : `${hours} giờ`;
+  return minutes ? t('booking.etaHoursMinutes', '{hours} giờ {minutes} phút', { hours, minutes }) : t('booking.etaHours', '{hours} giờ', { hours });
 }
 
-function formatFare(fare?: number | null) {
+function formatFare(fare: number | null | undefined, t: any) {
   if (!fare || fare <= 0) {
-    return '-- đ';
+    return t('booking.dashFare', '-- đ');
   }
 
   return `${Math.round(fare).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}đ`;

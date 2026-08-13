@@ -1,5 +1,6 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { createDriverProfile } from '@/lib/driver-api';
+import { useLanguage } from '@/lib/i18n';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -30,6 +31,7 @@ const palette = {
 };
 
 export default function DriverOnboardingScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -56,13 +58,13 @@ export default function DriverOnboardingScreen() {
       !vehicleColor.trim() ||
       !vehicleYear.trim()
     ) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ tất cả các trường.');
+      Alert.alert(t('driverOnboarding.missingInfoTitle'), t('driverOnboarding.missingInfoDesc'));
       return;
     }
 
     const yearNum = parseInt(vehicleYear.trim(), 10);
     if (isNaN(yearNum) || yearNum < 1990 || yearNum > new Date().getFullYear() + 1) {
-      Alert.alert('Lỗi nhập liệu', 'Năm sản xuất xe không hợp lệ.');
+      Alert.alert(t('driverOnboarding.invalidYearTitle'), t('driverOnboarding.invalidYearDesc'));
       return;
     }
 
@@ -81,11 +83,11 @@ export default function DriverOnboardingScreen() {
         portraitUrl: portraitUrl.trim(),
       });
 
-      Alert.alert('Thành công', 'Hồ sơ của bạn đã được gửi và đang chờ kiểm duyệt.', [
-        { text: 'OK', onPress: () => router.replace('/(driver)') },
+      Alert.alert(t('driverOnboarding.successTitle'), t('driverOnboarding.successDesc'), [
+        { text: t('driverOnboarding.okBtn'), onPress: () => router.replace('/(driver)') },
       ]);
     } catch (error: any) {
-      Alert.alert('Lỗi tạo hồ sơ', error.message || 'Vui lòng thử lại sau.');
+      Alert.alert(t('driverOnboarding.errorTitle'), error.message || t('driverOnboarding.errorDesc'));
     } finally {
       setSubmitting(false);
     }
@@ -96,20 +98,20 @@ export default function DriverOnboardingScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Đăng ký thông tin tài xế</Text>
+          <Text style={styles.headerTitle}>{t('driverOnboarding.title')}</Text>
           <Text style={styles.headerSubtitle}>
-            Vui lòng hoàn thành hồ sơ phương tiện và giấy tờ để bắt đầu nhận chuyến.
+            {t('driverOnboarding.subtitle')}
           </Text>
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Giấy tờ cá nhân</Text>
+          <Text style={styles.sectionTitle}>{t('driverOnboarding.personalDocsTitle')}</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Số CCCD / CMND</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.idCardLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Nhập 12 số CCCD"
+              placeholder={t('driverOnboarding.idCardPlaceholder')}
               value={idCardNumber}
               onChangeText={setIdCardNumber}
               keyboardType="number-pad"
@@ -117,20 +119,20 @@ export default function DriverOnboardingScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Số Giấy phép lái xe (GPLX)</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.licenseLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Nhập số GPLX"
+              placeholder={t('driverOnboarding.licensePlaceholder')}
               value={licenseNumber}
               onChangeText={setLicenseNumber}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Hạn GPLX (YYYY-MM-DD)</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.licenseExpiryLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ví dụ: 2030-12-31"
+              placeholder={t('driverOnboarding.licenseExpiryPlaceholder')}
               value={licenseExpiry}
               onChangeText={setLicenseExpiry}
             />
@@ -138,10 +140,10 @@ export default function DriverOnboardingScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Thông tin phương tiện</Text>
+          <Text style={styles.sectionTitle}>{t('driverOnboarding.vehicleInfoTitle')}</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Loại phương tiện</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.vehicleTypeLabel')}</Text>
             <View style={styles.typeSelectorRow}>
               {(['MOTORBIKE', 'CAR_4_SEAT', 'CAR_7_SEAT'] as const).map((type) => (
                 <Pressable
@@ -163,7 +165,7 @@ export default function DriverOnboardingScreen() {
                       vehicleType === type && styles.typeOptionTextActive,
                     ]}
                   >
-                    {type === 'MOTORBIKE' ? 'Xe máy' : type === 'CAR_4_SEAT' ? 'Car 4' : 'Car 7'}
+                    {type === 'MOTORBIKE' ? t('driverOnboarding.motorbike') : type === 'CAR_4_SEAT' ? t('driverOnboarding.car4') : t('driverOnboarding.car7')}
                   </Text>
                 </Pressable>
               ))}
@@ -171,10 +173,10 @@ export default function DriverOnboardingScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Biển số xe</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.vehiclePlateLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ví dụ: 59A1-123.45"
+              placeholder={t('driverOnboarding.vehiclePlatePlaceholder')}
               value={vehiclePlate}
               onChangeText={setVehiclePlate}
               autoCapitalize="characters"
@@ -182,40 +184,40 @@ export default function DriverOnboardingScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Hãng xe</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.vehicleBrandLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ví dụ: Honda, Toyota"
+              placeholder={t('driverOnboarding.vehicleBrandPlaceholder')}
               value={vehicleBrand}
               onChangeText={setVehicleBrand}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Dòng xe / Đời xe</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.vehicleModelLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ví dụ: Air Blade, Vios"
+              placeholder={t('driverOnboarding.vehicleModelPlaceholder')}
               value={vehicleModel}
               onChangeText={setVehicleModel}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Màu xe</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.vehicleColorLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ví dụ: Đen, Trắng"
+              placeholder={t('driverOnboarding.vehicleColorPlaceholder')}
               value={vehicleColor}
               onChangeText={setVehicleColor}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Năm sản xuất</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.vehicleYearLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ví dụ: 2022"
+              placeholder={t('driverOnboarding.vehicleYearPlaceholder')}
               value={vehicleYear}
               onChangeText={setVehicleYear}
               keyboardType="number-pad"
@@ -223,10 +225,10 @@ export default function DriverOnboardingScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Link ảnh chân dung (Tùy chọn)</Text>
+            <Text style={styles.inputLabel}>{t('driverOnboarding.portraitUrlLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Nhập URL ảnh chân dung"
+              placeholder={t('driverOnboarding.portraitUrlPlaceholder')}
               value={portraitUrl}
               onChangeText={setPortraitUrl}
               autoCapitalize="none"
@@ -243,7 +245,7 @@ export default function DriverOnboardingScreen() {
             pressed && styles.submitButtonPressed,
           ]}
         >
-          <Text style={styles.submitButtonText}>{submitting ? 'Đang gửi hồ sơ...' : 'Gửi hồ sơ'}</Text>
+          <Text style={styles.submitButtonText}>{submitting ? t('driverOnboarding.submittingBtn') : t('driverOnboarding.submitBtn')}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

@@ -1,6 +1,8 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { useLanguage } from '@/lib/i18n';
 import {
   ActivityIndicator,
   ScrollView,
@@ -45,6 +47,7 @@ const shadow = {
 };
 
 export default function PickupScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const defaultPoint = useMemo(() => getDefaultLocationPoint(), []);
@@ -79,7 +82,7 @@ export default function PickupScreen() {
       setPermissionStatus('error');
       setPickup(defaultPoint);
       setQuery(defaultPoint.address);
-      setLocationError(error instanceof Error ? error.message : 'Không thể lấy vị trí hiện tại');
+      setLocationError(error instanceof Error ? error.message : t('booking.errCurrentLocation'));
     } finally {
       setLoadingLocation(false);
     }
@@ -129,7 +132,7 @@ export default function PickupScreen() {
     });
   };
 
-  const locationStatusCopy = getLocationStatusCopy(permissionStatus, loadingLocation, locationError);
+  const locationStatusCopy = getLocationStatusCopy(permissionStatus, loadingLocation, locationError, t);
   const canContinue = Boolean(pickup.lat && pickup.lng && pickup.address);
 
   return (
@@ -148,13 +151,13 @@ export default function PickupScreen() {
           </TouchableOpacity>
           <View style={styles.headerCopy}>
             <Text style={styles.eyebrow}>GoRide Passenger</Text>
-            <Text style={styles.title}>Chọn điểm đón</Text>
+            <Text style={styles.title}>{t('booking.pickupTitle')}</Text>
           </View>
         </View>
 
         <AddressSearch
-          label="Tìm điểm đón"
-          placeholder="Nhập tên đường, tòa nhà, quán cafe..."
+          label={t('booking.searchPickupLabel')}
+          placeholder={t('booking.searchPickupPlaceholder')}
           value={query}
           onChangeText={setQuery}
           onSelect={handleSearchSelect}
@@ -191,13 +194,13 @@ export default function PickupScreen() {
         <View style={styles.summaryHandle} />
         <View style={styles.summaryHeader}>
           <View style={styles.pickupDot} />
-          <Text style={styles.summaryTitle}>Chi tiết điểm đón</Text>
+          <Text style={styles.summaryTitle}>{t('booking.pickupDetailTitle')}</Text>
         </View>
 
         {resolvingAddress && (
           <View style={styles.resolvingBadge}>
             <ActivityIndicator size="small" color={palette.primary} />
-            <Text style={styles.resolvingText}>Đang nhận diện địa chỉ</Text>
+            <Text style={styles.resolvingText}>{t('booking.resolvingAddress')}</Text>
           </View>
         )}
 
@@ -214,7 +217,7 @@ export default function PickupScreen() {
           style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
           onPress={handleContinue}
         >
-          <Text style={styles.primaryButtonText}>Tiếp tục chọn điểm đến</Text>
+          <Text style={styles.primaryButtonText}>{t('booking.continueToDestination')}</Text>
           <Feather name="arrow-right" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
         </TouchableOpacity>
       </View>
@@ -226,6 +229,7 @@ function getLocationStatusCopy(
   status: LocationPermissionState,
   loading: boolean,
   error: string | null,
+  t: (key: string) => string,
 ):
   | {
       icon: keyof typeof Ionicons.glyphMap;
@@ -239,8 +243,8 @@ function getLocationStatusCopy(
     return {
       icon: 'locate-outline',
       color: palette.primary,
-      title: 'Đang lấy vị trí hiện tại',
-      message: 'Bạn vẫn có thể chạm bản đồ nếu muốn chọn nhanh một điểm đón khác.',
+      title: t('booking.locatingTitle'),
+      message: t('booking.locatingMessage'),
     };
   }
 
@@ -248,8 +252,8 @@ function getLocationStatusCopy(
     return {
       icon: 'warning-outline',
       color: palette.danger,
-      title: 'Không lấy được GPS',
-      message: error ?? 'GoRide đang dùng vị trí mặc định. Hãy thử lại hoặc chọn thủ công trên bản đồ.',
+      title: t('booking.gpsErrorTitle'),
+      message: error ?? t('booking.gpsErrorMessage'),
       tone: 'danger',
     };
   }
@@ -258,8 +262,8 @@ function getLocationStatusCopy(
     return {
       icon: 'shield-outline',
       color: palette.primaryMid,
-      title: 'Chưa có quyền vị trí',
-      message: 'Bạn có thể bấm nút GPS để xin quyền lại, hoặc chọn điểm đón bằng search/map.',
+      title: t('booking.permissionTitle'),
+      message: t('booking.permissionMessage'),
     };
   }
 
@@ -267,8 +271,8 @@ function getLocationStatusCopy(
     return {
       icon: 'navigate-outline',
       color: palette.danger,
-      title: 'GPS đang tắt',
-      message: 'Bản đồ vẫn hoạt động để bạn ghim điểm đón thủ công.',
+      title: t('booking.gpsDisabledTitle'),
+      message: t('booking.gpsDisabledMessage'),
       tone: 'danger',
     };
   }
