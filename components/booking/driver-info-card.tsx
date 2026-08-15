@@ -77,7 +77,7 @@ export function DriverInfoCard({
   }
 
   const rating = formatRating(driver?.averageRating, t);
-  const vehicleLabel = formatVehicle(driver?.vehicleType, t);
+  const vehicleLabel = formatVehicle(driver, t);
 
   return (
     <View style={[styles.card, style]}>
@@ -99,6 +99,12 @@ export function DriverInfoCard({
             <View style={styles.statusBadge}>
               <Text style={styles.statusBadgeText}>{getStatusLabel(status, t)}</Text>
             </View>
+            {driver?.totalTrips ? (
+              <View style={[styles.ratingBadge, { backgroundColor: palette.primarySoft }]}>
+                <Text style={{ fontSize: rf(14) }}>🚗</Text>
+                <Text style={[styles.ratingText, { color: palette.primary }]}>{driver.totalTrips} {t('booking.trips', 'chuyến')}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -107,7 +113,11 @@ export function DriverInfoCard({
         <DriverMeta icon="car-info" label={t('booking.vehicle', 'Phương tiện')} value={vehicleLabel} />
         <DriverMeta icon="card-text-outline" label={t('booking.licensePlate', 'Biển số')} value={driver?.vehiclePlate ?? t('booking.updating', 'Đang cập nhật')} selectable />
         <DriverMeta icon="phone-outline" label={t('booking.contact', 'Liên hệ')} value={driver?.phone ?? t('booking.viaApp', 'Qua app GoRide')} selectable />
-        <DriverMeta icon="clock-check-outline" label={t('booking.sync', 'Đồng bộ')} value={formatUpdatedAt(lastUpdatedAt, t)} />
+        {driver?.vehicleYear ? (
+          <DriverMeta icon="calendar-month-outline" label={t('booking.vehicleYear', 'Năm sản xuất')} value={driver.vehicleYear.toString()} />
+        ) : (
+          <DriverMeta icon="clock-check-outline" label={t('booking.sync', 'Đồng bộ')} value={formatUpdatedAt(lastUpdatedAt, t)} />
+        )}
       </View>
     </View>
   );
@@ -180,7 +190,16 @@ function getInitials(name?: string) {
   return initials.toUpperCase() || 'GR';
 }
 
-function formatVehicle(vehicleType: VehicleType | undefined, t: any) {
+function formatVehicle(driver: DriverSummary | null | undefined, t: any) {
+  if (driver?.vehicleBrand && driver?.vehicleModel) {
+    let label = `${driver.vehicleBrand} ${driver.vehicleModel}`;
+    if (driver.vehicleColor) {
+      label += ` • ${driver.vehicleColor}`;
+    }
+    return label;
+  }
+
+  const vehicleType = driver?.vehicleType;
   if (vehicleType === 'MOTORBIKE') {
     return 'GoRide Bike';
   }

@@ -128,6 +128,12 @@ export type DriverSummary = UserSummary & {
   vehiclePlate?: string;
   vehicleType?: VehicleType;
   averageRating?: number;
+  totalRatings?: number;
+  totalTrips?: number;
+  vehicleBrand?: string;
+  vehicleModel?: string;
+  vehicleColor?: string;
+  vehicleYear?: number;
 };
 
 export type TripRating = {

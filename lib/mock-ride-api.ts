@@ -49,6 +49,12 @@ const MOCK_DRIVER: DriverSummary = {
   vehiclePlate: '51F-268.89',
   vehicleType: 'CAR_4_SEAT',
   averageRating: 4.9,
+  totalRatings: 87,
+  totalTrips: 215,
+  vehicleBrand: 'Toyota',
+  vehicleModel: 'Vios',
+  vehicleColor: 'Trắng',
+  vehicleYear: 2023,
 };
 
 let nextTripId = 100;
