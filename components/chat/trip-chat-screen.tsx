@@ -60,7 +60,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
   const params = useLocalSearchParams();
   const tripId = parseTripId(readParam(params.tripId));
   const routeStatus = normalizeTripStatus(readParam(params.status));
-  const participantName = readParam(params.participantName) ?? (role === 'DRIVER' ? t('chat.passenger') : t('chat.driver'));
+  const participantName = readParam(params.participantName) ?? (role === 'DRIVER' ? t('chat.rolePassenger') : t('chat.roleDriver'));
   const listRef = useRef<FlatList<ChatMessage> | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const currentUserIdRef = useRef<number | null>(null);
@@ -130,7 +130,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
   const syncMessages = useCallback(async () => {
     if (!tripId) {
       setLoading(false);
-      setSyncError(t('chat.invalidTripId'));
+      setSyncError(t('chat.errInvalidTripId'));
       return;
     }
 
@@ -171,7 +171,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
         if (error instanceof ApiError && error.code === 'FORBIDDEN') {
           setAccessDenied(true);
         }
-        setSyncError(getErrorMessage(error, t('chat.syncError')));
+        setSyncError(getErrorMessage(error, t('chat.errSyncFailed')));
       } finally {
         setLoading(false);
       }
@@ -307,7 +307,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
               ? {
                   ...message,
                   deliveryStatus: 'failed',
-                  errorMessage: getErrorMessage(error, t('chat.sendFailed')),
+                  errorMessage: getErrorMessage(error, t('chat.errSendFailed')),
                 }
               : message,
           ),
@@ -403,7 +403,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
       mergeMessages(result.items);
       setHasOlder(result.hasMore);
     } catch (error) {
-      setSyncError(getErrorMessage(error, t('chat.loadOlderError')));
+      setSyncError(getErrorMessage(error, t('chat.errLoadOlderFailed')));
     } finally {
       setLoadingOlder(false);
     }
@@ -429,10 +429,10 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.invalidState}>
           <MaterialCommunityIcons name="message-alert-outline" size={48} color="#cf3d4f" />
-          <Text style={styles.invalidTitle}>{t('chat.invalidStateTitle')}</Text>
-          <Text style={styles.invalidCopy}>{t('chat.invalidStateDesc')}</Text>
+          <Text style={styles.invalidTitle}>{t('chat.cannotOpenTitle')}</Text>
+          <Text style={styles.invalidCopy}>{t('chat.invalidTripMsg')}</Text>
           <Pressable style={styles.primaryButton} onPress={() => router.back()}>
-            <Text style={styles.primaryButtonText}>{t('chat.backBtn')}</Text>
+            <Text style={styles.primaryButtonText}>{t('chat.back')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -445,9 +445,9 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
         <View style={styles.invalidState}>
           <MaterialCommunityIcons name="shield-lock-outline" size={48} color="#cf3d4f" />
           <Text style={styles.invalidTitle}>{t('chat.accessDeniedTitle')}</Text>
-          <Text style={styles.invalidCopy}>{t('chat.accessDeniedDesc')}</Text>
+          <Text style={styles.invalidCopy}>{t('chat.accessDeniedMsg')}</Text>
           <Pressable style={styles.primaryButton} onPress={() => router.back()}>
-            <Text style={styles.primaryButtonText}>{t('chat.leaveChatBtn')}</Text>
+            <Text style={styles.primaryButtonText}>{t('chat.leaveChat')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -480,7 +480,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
 
         {initialUnreadCount > 0 ? (
           <View style={styles.unreadBanner}>
-            <Text style={styles.unreadBannerText}>{t('chat.newMessages', { count: initialUnreadCount })}</Text>
+            <Text style={styles.unreadBannerText}>{t('chat.unreadCountMsg', { count: initialUnreadCount })}</Text>
           </View>
         ) : null}
 
@@ -507,7 +507,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
               hasOlder ? (
                 <Pressable style={styles.loadOlderButton} disabled={loadingOlder} onPress={() => void handleLoadOlder()}>
                   {loadingOlder ? <ActivityIndicator size="small" color="#008e62" /> : null}
-                  <Text style={styles.loadOlderText}>{loadingOlder ? t('chat.loadingOlder') : t('chat.loadOlderBtn')}</Text>
+                  <Text style={styles.loadOlderText}>{loadingOlder ? t('chat.loadingOlder') : t('chat.loadOlder')}</Text>
                 </Pressable>
               ) : null
             }
@@ -516,8 +516,8 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
                 <View style={styles.emptyIcon}>
                   <MaterialCommunityIcons name="message-text-outline" size={34} color="#008e62" />
                 </View>
-                <Text style={styles.emptyTitle}>{t('chat.startChatTitle')}</Text>
-                <Text style={styles.emptyCopy}>{t('chat.startChatDesc')}</Text>
+                <Text style={styles.emptyTitle}>{t('chat.emptyTitle')}</Text>
+                <Text style={styles.emptyCopy}>{t('chat.emptyDesc')}</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -544,7 +544,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
                     </View>
                   </View>
                   {item.deliveryStatus === 'failed' ? (
-                    <Text style={styles.failedText}>{item.errorMessage ?? t('chat.sendFailed')} {t('chat.tapToRetry')}</Text>
+                    <Text style={styles.failedText}>{item.errorMessage ?? t('chat.errSendFailed')} {t('chat.tapToRetry')}</Text>
                   ) : showReadReceipt ? (
                     <Text style={styles.readReceipt}>{t('chat.readReceipt')}</Text>
                   ) : null}
@@ -563,7 +563,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
 
         {isRateLimited ? (
           <View style={styles.rateLimitBanner}>
-            <Text style={styles.rateLimitText}>{t('chat.rateLimit', { seconds: cooldownSeconds })}</Text>
+            <Text style={styles.rateLimitText}>{t('chat.rateLimitedMsg', { seconds: cooldownSeconds })}</Text>
           </View>
         ) : null}
 
@@ -574,7 +574,7 @@ export function TripChatScreen({ role }: TripChatScreenProps) {
             editable={canSend && !isRateLimited}
             multiline
             maxLength={1000}
-            placeholder={canSend ? t('chat.inputPlaceholder') : t('chat.inputLocked')}
+            placeholder={canSend ? t('chat.inputPlaceholder') : t('chat.lockedPlaceholder')}
             placeholderTextColor="#8b948f"
             style={styles.input}
           />
@@ -679,18 +679,18 @@ function clearCooldownTimer(
 }
 
 function getConnectionCopy(status: RealtimeConnectionStatus, t: any) {
-  if (status === 'connected') return t('chat.connDirect');
-  if (status === 'connecting') return t('chat.connConnecting');
-  if (status === 'reconnecting') return t('chat.connReconnecting');
-  if (status === 'error') return t('chat.connRest');
-  return t('chat.connOffline');
+  if (status === 'connected') return t('chat.statusDirectConnected');
+  if (status === 'connecting') return t('chat.statusConnecting');
+  if (status === 'reconnecting') return t('chat.statusReconnecting');
+  if (status === 'error') return t('chat.statusRestSync');
+  return t('chat.statusOffline');
 }
 
 function getLockedCopy(status: TripStatus | null, t: any) {
   if (!status) return t('chat.lockChecking');
-  if (status === 'SEARCHING') return t('chat.lockSearching');
-  if (status === 'COMPLETED') return t('chat.lockCompleted');
-  if (status === 'CANCELLED' || status === 'NO_DRIVER') return t('chat.lockCancelled');
+  if (status === 'SEARCHING') return t('chat.waitDriverAccept');
+  if (status === 'COMPLETED') return t('chat.tripCompletedChatNotice');
+  if (status === 'CANCELLED' || status === 'NO_DRIVER') return t('chat.tripInactiveNotice');
   return t('chat.lockUnavailable');
 }
 

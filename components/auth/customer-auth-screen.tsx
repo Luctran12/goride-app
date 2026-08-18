@@ -6,6 +6,8 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -52,7 +54,6 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [hidePassword, setHidePassword] = React.useState(true);
   const [rememberMe, setRememberMe] = React.useState(true);
-  const [acceptedTerms, setAcceptedTerms] = React.useState(false);
   const [error, setError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -84,11 +85,6 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
 
       if (password !== confirmPassword) {
         setError(t('auth.errPasswordMismatch'));
-        return;
-      }
-
-      if (!acceptedTerms) {
-        setError(t('auth.errTermsRequired'));
         return;
       }
     }
@@ -123,145 +119,155 @@ export function CustomerAuthScreen({ mode }: { mode: AuthMode }) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            activeOpacity={0.82}
-            style={styles.headerButton}
-            onPress={() => router.back()}
-          >
-            <Feather name="chevron-left" size={rs(36)} color={palette.primary} />
-          </TouchableOpacity>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.content, isRegister && styles.contentRegister]}
+        >
+          <View style={[styles.header, isRegister && styles.headerRegister]}>
+            <TouchableOpacity
+              activeOpacity={0.82}
+              style={[styles.headerButton, isRegister && styles.headerButtonRegister]}
+              onPress={() => router.back()}
+            >
+              <Feather name="chevron-left" size={rs(isRegister ? 26 : 36)} color={palette.primary} />
+            </TouchableOpacity>
 
-          <View style={styles.brandMark}>
-            <MaterialCommunityIcons name="map-marker-path" size={rs(37)} color={palette.primary} />
+            <View style={[styles.brandMark, isRegister && styles.brandMarkRegister]}>
+              <MaterialCommunityIcons name="map-marker-path" size={rs(isRegister ? 26 : 37)} color={palette.primary} />
+            </View>
           </View>
-        </View>
 
-        <View style={styles.hero}>
-          <View style={styles.badge}>
-            <MaterialCommunityIcons name="account-circle-outline" size={rs(27)} color={palette.primary} />
-            <Text style={styles.badgeText}>{t('auth.roleUserBadge')}</Text>
+          <View style={[styles.hero, isRegister && styles.heroRegister]}>
+            <View style={[styles.badge, isRegister && styles.badgeRegister]}>
+              <MaterialCommunityIcons name="account-circle-outline" size={rs(isRegister ? 20 : 27)} color={palette.primary} />
+              <Text style={[styles.badgeText, isRegister && styles.badgeTextRegister]}>{t('auth.roleUserBadge')}</Text>
+            </View>
+            <Text style={[styles.title, isRegister && styles.titleRegister]}>{title}</Text>
+            <Text style={[styles.subtitle, isRegister && styles.subtitleRegister]}>{subtitle}</Text>
           </View>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        </View>
 
-        <View style={styles.formCard}>
-          {isRegister ? (
-            <Field
-              icon="account-outline"
-              label={t('auth.fullNameLabel')}
-              value={fullName}
-              placeholder={t('auth.fullNamePlaceholder')}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-            />
-          ) : null}
-
-          <Field
-            icon="phone-outline"
-            label={t('auth.phoneLabel')}
-            value={phone}
-            placeholder="0901234567"
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
-
-          {isRegister ? (
-            <Field
-              icon="email-outline"
-              label={t('auth.emailLabel')}
-              value={email}
-              placeholder="user@example.com"
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          ) : null}
-
-          <Field
-            icon="lock-outline"
-            label={t('auth.passwordLabel')}
-            value={password}
-            placeholder={t('auth.passwordPlaceholder')}
-            onChangeText={setPassword}
-            secureTextEntry={hidePassword}
-            trailing={
-              <TouchableOpacity activeOpacity={0.76} onPress={() => setHidePassword((value) => !value)}>
-                <Feather
-                  name={hidePassword ? 'eye' : 'eye-off'}
-                  size={rs(31)}
-                  color={palette.muted}
-                />
-              </TouchableOpacity>
-            }
-          />
-
-          {isRegister ? (
-            <Field
-              icon="shield-check-outline"
-              label={t('auth.confirmPasswordLabel')}
-              value={confirmPassword}
-              placeholder={t('auth.confirmPasswordPlaceholder')}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={hidePassword}
-            />
-          ) : null}
-
-          {isRegister ? (
-            <ToggleRow
-              active={acceptedTerms}
-              onPress={() => setAcceptedTerms((value) => !value)}
-              label={t('auth.acceptTerms')}
-            />
-          ) : (
-            <View style={styles.loginMetaRow}>
-              <ToggleRow
-                active={rememberMe}
-                onPress={() => setRememberMe((value) => !value)}
-                label={t('auth.rememberMe')}
-                compact
+          <View style={[styles.formCard, isRegister && styles.formCardRegister]}>
+            {isRegister ? (
+              <Field
+                icon="account-outline"
+                label={t('auth.fullNameLabel')}
+                value={fullName}
+                placeholder={t('auth.fullNamePlaceholder')}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+                compact={isRegister}
               />
-            </View>
-          )}
+            ) : null}
 
-          {error ? (
-            <View style={styles.errorBox}>
-              <Feather name="alert-circle" size={rs(28)} color={palette.danger} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
+            <Field
+              icon="phone-outline"
+              label={t('auth.phoneLabel')}
+              value={phone}
+              placeholder="0901234567"
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              compact={isRegister}
+            />
 
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={submitting}
-            style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
-            onPress={handleSubmit}
-          >
-            <Text style={styles.primaryButtonText}>
-              {submitting ? t('auth.processing') : isRegister ? t('auth.registerBtn') : t('auth.login')}
+            {isRegister ? (
+              <Field
+                icon="email-outline"
+                label={t('auth.emailLabel')}
+                value={email}
+                placeholder="user@example.com"
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                compact={isRegister}
+              />
+            ) : null}
+
+            <Field
+              icon="lock-outline"
+              label={t('auth.passwordLabel')}
+              value={password}
+              placeholder={t('auth.passwordPlaceholder')}
+              onChangeText={setPassword}
+              secureTextEntry={hidePassword}
+              compact={isRegister}
+              trailing={
+                <TouchableOpacity activeOpacity={0.76} onPress={() => setHidePassword((value) => !value)}>
+                  <Feather
+                    name={hidePassword ? 'eye' : 'eye-off'}
+                    size={rs(isRegister ? 22 : 31)}
+                    color={palette.muted}
+                  />
+                </TouchableOpacity>
+              }
+            />
+
+            {isRegister ? (
+              <Field
+                icon="shield-check-outline"
+                label={t('auth.confirmPasswordLabel')}
+                value={confirmPassword}
+                placeholder={t('auth.confirmPasswordPlaceholder')}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={hidePassword}
+                compact={isRegister}
+              />
+            ) : null}
+
+            {!isRegister ? (
+              <View style={styles.loginMetaRow}>
+                <ToggleRow
+                  active={rememberMe}
+                  onPress={() => setRememberMe((value) => !value)}
+                  label={t('auth.rememberMe')}
+                  compact
+                />
+              </View>
+            ) : null}
+
+            {error ? (
+              <View style={[styles.errorBox, isRegister && styles.errorBoxRegister]}>
+                <Feather name="alert-circle" size={rs(isRegister ? 22 : 28)} color={palette.danger} />
+                <Text style={[styles.errorText, isRegister && styles.errorTextRegister]}>{error}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              activeOpacity={0.86}
+              disabled={submitting}
+              style={[
+                styles.primaryButton,
+                submitting && styles.primaryButtonDisabled,
+                isRegister && styles.primaryButtonRegister,
+              ]}
+              onPress={handleSubmit}
+            >
+              <Text style={[styles.primaryButtonText, isRegister && styles.primaryButtonTextRegister]}>
+                {submitting ? t('auth.processing') : isRegister ? t('auth.registerBtn') : t('auth.login')}
+              </Text>
+              <Feather name="arrow-right" size={rs(isRegister ? 24 : 30)} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.switchCard, isRegister && styles.switchCardRegister]}>
+            <Text style={[styles.switchText, isRegister && styles.switchTextRegister]}>
+              {isRegister ? t('auth.alreadyHaveAccount') : t('auth.dontHaveAccount')}
             </Text>
-            <Feather name="arrow-right" size={rs(30)} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.switchCard}>
-          <Text style={styles.switchText}>
-            {isRegister ? t('auth.alreadyHaveAccount') : t('auth.dontHaveAccount')}
-          </Text>
-          <TouchableOpacity
-            activeOpacity={0.76}
-            onPress={() => router.push(isRegister ? '/(customer)/login' : '/(customer)/register')}
-          >
-            <Text style={styles.switchLink}>{isRegister ? t('auth.login') : t('auth.registerLink')}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <TouchableOpacity
+              activeOpacity={0.76}
+              onPress={() => router.push(isRegister ? '/(customer)/login' : '/(customer)/register')}
+            >
+              <Text style={[styles.switchLink, isRegister && styles.switchLinkRegister]}>
+                {isRegister ? t('auth.login') : t('auth.registerLink')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -294,7 +300,6 @@ function isInvalidLoginError(error: ApiError) {
   );
 }
 
-
 type FieldProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
@@ -305,6 +310,7 @@ type FieldProps = {
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   secureTextEntry?: boolean;
   trailing?: React.ReactNode;
+  compact?: boolean;
 };
 
 function Field({
@@ -317,13 +323,14 @@ function Field({
   keyboardType = 'default',
   secureTextEntry = false,
   trailing,
+  compact = false,
 }: FieldProps) {
   return (
-    <View style={styles.fieldBlock}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.inputWrap}>
-        <View style={styles.inputIcon}>
-          <MaterialCommunityIcons name={icon} size={rs(30)} color={palette.primary} />
+    <View style={[styles.fieldBlock, compact && styles.fieldBlockRegister]}>
+      <Text style={[styles.fieldLabel, compact && styles.fieldLabelRegister]}>{label}</Text>
+      <View style={[styles.inputWrap, compact && styles.inputWrapRegister]}>
+        <View style={[styles.inputIcon, compact && styles.inputIconRegister]}>
+          <MaterialCommunityIcons name={icon} size={rs(compact ? 20 : 30)} color={palette.primary} />
         </View>
         <TextInput
           value={value}
@@ -333,7 +340,7 @@ function Field({
           autoCapitalize={autoCapitalize}
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry}
-          style={styles.input}
+          style={[styles.input, compact && styles.inputRegister]}
         />
         {trailing}
       </View>
@@ -346,11 +353,13 @@ function ToggleRow({
   onPress,
   label,
   compact = false,
+  isRegister = false,
 }: {
   active: boolean;
   onPress: () => void;
   label: string;
   compact?: boolean;
+  isRegister?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -358,10 +367,10 @@ function ToggleRow({
       style={[styles.toggleRow, compact && styles.toggleRowCompact]}
       onPress={onPress}
     >
-      <View style={[styles.checkBox, active && styles.checkBoxActive]}>
-        {active ? <Feather name="check" size={rs(22)} color="#ffffff" /> : null}
+      <View style={[styles.checkBox, active && styles.checkBoxActive, isRegister && styles.checkBoxRegister]}>
+        {active ? <Feather name="check" size={rs(isRegister ? 14 : 22)} color="#ffffff" /> : null}
       </View>
-      <Text style={styles.toggleLabel}>{label}</Text>
+      <Text style={[styles.toggleLabel, isRegister && styles.toggleLabelRegister]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -377,12 +386,20 @@ const styles = StyleSheet.create({
     paddingTop: rvs(24),
     paddingBottom: rvs(44),
   },
+  contentRegister: {
+    paddingTop: rvs(10),
+    paddingBottom: rvs(18),
+  },
   header: {
     paddingHorizontal: rs(36),
     marginBottom: rvs(34),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerRegister: {
+    paddingHorizontal: rs(24),
+    marginBottom: rvs(16),
   },
   headerButton: {
     width: rs(70),
@@ -393,6 +410,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadow,
   },
+  headerButtonRegister: {
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(22),
+  },
   brandMark: {
     width: rs(70),
     height: rs(70),
@@ -401,9 +423,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  brandMarkRegister: {
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(14),
+  },
   hero: {
     paddingHorizontal: rs(36),
     marginBottom: rvs(33),
+  },
+  heroRegister: {
+    paddingHorizontal: rs(24),
+    marginBottom: rvs(14),
   },
   badge: {
     alignSelf: 'flex-start',
@@ -416,11 +447,22 @@ const styles = StyleSheet.create({
     gap: rs(9),
     marginBottom: rvs(20),
   },
+  badgeRegister: {
+    minHeight: rvs(32),
+    borderRadius: rs(10),
+    paddingHorizontal: rs(12),
+    gap: rs(6),
+    marginBottom: rvs(10),
+  },
   badgeText: {
     color: palette.primary,
     fontSize: rf(23),
     lineHeight: rf(29),
     fontWeight: '800',
+  },
+  badgeTextRegister: {
+    fontSize: rf(15),
+    lineHeight: rf(19),
   },
   title: {
     color: palette.primary,
@@ -429,11 +471,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: rvs(11),
   },
+  titleRegister: {
+    fontSize: rf(34),
+    lineHeight: rf(42),
+    marginBottom: rvs(6),
+  },
   subtitle: {
     color: palette.muted,
     fontSize: rf(28),
     lineHeight: rf(37),
     fontWeight: '400',
+  },
+  subtitleRegister: {
+    fontSize: rf(17),
+    lineHeight: rf(23),
   },
   formCard: {
     marginHorizontal: rs(36),
@@ -443,14 +494,28 @@ const styles = StyleSheet.create({
     gap: rvs(22),
     ...shadow,
   },
+  formCardRegister: {
+    marginHorizontal: rs(24),
+    borderRadius: rs(20),
+    padding: rs(18),
+    gap: rvs(12),
+  },
   fieldBlock: {
     gap: rvs(10),
+  },
+  fieldBlockRegister: {
+    gap: rvs(5),
   },
   fieldLabel: {
     color: palette.text,
     fontSize: rf(24),
     lineHeight: rf(30),
     fontWeight: '800',
+  },
+  fieldLabelRegister: {
+    fontSize: rf(16),
+    lineHeight: rf(21),
+    fontWeight: '700',
   },
   inputWrap: {
     minHeight: rvs(70),
@@ -462,6 +527,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  inputWrapRegister: {
+    minHeight: rvs(50),
+    borderRadius: rs(14),
+    paddingHorizontal: rs(14),
+  },
   inputIcon: {
     width: rs(60),
     height: rs(60),
@@ -471,6 +541,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: rs(17),
   },
+  inputIconRegister: {
+    width: rs(36),
+    height: rs(36),
+    borderRadius: rs(10),
+    marginRight: rs(12),
+  },
   input: {
     flex: 1,
     color: palette.text,
@@ -478,6 +554,10 @@ const styles = StyleSheet.create({
     lineHeight: rf(35),
     fontWeight: '500',
     paddingVertical: 0,
+  },
+  inputRegister: {
+    fontSize: rf(18),
+    lineHeight: rf(24),
   },
   loginMetaRow: {
     minHeight: rvs(40),
@@ -503,6 +583,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkBoxRegister: {
+    width: rs(22),
+    height: rs(22),
+    borderRadius: rs(6),
+  },
   checkBoxActive: {
     backgroundColor: palette.primary,
     borderColor: palette.primary,
@@ -513,6 +598,10 @@ const styles = StyleSheet.create({
     lineHeight: rf(31),
     fontWeight: '600',
     flexShrink: 1,
+  },
+  toggleLabelRegister: {
+    fontSize: rf(16),
+    lineHeight: rf(21),
   },
   forgotText: {
     color: palette.primary,
@@ -529,12 +618,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rs(13),
   },
+  errorBoxRegister: {
+    minHeight: rvs(44),
+    borderRadius: rs(12),
+    paddingHorizontal: rs(14),
+    gap: rs(10),
+  },
   errorText: {
     color: palette.danger,
     fontSize: rf(23),
     lineHeight: rf(30),
     fontWeight: '700',
     flex: 1,
+  },
+  errorTextRegister: {
+    fontSize: rf(15),
+    lineHeight: rf(20),
   },
   primaryButton: {
     minHeight: rvs(75),
@@ -545,6 +644,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: rs(13),
   },
+  primaryButtonRegister: {
+    minHeight: rvs(52),
+    borderRadius: rs(14),
+    gap: rs(10),
+  },
   primaryButtonDisabled: {
     opacity: 0.68,
   },
@@ -553,6 +657,10 @@ const styles = StyleSheet.create({
     fontSize: rf(29),
     lineHeight: rf(37),
     fontWeight: '800',
+  },
+  primaryButtonTextRegister: {
+    fontSize: rf(19),
+    lineHeight: rf(25),
   },
   switchCard: {
     minHeight: rvs(75),
@@ -566,16 +674,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: rs(10),
   },
+  switchCardRegister: {
+    minHeight: rvs(50),
+    marginHorizontal: rs(24),
+    marginTop: rvs(14),
+    borderRadius: rs(14),
+    paddingHorizontal: rs(18),
+    gap: rs(8),
+  },
   switchText: {
     color: palette.muted,
     fontSize: rf(24),
     lineHeight: rf(31),
     fontWeight: '600',
   },
+  switchTextRegister: {
+    fontSize: rf(16),
+    lineHeight: rf(21),
+  },
   switchLink: {
     color: palette.primary,
     fontSize: rf(24),
     lineHeight: rf(31),
     fontWeight: '800',
+  },
+  switchLinkRegister: {
+    fontSize: rf(16),
+    lineHeight: rf(21),
   },
 });

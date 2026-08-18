@@ -623,22 +623,7 @@ export default function SelectVehicleScreen() {
           </View>
         </View>
 
-        <View style={styles.optionSection}>
-          <Text style={styles.sectionTitle}>{t('booking.promotions')}</Text>
-          <View style={styles.promoList}>
-            {promotionOptions.map((option) => (
-              <PromotionCard
-                key={option.code ?? 'none'}
-                option={option}
-                selected={option.code === selectedPromotionCode}
-                validationResult={option.code === selectedPromotionCode ? voucherValidation : null}
-                validationLoading={option.code === selectedPromotionCode && voucherValidationLoading}
-                validationError={option.code === selectedPromotionCode ? voucherValidationError : null}
-                onPress={() => handlePromotionPress(option)}
-              />
-            ))}
-          </View>
-        </View>
+        
       </ScrollView>
 
       <View style={styles.footer}>
@@ -812,19 +797,30 @@ function PromotionCard({
 
 function toPaymentOption(method: PassengerPaymentMethod, t: any): PaymentOption {
   const theme = paymentThemeByMethod[method.method];
+  const isCash = method.method === 'CASH';
+  const isMomo = method.method === 'MOMO';
+  const isVnpay = method.method === 'VNPAY';
+
+  const label = isCash ? t('booking.cash', 'Tiền mặt') :
+                isMomo ? 'MoMo' :
+                isVnpay ? 'VNPay' : method.title;
+
+  const helper = isCash ? t('booking.payAfterTrip', 'Thanh toán trực tiếp sau chuyến đi') :
+                 isMomo ? t('booking.ewalletSoon', 'Ví điện tử (Sắp hỗ trợ)') :
+                 isVnpay ? t('booking.qrSoon', 'Cổng thanh toán / QR (Sắp hỗ trợ)') : method.detail;
 
   return {
     id: method.id,
     method: method.method,
-    label: method.title,
-    helper: method.detail,
+    label,
+    helper,
     icon: theme.icon,
     tone: theme.tone,
     softTone: theme.softTone,
     status: method.status,
     isDefault: method.isDefault,
     linked: method.linked,
-    badge: method.badge ?? (method.isDefault ? t('booking.defaultBadge') : undefined),
+    badge: method.badge ?? (method.isDefault ? t('booking.defaultBadge', 'Mặc định') : undefined),
   };
 }
 

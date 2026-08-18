@@ -78,10 +78,10 @@ export function TripCompletionCard({
     () => [
       { label: t('booking.totalFare', 'Tổng tiền'), value: formatFare(fare ?? estimatedFare), highlight: true },
       { label: t('booking.paymentMethod', 'Phương thức'), value: paymentLabel },
-      { label: t('booking.distance', 'Quãng đường'), value: formatDistance(distance) },
-      { label: t('booking.durationLabel', 'Thời gian'), value: formatDuration(duration) },
+      { label: t('booking.distance', 'Quãng đường'), value: formatDistance(distance, t) },
+      { label: t('booking.durationLabel', 'Thời gian'), value: formatDuration(duration, t) },
       { label: t('booking.promo', 'Ưu đãi'), value: promoCode ?? t('booking.notApplicable', 'Không áp dụng') },
-      { label: t('booking.completedAt', 'Hoàn thành'), value: formatDateTime(completedAt) },
+      { label: t('booking.completedAt', 'Hoàn thành'), value: formatDateTime(completedAt, t) },
     ],
     [completedAt, distance, duration, estimatedFare, fare, paymentLabel, promoCode, t],
   );
@@ -257,31 +257,36 @@ function formatFare(value: number | null) {
   return Math.round(value).toLocaleString('vi-VN') + 'đ';
 }
 
-function formatDistance(distance: number | null) {
+function formatDistance(distance: number | null, t?: any) {
   if (!distance || distance <= 0) {
-    return '-- km';
+    return t ? t('booking.dashKm', '-- km') : '-- km';
   }
 
   return distance.toFixed(distance < 10 ? 1 : 0) + ' km';
 }
 
-function formatDuration(duration: number | null) {
+function formatDuration(duration: number | null, t?: any) {
   if (!duration || duration <= 0) {
-    return '-- phút';
+    return t ? t('booking.dashMinutes', '-- phút') : '-- phút';
   }
 
   if (duration < 60) {
-    return Math.round(duration) + ' phút';
+    const minutes = Math.round(duration);
+    return t ? t('booking.etaMinutes', { minutes }, `${minutes} phút`) : `${minutes} phút`;
   }
 
   const hours = Math.floor(duration / 60);
   const minutes = Math.round(duration % 60);
-  return minutes ? `${hours} giờ ${minutes} phút` : `${hours} giờ`;
+  if (minutes) {
+    return t ? t('booking.etaHoursMinutes', { hours, minutes }, `${hours} giờ ${minutes} phút`) : `${hours} giờ ${minutes} phút`;
+  }
+
+  return t ? t('booking.etaHours', { hours }, `${hours} giờ`) : `${hours} giờ`;
 }
 
-function formatDateTime(value?: string | null) {
+function formatDateTime(value?: string | null, t?: any) {
   if (!value) {
-    return 'Đang đồng bộ';
+    return t ? t('booking.syncing', 'Đang đồng bộ') : 'Đang đồng bộ';
   }
 
   const date = new Date(value);

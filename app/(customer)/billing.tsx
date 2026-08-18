@@ -11,10 +11,9 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useLanguage } from '@/lib/i18n';
+import { CustomAlertModal, type CustomAlertOptions } from '@/components/ui/custom-alert-modal';
 import {
   ActivityIndicator,
-  Alert,
-  Image,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -52,7 +51,7 @@ const shadow = {
 
 export default function PaymentScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const mountedRef = React.useRef(false);
   const [paymentMethods, setPaymentMethods] = React.useState<PassengerPaymentMethod[]>([]);
   const [vouchers, setVouchers] = React.useState<PassengerVoucher[]>([]);
@@ -61,6 +60,23 @@ export default function PaymentScreen() {
   const [error, setError] = React.useState<string | null>(null);
   const [actionMethodId, setActionMethodId] = React.useState<string | null>(null);
   const [addingMethod, setAddingMethod] = React.useState(false);
+
+  // Custom Alert State
+  const [alertConfig, setAlertConfig] = React.useState<Omit<CustomAlertOptions, 'visible' | 'onClose'> & { visible: boolean }>({
+    visible: false,
+    title: '',
+  });
+
+  const showAlert = React.useCallback((options: Omit<CustomAlertOptions, 'visible' | 'onClose'>) => {
+    setAlertConfig({
+      visible: true,
+      ...options,
+    });
+  }, []);
+
+  const closeAlert = React.useCallback(() => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  }, []);
 
   const loadBillingData = React.useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (silent) {
@@ -83,7 +99,7 @@ export default function PaymentScreen() {
       }
     } catch (loadError) {
       if (mountedRef.current) {
-        setError(getErrorMessage(loadError));
+        setError(getErrorMessage(loadError, t));
       }
     } finally {
       if (mountedRef.current) {
@@ -91,7 +107,7 @@ export default function PaymentScreen() {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     mountedRef.current = true;
@@ -113,9 +129,20 @@ export default function PaymentScreen() {
     try {
       await addPaymentMethod({ method: 'CASH', title: t('billing.cashTitle') });
       await loadBillingData({ silent: true });
-      Alert.alert(t('billing.methodsSectionTitle'), t('billing.cashReadyMsg'));
+      showAlert({
+        type: 'info',
+        title: t('billing.methodsSectionTitle'),
+        badgeText: t('billing.cashTitle'),
+        message: t('billing.cashReadyMsg'),
+        confirmText: t('common.understood'),
+      });
     } catch (addError) {
-      Alert.alert(t('billing.addMethodErrorTitle', 'Không thể thêm phương thức'), getErrorMessage(addError));
+      showAlert({
+        type: 'danger',
+        title: t('billing.addMethodErrorTitle'),
+        message: getErrorMessage(addError, t),
+        confirmText: t('common.close'),
+      });
     } finally {
       if (mountedRef.current) {
         setAddingMethod(false);
@@ -128,13 +155,27 @@ export default function PaymentScreen() {
       return;
     }
 
+    const methodTitle = getPaymentMethodTitle(method, t);
+
     if (method.status !== 'ACTIVE') {
-      Alert.alert(method.title, t('billing.comingSoonMsg'));
+      showAlert({
+        type: 'warning',
+        title: methodTitle,
+        badgeText: t('common.comingSoon'),
+        message: t('billing.comingSoonMsg'),
+        confirmText: t('common.understood'),
+      });
       return;
     }
 
     if (method.isDefault) {
-      Alert.alert(method.title, t('billing.alreadyDefaultMsg'));
+      showAlert({
+        type: 'info',
+        title: methodTitle,
+        badgeText: t('billing.defaultBadge'),
+        message: t('billing.alreadyDefaultMsg'),
+        confirmText: t('common.understood'),
+      });
       return;
     }
 
@@ -144,8 +185,20 @@ export default function PaymentScreen() {
     try {
       await setDefaultPaymentMethod(method.id);
       await loadBillingData({ silent: true });
+      showAlert({
+        type: 'success',
+        title: t('billing.setDefaultBtn'),
+        badgeText: methodTitle,
+        message: t('billing.alreadyDefaultMsg'),
+        confirmText: t('common.close'),
+      });
     } catch (methodError) {
-      Alert.alert(t('billing.setDefaultErrorTitle', 'Không thể đặt mặc định'), getErrorMessage(methodError));
+      showAlert({
+        type: 'danger',
+        title: t('billing.setDefaultErrorTitle'),
+        message: getErrorMessage(methodError, t),
+        confirmText: t('common.close'),
+      });
     } finally {
       if (mountedRef.current) {
         setActionMethodId(null);
@@ -158,39 +211,57 @@ export default function PaymentScreen() {
       return;
     }
 
+    const methodTitle = getPaymentMethodTitle(method, t);
+
     if (method.method === 'CASH') {
-      Alert.alert(t('billing.cannotRemoveCashTitle', 'Không thể xóa tiền mặt'), t('billing.cannotRemoveCashMsg'));
+      showAlert({
+        type: 'warning',
+        title: t('billing.cannotRemoveCashTitle'),
+        badgeText: t('billing.cashTitle'),
+        message: t('billing.cannotRemoveCashMsg'),
+        confirmText: t('common.understood'),
+      });
       return;
     }
 
-    Alert.alert(
-      t('billing.removeConfirmTitle'),
-      method.isDefault
-        ? t('billing.removeDefaultConfirmMsg', { title: method.title })
-        : t('billing.removeConfirmMsg', { title: method.title }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: () => {
-            void removeSelectedPaymentMethod(method);
-          },
-        },
-      ],
-    );
+    showAlert({
+      type: 'danger',
+      title: t('billing.removeConfirmTitle'),
+      badgeText: methodTitle,
+      message: method.isDefault
+        ? t('billing.removeDefaultConfirmMsg', { title: methodTitle })
+        : t('billing.removeConfirmMsg', { title: methodTitle }),
+      cancelText: t('common.cancel'),
+      confirmText: t('common.delete'),
+      isDestructive: true,
+      onConfirm: () => {
+        void removeSelectedPaymentMethod(method);
+      },
+    });
   }
 
   async function removeSelectedPaymentMethod(method: PassengerPaymentMethod) {
+    const methodTitle = getPaymentMethodTitle(method, t);
     setActionMethodId(method.id);
     setError(null);
 
     try {
       await removePaymentMethod(method.id);
       await loadBillingData({ silent: true });
-      Alert.alert(t('billing.methodRemovedTitle', 'Đã xóa phương thức'), t('billing.methodRemovedMsg', { title: method.title }));
+      showAlert({
+        type: 'success',
+        title: t('billing.methodRemovedTitle'),
+        badgeText: methodTitle,
+        message: t('billing.methodRemovedMsg', { title: methodTitle }),
+        confirmText: t('common.close'),
+      });
     } catch (removeError) {
-      Alert.alert(t('billing.removeMethodErrorTitle', 'Không thể xóa phương thức'), getErrorMessage(removeError));
+      showAlert({
+        type: 'danger',
+        title: t('billing.removeMethodErrorTitle'),
+        message: getErrorMessage(removeError, t),
+        confirmText: t('common.close'),
+      });
     } finally {
       if (mountedRef.current) {
         setActionMethodId(null);
@@ -199,12 +270,26 @@ export default function PaymentScreen() {
   }
 
   function handleVoucherPress(voucher: PassengerVoucher) {
+    const voucherTitle = getVoucherTitle(voucher, t);
+
     if (voucher.status !== 'AVAILABLE') {
-      Alert.alert(voucher.code, t('billing.voucherUnavailableMsg'));
+      showAlert({
+        type: 'warning',
+        title: voucherTitle,
+        badgeText: voucher.code,
+        message: t('billing.voucherUnavailableMsg'),
+        confirmText: t('common.close'),
+      });
       return;
     }
 
-    Alert.alert(t('billing.voucherAvailableTitle', 'Ưu đãi khả dụng'), t('billing.voucherAvailableMsg', { code: voucher.code }));
+    showAlert({
+      type: 'voucher',
+      title: t('billing.voucherAvailableTitle'),
+      badgeText: voucher.code,
+      message: t('billing.voucherAvailableMsg', { code: voucher.code }),
+      confirmText: t('common.understood'),
+    });
   }
 
   const availableVoucherCount = vouchers.filter((voucher) => voucher.status === 'AVAILABLE').length;
@@ -225,12 +310,7 @@ export default function PaymentScreen() {
 
           <Text style={styles.title}>{t('billing.title')}</Text>
 
-          <TouchableOpacity activeOpacity={0.82} style={styles.avatarWrap} onPress={() => router.push('/(customer)/profile')}>
-            <Image
-              source={{ uri: 'https://i.pravatar.cc/160?img=11' }}
-              style={styles.avatar}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerPlaceholder} />
         </View>
 
         {loading ? (
@@ -244,7 +324,7 @@ export default function PaymentScreen() {
                   <Text style={styles.errorTitle}>{t('billing.loadErrorTitle')}</Text>
                   <Text style={styles.errorText} selectable>{error}</Text>
                 </View>
-                <Text style={styles.retryText}>{t('common.retry', 'Thử lại')}</Text>
+                <Text style={styles.retryText}>{t('common.retry')}</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -272,7 +352,7 @@ export default function PaymentScreen() {
                   />
                 ))
               ) : (
-                <EmptyCard title={t('billing.emptyMethodsTitle')} description={t('billing.emptyMethodsDesc', 'GoRide sẽ luôn giữ tiền mặt làm phương thức dự phòng.')} />
+                <EmptyCard title={t('billing.emptyMethodsTitle')} description={t('billing.emptyMethodsDesc')} />
               )}
             </View>
 
@@ -282,7 +362,7 @@ export default function PaymentScreen() {
               ) : (
                 <Feather name="plus-circle" size={rs(34)} color={palette.primary} />
               )}
-              <Text style={styles.addMethodText}>{addingMethod ? t('billing.checking', 'Đang kiểm tra') : t('billing.addMethod')}</Text>
+              <Text style={styles.addMethodText}>{addingMethod ? t('billing.checking') : t('billing.addMethod')}</Text>
             </TouchableOpacity>
 
             <View style={styles.couponHeader}>
@@ -301,7 +381,7 @@ export default function PaymentScreen() {
                   <VoucherCard key={voucher.id} voucher={voucher} onPress={() => handleVoucherPress(voucher)} />
                 ))
               ) : (
-                <EmptyCard title={t('billing.emptyVouchersTitle')} description={t('billing.emptyVouchersDesc', 'Các voucher khả dụng sẽ xuất hiện ở đây khi backend trả dữ liệu.')} />
+                <EmptyCard title={t('billing.emptyVouchersTitle')} description={t('billing.emptyVouchersDesc')} />
               )}
             </View>
           </>
@@ -323,6 +403,11 @@ export default function PaymentScreen() {
           onPress={() => router.push('/(customer)/profile')}
         />
       </View>
+
+      <CustomAlertModal
+        {...alertConfig}
+        onClose={closeAlert}
+      />
     </SafeAreaView>
   );
 }
@@ -337,6 +422,7 @@ type PaymentMethodProps = {
 function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethodProps) {
   const { t } = useLanguage();
   const icon = getPaymentIcon(method.method);
+  const title = getPaymentMethodTitle(method, t);
   const status = getPaymentStatusCopy(method, t);
   const removable = method.method !== 'CASH';
 
@@ -347,7 +433,7 @@ function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethod
       </View>
 
       <View style={styles.methodCopy}>
-        <Text style={styles.methodTitle} selectable>{method.title}</Text>
+        <Text style={styles.methodTitle} selectable>{title}</Text>
         <Text style={[styles.methodDetail, { color: status.color }]} selectable>{status.detail}</Text>
       </View>
 
@@ -364,7 +450,7 @@ function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethod
           </View>
         ) : (
           <View style={styles.comingSoonPill}>
-            <Text style={styles.comingSoonText}>{t('common.comingSoon', 'Coming soon')}</Text>
+            <Text style={styles.comingSoonText}>{t('common.comingSoon')}</Text>
           </View>
         )}
 
@@ -388,8 +474,10 @@ function PaymentMethodCard({ loading, method, onPress, onRemove }: PaymentMethod
 }
 
 function VoucherCard({ voucher, onPress }: { voucher: PassengerVoucher; onPress: () => void }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const status = getVoucherStatusCopy(voucher, t);
+  const title = getVoucherTitle(voucher, t);
+  const description = getVoucherDescription(voucher, t);
 
   return (
     <TouchableOpacity
@@ -399,21 +487,21 @@ function VoucherCard({ voucher, onPress }: { voucher: PassengerVoucher; onPress:
     >
       <View style={styles.couponCopy}>
         <View style={styles.couponTitleRow}>
-          <Text style={[styles.couponTitle, voucher.status !== 'AVAILABLE' && styles.couponTitleMuted]} selectable>{voucher.title}</Text>
+          <Text style={[styles.couponTitle, voucher.status !== 'AVAILABLE' && styles.couponTitleMuted]} selectable>{title}</Text>
           <View style={[styles.voucherStatusPill, { backgroundColor: status.backgroundColor }]}>
             <Text style={[styles.voucherStatusText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
         <Text style={[styles.couponCode, voucher.status !== 'AVAILABLE' && styles.couponTextMuted]} selectable>{voucher.code}</Text>
-        <Text style={[styles.couponDetail, voucher.status !== 'AVAILABLE' && styles.couponTextMuted]} selectable>{voucher.description}</Text>
+        <Text style={[styles.couponDetail, voucher.status !== 'AVAILABLE' && styles.couponTextMuted]} selectable>{description}</Text>
         <Text style={[styles.couponMeta, voucher.status !== 'AVAILABLE' && styles.couponTextMuted]}>
-          {formatVoucherMeta(voucher, t)}
+          {formatVoucherMeta(voucher, t, language)}
         </Text>
       </View>
 
       <View style={[styles.useButton, voucher.status !== 'AVAILABLE' && styles.useButtonDisabled]}>
         <Text style={[styles.useButtonText, voucher.status !== 'AVAILABLE' && styles.useButtonTextDisabled]}>
-          {voucher.status === 'AVAILABLE' ? t('billing.useVoucher') : t('common.later', 'Sau')}
+          {voucher.status === 'AVAILABLE' ? t('billing.useVoucher') : t('common.later')}
         </Text>
       </View>
     </TouchableOpacity>
@@ -426,7 +514,7 @@ function BillingLoadingState() {
     <View style={styles.loadingState}>
       <ActivityIndicator color={palette.primary} size="large" />
       <Text style={styles.loadingTitle}>{t('billing.loadingTitle')}</Text>
-      <Text style={styles.loadingDescription}>{t('billing.loadingDesc', 'Mình đang lấy phương thức thanh toán và mã ưu đãi mới nhất.')}</Text>
+      <Text style={styles.loadingDescription}>{t('billing.loadingDesc')}</Text>
     </View>
   );
 }
@@ -472,76 +560,131 @@ function getPaymentIcon(method: PaymentMethod): keyof typeof MaterialCommunityIc
   return 'cash';
 }
 
+function getPaymentMethodTitle(method: PassengerPaymentMethod, t: (key: string, fallback?: string) => string) {
+  if (method.method === 'CASH') {
+    return t('billing.cashTitle', 'Cash');
+  }
+  if (method.method === 'MOMO') {
+    return t('billing.momoTitle', 'MoMo Wallet');
+  }
+  if (method.method === 'VNPAY') {
+    return t('billing.vnpayTitle', 'VNPay');
+  }
+  return method.title;
+}
+
+function getPaymentMethodDetail(method: PassengerPaymentMethod, t: (key: string, fallback?: string) => string) {
+  if (method.method === 'CASH') {
+    return t('billing.cashDetail', 'Pay directly to the driver');
+  }
+  if (method.method === 'MOMO') {
+    return t('billing.momoDetail', 'E-wallet linking coming soon');
+  }
+  if (method.method === 'VNPAY') {
+    return t('billing.vnpayDetail', 'QR and bank payment coming soon');
+  }
+  return method.detail;
+}
+
 function getPaymentStatusCopy(method: PassengerPaymentMethod, t: (key: string, fallback?: string) => string) {
   if (method.status === 'COMING_SOON') {
     return {
       color: palette.amber,
-      detail: method.detail || t('common.comingSoon', 'Sắp có'),
+      detail: getPaymentMethodDetail(method, t) || t('common.comingSoon'),
     };
   }
 
   if (method.status === 'DISABLED') {
     return {
       color: palette.danger,
-      detail: method.detail || t('billing.lockedStatus', 'Tạm khóa'),
+      detail: getPaymentMethodDetail(method, t) || t('billing.lockedStatus'),
     };
   }
 
   return {
     color: method.linked ? palette.green : palette.muted,
-    detail: method.detail,
+    detail: getPaymentMethodDetail(method, t),
   };
+}
+
+function getVoucherTitle(voucher: PassengerVoucher, t: (key: string, fallback?: string) => string) {
+  if (voucher.id === 'new-user' || voucher.code === 'NEWUSER') {
+    return t('billing.voucherNewUserTitle', 'New User Discount');
+  }
+  if (voucher.id === 'cash-5k' || voucher.code === 'CASH5K') {
+    return t('billing.voucherCash5kTitle', 'Cash Savings');
+  }
+  if (voucher.id === 'online-10' || voucher.code === 'ONLINE10') {
+    return t('billing.voucherOnline10Title', 'Online Payment Offer');
+  }
+  return voucher.title;
+}
+
+function getVoucherDescription(voucher: PassengerVoucher, t: (key: string, fallback?: string) => string) {
+  if (voucher.id === 'new-user' || voucher.code === 'NEWUSER') {
+    return t('billing.voucherNewUserDesc', '20% off first ride, max 50,000 VND.');
+  }
+  if (voucher.id === 'cash-5k' || voucher.code === 'CASH5K') {
+    return t('billing.voucherCash5kDesc', 'Save 5,000 VND when paying with cash.');
+  }
+  if (voucher.id === 'online-10' || voucher.code === 'ONLINE10') {
+    return t('billing.voucherOnline10Desc', 'For MoMo/VNPay when online payment is ready.');
+  }
+  return voucher.description;
 }
 
 function getVoucherStatusCopy(voucher: PassengerVoucher, t: (key: string, fallback?: string) => string) {
   if (voucher.status === 'AVAILABLE') {
-    return { backgroundColor: '#e2f8ee', color: palette.green, label: t('billing.availableStatus', 'Có thể dùng') };
+    return { backgroundColor: '#e2f8ee', color: palette.green, label: t('billing.availableStatus') };
   }
 
   if (voucher.status === 'COMING_SOON') {
-    return { backgroundColor: palette.amberSoft, color: palette.amber, label: t('common.comingSoon', 'Sắp có') };
+    return { backgroundColor: palette.amberSoft, color: palette.amber, label: t('common.comingSoon') };
   }
 
   if (voucher.status === 'EXPIRED') {
-    return { backgroundColor: palette.dangerSoft, color: palette.danger, label: t('billing.expiredStatus', 'Hết hạn') };
+    return { backgroundColor: palette.dangerSoft, color: palette.danger, label: t('billing.expiredStatus') };
   }
 
-  return { backgroundColor: palette.primarySoft, color: palette.primary, label: t('billing.usedStatus', 'Đã dùng') };
+  return { backgroundColor: palette.primarySoft, color: palette.primary, label: t('billing.usedStatus') };
 }
 
-function formatVoucherMeta(voucher: PassengerVoucher, t: (key: string, options?: any) => string) {
+function formatVoucherMeta(voucher: PassengerVoucher, t: (key: string, options?: any) => string, language: string) {
   const parts = [
-    voucher.minFare ? t('billing.minFare', `Tối thiểu ${formatVnd(voucher.minFare)}`) : undefined,
-    voucher.maxDiscount ? t('billing.maxDiscount', `Tối đa ${formatVnd(voucher.maxDiscount)}`) : undefined,
-    voucher.expiresAt ? t('billing.expiresAt', `HSD ${formatDate(voucher.expiresAt)}`) : undefined,
+    voucher.minFare ? t('billing.minFare', { amount: formatVnd(voucher.minFare, language) }) : undefined,
+    voucher.maxDiscount ? t('billing.maxDiscount', { amount: formatVnd(voucher.maxDiscount, language) }) : undefined,
+    voucher.expiresAt ? t('billing.expiresAt', { date: formatDate(voucher.expiresAt, language) }) : undefined,
   ].filter(Boolean);
 
   return parts.join(' · ') || t('billing.noConditions');
 }
 
-function formatDate(value: string) {
+function formatDate(value: string, language: string) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return date.toLocaleDateString('vi-VN', {
+  return date.toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', {
     day: '2-digit',
     month: '2-digit',
   });
 }
 
-function formatVnd(value: number) {
-  return `${Math.round(value).toLocaleString('vi-VN')}đ`;
+function formatVnd(value: number, language: string) {
+  if (language === 'vi') {
+    return `${Math.round(value).toLocaleString('vi-VN')}đ`;
+  }
+  return `${Math.round(value).toLocaleString('en-US')} VND`;
 }
 
-function getErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown, t?: (key: string, fallback?: string) => string) {
   if (error instanceof Error && error.message) {
     return error.message;
   }
 
-  return 'Vui lòng kiểm tra kết nối và thử lại.';
+  return t ? t('common.networkError') : 'Please check your connection and try again.';
 }
 
 const styles = StyleSheet.create({
@@ -567,24 +710,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
+  headerPlaceholder: {
+    width: rs(64),
+    height: rs(64),
+  },
   title: {
     color: palette.primary,
     fontSize: rf(48),
     lineHeight: rf(58),
     fontWeight: '800',
-  },
-  avatarWrap: {
-    width: rs(70),
-    height: rs(70),
-    borderRadius: rs(35),
-    backgroundColor: '#f0efe8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: rs(56),
-    height: rs(56),
-    borderRadius: rs(12),
   },
   sectionHeader: {
     paddingHorizontal: rs(36),

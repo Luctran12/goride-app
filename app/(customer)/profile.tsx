@@ -9,7 +9,6 @@ import { Href, useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
-  Image,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -81,7 +80,7 @@ export default function ProfileScreen() {
         setProfileRefreshing(false);
       }
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     mountedRef.current = true;
@@ -115,7 +114,6 @@ export default function ProfileScreen() {
   const displayName = profile?.fullName?.trim() || (profileLoading ? t('common.loading') : t('personal.defaultGuest'));
   const displayPhone = profile?.phone?.trim() || t('profile.noPhone');
   const displayEmail = profile?.email?.trim() || t('profile.noEmail');
-  const avatarUrl = profile?.avatarUrl?.trim();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -128,27 +126,22 @@ export default function ProfileScreen() {
         <Text style={styles.title}>{t('profile.title')}</Text>
 
         <View style={styles.profileCard}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              {profileLoading ? (
-                <ActivityIndicator color={palette.primary} size="small" />
-              ) : (
-                <Text style={styles.avatarInitials}>{getInitials(displayName)}</Text>
-              )}
-            </View>
-          )}
           <View style={styles.profileCopy}>
             <Text style={styles.name} selectable>
               {displayName}
             </Text>
-            <Text style={styles.contact} selectable>
-              {displayPhone}
-            </Text>
-            <Text style={styles.contact} numberOfLines={1}>
-              {displayEmail}
-            </Text>
+            <View style={styles.contactRow}>
+              <Feather name="phone" size={rs(24)} color={palette.primary} />
+              <Text style={styles.contact} selectable>
+                {displayPhone}
+              </Text>
+            </View>
+            <View style={styles.contactRow}>
+              <Feather name="mail" size={rs(24)} color={palette.primary} />
+              <Text style={styles.contact} numberOfLines={1}>
+                {displayEmail}
+              </Text>
+            </View>
             {profileError ? (
               <TouchableOpacity activeOpacity={0.82} style={styles.profileRetry} onPress={() => void loadProfile()}>
                 <Feather name="alert-circle" size={rs(22)} color={palette.danger} />
@@ -175,15 +168,12 @@ export default function ProfileScreen() {
             { icon: 'history' as const, label: t('profile.menuActivity'), route: '/(customer)/activity' as Href },
             { icon: 'cash-multiple' as const, label: t('profile.menuBilling'), route: '/(customer)/billing' as Href },
             { icon: 'ticket-percent-outline' as const, label: t('profile.menuVouchers') },
-            { icon: 'heart-outline' as const, label: t('profile.menuSavedPlaces') },
-            { icon: 'cog-outline' as const, label: t('profile.menuSettings') },
             { 
               icon: 'translate' as const, 
               label: t('profile.menuLanguage'), 
               extra: language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English',
               onPress: () => setLanguageModalVisible(true)
             },
-            { icon: 'help-circle-outline' as const, label: t('profile.menuHelpCenter') },
           ].map((item, index, arr) => {
             const route = item.route;
 
@@ -231,13 +221,6 @@ export default function ProfileScreen() {
   );
 }
 
-function getInitials(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const initials = words.slice(-2).map((word) => word[0]).join('');
-
-  return initials.toUpperCase() || 'GR';
-}
-
 function getErrorMessage(error: unknown, t: any) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -249,13 +232,12 @@ function getErrorMessage(error: unknown, t: any) {
 type MenuItemProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   label: string;
-  route?: Href;
-  isLast?: boolean;
   extra?: string;
+  isLast?: boolean;
   onPress?: () => void;
 };
 
-function MenuItem({ icon, label, isLast = false, extra, onPress }: MenuItemProps) {
+function MenuItem({ icon, label, extra, isLast = false, onPress }: MenuItemProps) {
   return (
     <TouchableOpacity
       activeOpacity={0.82}
@@ -267,7 +249,7 @@ function MenuItem({ icon, label, isLast = false, extra, onPress }: MenuItemProps
       </View>
       <Text style={styles.menuText}>{label}</Text>
       {extra ? <Text style={styles.menuExtra}>{extra}</Text> : null}
-      <Feather name="chevron-right" size={rs(34)} color="#777582" />
+      <MaterialCommunityIcons name="chevron-right" size={rs(30)} color={palette.muted} />
     </TouchableOpacity>
   );
 }
@@ -308,53 +290,40 @@ const styles = StyleSheet.create({
     marginBottom: rvs(32),
   },
   profileCard: {
-    minHeight: rvs(180),
+    minHeight: rvs(160),
     marginHorizontal: rs(36),
-    marginBottom: rvs(43),
-    borderRadius: rs(20),
+    marginBottom: rvs(36),
+    borderRadius: rs(24),
     backgroundColor: palette.card,
-    paddingHorizontal: rs(44),
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: rs(36),
+    paddingVertical: rvs(28),
+    justifyContent: 'center',
     ...shadow,
   },
-  avatar: {
-    width: rs(142),
-    height: rs(142),
-    borderRadius: rs(71),
-    borderWidth: rs(3),
-    borderColor: palette.primary,
-    marginRight: rs(45),
-  },
-  avatarFallback: {
-    backgroundColor: palette.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitials: {
-    color: palette.primary,
-    fontSize: rf(38),
-    lineHeight: rf(46),
-    fontWeight: '900',
-  },
   profileCopy: {
-    flex: 1,
+    width: '100%',
   },
   name: {
     color: palette.text,
-    fontSize: rf(35),
-    lineHeight: rf(43),
+    fontSize: rf(38),
+    lineHeight: rf(46),
     fontWeight: '800',
-    marginBottom: rvs(13),
+    marginBottom: rvs(14),
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(14),
+    marginTop: rvs(8),
   },
   contact: {
     color: palette.muted,
-    fontSize: rf(29),
-    lineHeight: rf(39),
-    fontWeight: '400',
+    fontSize: rf(26),
+    lineHeight: rf(34),
+    fontWeight: '500',
   },
   profileRetry: {
-    marginTop: rvs(10),
+    marginTop: rvs(14),
     minHeight: rvs(32),
     flexDirection: 'row',
     alignItems: 'center',
@@ -387,13 +356,13 @@ const styles = StyleSheet.create({
   },
   menuCard: {
     marginHorizontal: rs(36),
-    borderRadius: rs(18),
+    borderRadius: rs(24),
     backgroundColor: palette.card,
     overflow: 'hidden',
     ...shadow,
   },
   menuRow: {
-    minHeight: rvs(90),
+    minHeight: rvs(92),
     paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
@@ -402,6 +371,7 @@ const styles = StyleSheet.create({
   },
   menuRowLast: {
     borderBottomWidth: 1,
+    borderBottomColor: palette.line,
   },
   menuIcon: {
     width: rs(72),
@@ -415,19 +385,19 @@ const styles = StyleSheet.create({
   menuText: {
     flex: 1,
     color: palette.text,
-    fontSize: rf(29),
-    lineHeight: rf(37),
-    fontWeight: '800',
+    fontSize: rf(28),
+    lineHeight: rf(36),
+    fontWeight: '700',
   },
   menuExtra: {
     color: palette.muted,
-    fontSize: rf(25),
-    lineHeight: rf(33),
+    fontSize: rf(24),
+    lineHeight: rf(32),
     fontWeight: '500',
     marginRight: rs(10),
   },
   logoutRow: {
-    minHeight: rvs(90),
+    minHeight: rvs(92),
     paddingHorizontal: rs(29),
     flexDirection: 'row',
     alignItems: 'center',
@@ -437,9 +407,9 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: palette.danger,
-    fontSize: rf(29),
-    lineHeight: rf(37),
-    fontWeight: '800',
+    fontSize: rf(28),
+    lineHeight: rf(36),
+    fontWeight: '700',
   },
   bottomSpacer: {
     height: rvs(150),
@@ -448,8 +418,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 3,
-    height: rvs(118),
+    bottom: 0,
+    height: rvs(128),
     borderTopLeftRadius: rs(16),
     borderTopRightRadius: rs(16),
     backgroundColor: palette.card,

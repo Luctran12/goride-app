@@ -5,14 +5,16 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/lib/i18n';
 import {
   ActivityIndicator,
-  ScrollView,
+  Alert,
+  Keyboard,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddressSearch, MapPicker } from '@/components/booking';
 import { rf, rs, rvs } from '@/constants/responsive';
@@ -22,28 +24,29 @@ import {
   requestLocationPermission,
   reverseGeocode,
 } from '@/lib/location-service';
+import { getLocationToWords } from '@/lib/three-word-location-api';
 import type { LocationPermissionState, LocationPoint } from '@/types/ride';
 
 const palette = {
   background: '#fcf8ff',
   card: '#ffffff',
-  primary: '#1d0796',
-  primarySoft: '#f1ecfb',
-  primaryMid: '#4b3fc4',
-  text: '#111114',
-  muted: '#68646e',
-  line: '#e8e4ec',
-  danger: '#d72828',
-  green: '#00b67a',
-  greenSoft: '#dff8ef',
+  primary: '#3f22d6',
+  primarySoft: '#eeecfb',
+  primaryMid: '#5a3fe6',
+  text: '#0f172a',
+  muted: '#64748b',
+  line: '#e2e8f0',
+  danger: '#ef4444',
+  green: '#00c853',
+  greenSoft: '#e8fcdb',
 };
 
 const shadow = {
-  shadowColor: '#7c6da8',
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.11,
+  shadowColor: '#1e1b4b',
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.14,
   shadowRadius: 24,
-  elevation: 7,
+  elevation: 10,
 };
 
 export default function PickupScreen() {
@@ -57,7 +60,10 @@ export default function PickupScreen() {
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [resolvingAddress, setResolvingAddress] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [scrollEnabled, setScrollEnabled] = useState(true);
+
+  // 3-word location state
+  const [threeWordAddress, setThreeWordAddress] = useState<string | null>(null);
+  const [loadingThreeWords, setLoadingThreeWords] = useState(false);
 
   const locateCurrentUser = useCallback(async () => {
     setLoadingLocation(true);
@@ -71,22 +77,25 @@ export default function PickupScreen() {
         setPermissionStatus(permission.status);
         setPickup(defaultPoint);
         setQuery(defaultPoint.address);
+        setThreeWordAddress(null);
         return;
       }
 
       const currentPoint = await getCurrentLocationPoint({ timeoutMs: 10000 });
       setPickup(currentPoint);
       setQuery(currentPoint.label ?? currentPoint.address);
+      setThreeWordAddress(null);
       setPermissionStatus('ready');
     } catch (error) {
       setPermissionStatus('error');
       setPickup(defaultPoint);
       setQuery(defaultPoint.address);
+      setThreeWordAddress(null);
       setLocationError(error instanceof Error ? error.message : t('booking.errCurrentLocation'));
     } finally {
       setLoadingLocation(false);
     }
-  }, [defaultPoint]);
+  }, [defaultPoint, t]);
 
   useEffect(() => {
     void locateCurrentUser();
@@ -95,13 +104,16 @@ export default function PickupScreen() {
   const handleSearchSelect = (point: LocationPoint) => {
     setPickup(point);
     setQuery(point.label ?? point.address);
+    setThreeWordAddress(null);
     setPermissionStatus('ready');
     setLocationError(null);
+    Keyboard.dismiss();
   };
 
   const handleMapLocationChange = async (point: LocationPoint) => {
     setPickup(point);
     setQuery(point.address);
+    setThreeWordAddress(null);
     setPermissionStatus('ready');
     setLocationError(null);
     setResolvingAddress(true);
@@ -111,12 +123,55 @@ export default function PickupScreen() {
       const resolvedPoint = {
         ...point,
         address,
-        label: 'Điểm đón đã chọn',
+        label: point.label || t('booking.pickupPoint', 'Điểm đón đã chọn'),
       };
       setPickup(resolvedPoint);
       setQuery(address);
     } finally {
       setResolvingAddress(false);
+    }
+  };
+
+  const handleFetchThreeWords = async () => {
+    if (loadingThreeWords || !pickup.lat || !pickup.lng) {
+      return;
+    }
+    setLoadingThreeWords(true);
+    try {
+      const result = await getLocationToWords(pickup.lat, pickup.lng);
+      setThreeWordAddress(result.wordAddress);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('booking.errThreeWords', 'Chưa thể lấy địa chỉ 3 từ, vui lòng thử lại.');
+      Alert.alert(t('booking.threeWordsLabel', '3 từ'), message);
+    } finally {
+      setLoadingThreeWords(false);
+    }
+  };
+
+  const handleCopyThreeWords = async () => {
+    if (!threeWordAddress) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(threeWordAddress);
+      }
+      Alert.alert(
+        t('booking.copiedTitle', 'Đã sao chép'),
+        t('booking.threeWordsCopied', { address: threeWordAddress }, `Địa chỉ 3 từ: ${threeWordAddress}`),
+      );
+    } catch {
+      Alert.alert(t('booking.threeWordsLabel', '3 từ'), threeWordAddress);
+    }
+  };
+
+  const handleShareThreeWords = async () => {
+    if (!threeWordAddress) return;
+    try {
+      await Share.share({
+        message: t('booking.threeWordsShareMsg', { address: threeWordAddress }, `Địa chỉ 3 từ GoRide: ${threeWordAddress}`),
+        title: t('booking.threeWordsLabel', '3 từ'),
+      });
+    } catch {
+      // ignore
     }
   };
 
@@ -132,348 +187,308 @@ export default function PickupScreen() {
     });
   };
 
-  const locationStatusCopy = getLocationStatusCopy(permissionStatus, loadingLocation, locationError, t);
   const canContinue = Boolean(pickup.lat && pickup.lng && pickup.address);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <ScrollView
-        contentContainerStyle={[styles.container, { paddingBottom: rvs(260) + insets.bottom }]}
-        keyboardShouldPersistTaps="handled"
-        scrollEnabled={scrollEnabled}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={rs(40)} color={palette.primary} />
+      {/* 1. Fullscreen Map View */}
+      <MapPicker
+        mode="pickup"
+        value={pickup}
+        origin={pickup}
+        status={permissionStatus}
+        loading={loadingLocation}
+        error={locationError}
+        showGpsButton={false}
+        hideModeBadge={true}
+        hideTopScrim={true}
+        hideThreeWords={true}
+        style={StyleSheet.absoluteFillObject}
+        onLocationChange={handleMapLocationChange}
+        onRequestCurrentLocation={locateCurrentUser}
+      />
+
+      {/* 2. Floating Top Search Bar ONLY (No extra hint/address box underneath) */}
+      <View style={[styles.topOverlay, { top: insets.top + rvs(10) }]}>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            activeOpacity={0.82}
+            onPress={() => router.back()}
+            style={styles.floatingBackButton}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
+          >
+            <Ionicons name="arrow-back" size={rs(32)} color={palette.primary} />
           </TouchableOpacity>
-          <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>GoRide Passenger</Text>
-            <Text style={styles.title}>{t('booking.pickupTitle')}</Text>
+
+          <View style={styles.searchWrap}>
+            <AddressSearch
+              placeholder={t('booking.searchPickupPlaceholder', 'Nhập điểm đón...')}
+              value={query}
+              onChangeText={setQuery}
+              onSelect={handleSearchSelect}
+              searchBias={pickup}
+              hideHint={true}
+            />
           </View>
         </View>
+      </View>
 
-        <AddressSearch
-          label={t('booking.searchPickupLabel')}
-          placeholder={t('booking.searchPickupPlaceholder')}
-          value={query}
-          onChangeText={setQuery}
-          onSelect={handleSearchSelect}
-          searchBias={pickup}
-          style={styles.search}
-        />
-
-        <View
-          style={styles.mapCard}
-          onStartShouldSetResponder={() => {
-            setScrollEnabled(false);
-            return false;
-          }}
-        >
-          <MapPicker
-            mode="pickup"
-            value={pickup}
-            origin={pickup}
-            status={permissionStatus}
-            loading={loadingLocation}
-            error={locationError}
-            height={rvs(780)}
-            onLocationChange={handleMapLocationChange}
-            onRequestCurrentLocation={locateCurrentUser}
-            onInteractionStart={() => setScrollEnabled(false)}
-            onInteractionEnd={() => setScrollEnabled(true)}
-          />
-        </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-
-      <View style={[styles.summaryCard, styles.floatingSummaryCard, { bottom: insets.bottom + rvs(12) }]}>
-        <View style={styles.summaryHandle} />
-        <View style={styles.summaryHeader}>
-          <View style={styles.pickupDot} />
-          <Text style={styles.summaryTitle}>{t('booking.pickupDetailTitle')}</Text>
-        </View>
-
-        {resolvingAddress && (
-          <View style={styles.resolvingBadge}>
-            <ActivityIndicator size="small" color={palette.primary} />
-            <Text style={styles.resolvingText}>{t('booking.resolvingAddress')}</Text>
-          </View>
+      {/* 3. Floating GPS Button */}
+      <TouchableOpacity
+        activeOpacity={0.82}
+        disabled={loadingLocation}
+        onPress={locateCurrentUser}
+        style={[styles.floatingGpsButton, { bottom: insets.bottom + rvs(240) }]}
+        accessibilityRole="button"
+        accessibilityLabel={t('booking.locatingTitle')}
+      >
+        {loadingLocation ? (
+          <ActivityIndicator size="small" color={palette.primary} />
+        ) : (
+          <Ionicons name="locate" size={rs(34)} color={palette.primary} />
         )}
+      </TouchableOpacity>
 
-        <Text style={styles.summaryValue} numberOfLines={2} selectable>
-          {pickup.address}
-        </Text>
-        <Text style={styles.summaryMeta} selectable>
-          {pickup.lat.toFixed(6)}, {pickup.lng.toFixed(6)}
-        </Text>
+      {/* 4. Floating Bottom Sheet Card with 3-Word button moved down */}
+      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + rvs(16) }]}>
+        <View style={styles.handleBar} />
 
+        {/* 3-Word Address Row (moved down) */}
+        <View style={styles.threeWordRow}>
+          {threeWordAddress ? (
+            <View style={styles.threeWordBadge}>
+              <View style={styles.threeWordTextWrap}>
+                <Text style={styles.threeWordSymbol}>///</Text>
+                <Text style={styles.threeWordAddressText} selectable>{threeWordAddress}</Text>
+              </View>
+              <View style={styles.threeWordActionGroup}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handleCopyThreeWords}
+                  style={styles.threeWordActionBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('booking.copy3Words', 'Sao chép')}
+                >
+                  <Ionicons name="copy-outline" size={rs(20)} color={palette.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handleShareThreeWords}
+                  style={styles.threeWordActionBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('booking.share3Words', 'Chia sẻ')}
+                >
+                  <Ionicons name="share-social-outline" size={rs(20)} color={palette.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.82}
+              disabled={loadingThreeWords}
+              onPress={handleFetchThreeWords}
+              style={styles.getThreeWordsBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t('booking.get3Words', 'Lấy 3 từ')}
+            >
+              {loadingThreeWords ? (
+                <ActivityIndicator size="small" color={palette.primary} />
+              ) : (
+                <>
+                  <Text style={styles.threeWordSymbol}>///</Text>
+                  <Text style={styles.getThreeWordsText}>
+                    {t('booking.getThreeWords', 'Lấy địa chỉ 3 từ')}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {resolvingAddress && (
+            <View style={styles.resolvingInline}>
+              <ActivityIndicator size="small" color={palette.primary} />
+              <Text style={styles.resolvingText}>{t('booking.resolvingAddress', 'Đang xác định...')}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Action Button */}
         <TouchableOpacity
           activeOpacity={0.86}
           disabled={!canContinue}
           style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
           onPress={handleContinue}
         >
-          <Text style={styles.primaryButtonText}>{t('booking.continueToDestination')}</Text>
-          <Feather name="arrow-right" size={rs(30)} color="#fff" style={styles.primaryButtonIcon} />
+          <Text style={styles.primaryButtonText}>{t('booking.continueToDestination', 'Tiếp tục chọn điểm đến')}</Text>
+          <Feather name="arrow-right" size={rs(28)} color="#ffffff" />
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
-function getLocationStatusCopy(
-  status: LocationPermissionState,
-  loading: boolean,
-  error: string | null,
-  t: (key: string) => string,
-):
-  | {
-      icon: keyof typeof Ionicons.glyphMap;
-      color: string;
-      title: string;
-      message: string;
-      tone?: 'danger';
-    }
-  | null {
-  if (loading || status === 'locating') {
-    return {
-      icon: 'locate-outline',
-      color: palette.primary,
-      title: t('booking.locatingTitle'),
-      message: t('booking.locatingMessage'),
-    };
-  }
-
-  if (error || status === 'error') {
-    return {
-      icon: 'warning-outline',
-      color: palette.danger,
-      title: t('booking.gpsErrorTitle'),
-      message: error ?? t('booking.gpsErrorMessage'),
-      tone: 'danger',
-    };
-  }
-
-  if (status === 'permission-needed') {
-    return {
-      icon: 'shield-outline',
-      color: palette.primaryMid,
-      title: t('booking.permissionTitle'),
-      message: t('booking.permissionMessage'),
-    };
-  }
-
-  if (status === 'gps-disabled') {
-    return {
-      icon: 'navigate-outline',
-      color: palette.danger,
-      title: t('booking.gpsDisabledTitle'),
-      message: t('booking.gpsDisabledMessage'),
-      tone: 'danger',
-    };
-  }
-
-  return null;
-}
-
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: '#000000',
   },
-  container: {
-    flexGrow: 1,
-    paddingHorizontal: rs(28),
-    paddingTop: rvs(28),
-    gap: rvs(22),
+  topOverlay: {
+    position: 'absolute',
+    left: rs(18),
+    right: rs(18),
+    zIndex: 50,
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(18),
+    alignItems: 'flex-start',
+    gap: rs(12),
   },
-  backButton: {
-    width: rs(70),
-    height: rs(70),
-    borderRadius: rs(35),
-    backgroundColor: palette.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow,
-  },
-  headerCopy: {
-    flex: 1,
-    gap: rvs(4),
-  },
-  eyebrow: {
-    color: palette.primaryMid,
-    fontSize: rf(18),
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: palette.text,
-    fontSize: rf(36),
-    fontWeight: '900',
-  },
-  heroCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(18),
-    padding: rs(24),
-    borderRadius: rs(34),
-    backgroundColor: palette.primarySoft,
-    borderWidth: 1,
-    borderColor: '#e4d9ff',
-  },
-  heroIcon: {
+  floatingBackButton: {
     width: rs(64),
     height: rs(64),
     borderRadius: rs(32),
+    backgroundColor: palette.card,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.card,
-  },
-  heroCopy: {
-    flex: 1,
-    gap: rvs(6),
-  },
-  heroTitle: {
-    color: palette.text,
-    fontSize: rf(23),
-    fontWeight: '900',
-  },
-  heroText: {
-    color: palette.muted,
-    fontSize: rf(18),
-    lineHeight: rf(25),
-  },
-  search: {
-    zIndex: 10,
-  },
-  mapCard: {
-    borderRadius: rs(36),
-    backgroundColor: '#d6ecff',
+    marginTop: rvs(4),
     ...shadow,
   },
-  statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(14),
-    padding: rs(18),
-    borderRadius: rs(26),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-  },
-  statusCardDanger: {
-    borderColor: '#ffd0d0',
-    backgroundColor: '#fff7f7',
-  },
-  statusCopy: {
+  searchWrap: {
     flex: 1,
-    gap: rvs(4),
+    ...shadow,
   },
-  statusTitle: {
-    color: palette.text,
-    fontSize: rf(19),
-    fontWeight: '900',
+  floatingGpsButton: {
+    position: 'absolute',
+    right: rs(20),
+    width: rs(64),
+    height: rs(64),
+    borderRadius: rs(32),
+    backgroundColor: palette.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 40,
+    ...shadow,
   },
-  statusText: {
-    color: palette.muted,
-    fontSize: rf(17),
-    lineHeight: rf(24),
+  bottomSheet: {
+    position: 'absolute',
+    left: rs(14),
+    right: rs(14),
+    bottom: rvs(10),
+    backgroundColor: palette.card,
+    borderRadius: rs(32),
+    paddingHorizontal: rs(26),
+    paddingTop: rvs(14),
+    zIndex: 45,
+    ...shadow,
   },
-
-  resolvingBadge: {
+  handleBar: {
+    width: rs(44),
+    height: rvs(5),
+    borderRadius: rs(3),
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: rvs(14),
+  },
+  threeWordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    justifyContent: 'space-between',
+    gap: rs(12),
+    marginBottom: rvs(16),
+  },
+  getThreeWordsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: rs(8),
-    paddingHorizontal: rs(12),
-    height: rvs(38),
-    borderRadius: rs(19),
     backgroundColor: palette.primarySoft,
+    paddingHorizontal: rs(18),
+    height: rvs(54),
+    borderRadius: rs(18),
+  },
+  threeWordSymbol: {
+    color: palette.danger,
+    fontSize: rf(22),
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  getThreeWordsText: {
+    color: palette.primary,
+    fontSize: rf(20),
+    fontWeight: '800',
+  },
+  threeWordBadge: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: palette.primarySoft,
+    borderRadius: rs(18),
+    paddingHorizontal: rs(16),
+    height: rvs(54),
+    borderWidth: 1,
+    borderColor: '#d6cbf5',
+  },
+  threeWordTextWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    flex: 1,
+  },
+  threeWordAddressText: {
+    color: palette.primary,
+    fontSize: rf(21),
+    fontWeight: '800',
+  },
+  threeWordActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+  },
+  threeWordActionBtn: {
+    width: rs(36),
+    height: rs(36),
+    borderRadius: rs(18),
+    backgroundColor: palette.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resolvingInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    paddingHorizontal: rs(8),
   },
   resolvingText: {
-    color: palette.primary,
-    fontSize: rf(15),
-    fontWeight: '800',
-  },
-
-  summaryCard: {
-    padding: rs(26),
-    borderRadius: rs(38),
-    backgroundColor: palette.card,
-    gap: rvs(16),
-    ...shadow,
-  },
-  floatingSummaryCard: {
-    position: 'absolute',
-    left: rs(20),
-    right: rs(20),
-    zIndex: 30,
-  },
-  summaryHandle: {
-    alignSelf: 'center',
-    width: rs(72),
-    height: rvs(7),
-    borderRadius: rs(4),
-    backgroundColor: palette.line,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(12),
-  },
-  pickupDot: {
-    width: rs(16),
-    height: rs(16),
-    borderRadius: rs(8),
-    backgroundColor: palette.primary,
-  },
-  summaryTitle: {
-    color: palette.text,
-    fontSize: rf(23),
-    fontWeight: '900',
-  },
-  summaryValue: {
-    color: palette.text,
-    fontSize: rf(22),
-    fontWeight: '800',
-    lineHeight: rf(31),
-  },
-  summaryMeta: {
     color: palette.muted,
-    fontSize: rf(17),
-    fontVariant: ['tabular-nums'],
+    fontSize: rf(16),
+    fontWeight: '600',
   },
   primaryButton: {
-    height: rvs(88),
-    borderRadius: rs(28),
+    height: rvs(84),
+    borderRadius: rs(22),
     backgroundColor: palette.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow,
+    gap: rs(12),
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 8,
   },
   primaryButtonDisabled: {
-    opacity: 0.55,
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   primaryButtonText: {
     color: '#ffffff',
     fontSize: rf(24),
-    fontWeight: '900',
-  },
-  primaryButtonIcon: {
-    marginLeft: rs(10),
-  },
-  bottomSpacer: {
-    height: rvs(28),
+    lineHeight: rf(30),
+    fontWeight: '800',
   },
 });

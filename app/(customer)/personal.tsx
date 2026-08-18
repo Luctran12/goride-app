@@ -190,41 +190,6 @@ export default function PersonalScreen() {
           <Text style={styles.title}>{t('personal.title')}</Text>
         </View>
 
-        <View style={styles.hero}>
-          <View style={styles.avatarFrame}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitials}>{getInitials(displayName)}</Text>
-              </View>
-            )}
-
-            <TouchableOpacity activeOpacity={0.84} style={styles.avatarEditButton} onPress={handleEditProfile}>
-              {loading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <Feather name="edit-2" size={rs(26)} color="#ffffff" />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.name} selectable>
-            {displayName}
-          </Text>
-
-          <View style={styles.memberPill}>
-            <MaterialCommunityIcons name="star-circle-outline" size={rs(27)} color={palette.primarySoftText} />
-            <Text style={styles.memberText}>{formatMembership(profile, t)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <StatCard value={formatTripCount(profile)} label={t('personal.statTrips')} />
-          <StatCard value={formatRating(profile, t)} label={t('personal.statRating')} hasStar={Boolean(getAverageRating(profile))} />
-          <StatCard value={formatSavedPlaces(profile)} label={t('personal.statSaved')} />
-        </View>
-
         {error ? (
           <TouchableOpacity activeOpacity={0.84} style={styles.errorBanner} onPress={loadProfile}>
             <View style={styles.errorIcon}>
@@ -252,9 +217,7 @@ export default function PersonalScreen() {
         {editing ? (
           <View style={styles.detailCard}>
             <Text style={styles.detailHeading}>{t('personal.editTitle')}</Text>
-            <Text style={styles.editHelper} selectable>
-              {t('personal.editHelper')}
-            </Text>
+            
 
             <View style={styles.formList}>
               <ProfileInput
@@ -284,16 +247,7 @@ export default function PersonalScreen() {
                 placeholder={t('personal.emailPlaceholder')}
                 value={formValues.email}
               />
-              <ProfileInput
-                autoCapitalize="none"
-                error={fieldErrors.avatarUrl}
-                icon="image"
-                keyboardType="url"
-                label={t('personal.avatarUrlLabel')}
-                onChangeText={(value) => updateFormValue('avatarUrl', value)}
-                placeholder="https://..."
-                value={formValues.avatarUrl}
-              />
+              
             </View>
 
             {saveError ? (

@@ -298,7 +298,17 @@ export function subscribeDriverRequests(driverId: number, handler: Handler<Drive
   return subscription;
 }
 
+let latestDriverLocation: { lat: number; lng: number } | null = null;
+
+export function setRealtimeDriverLocation(lat: number, lng: number) {
+  latestDriverLocation = { lat, lng };
+}
+
 export function sendDriverLocation(payload: DriverLocationUpdate) {
+  if (typeof payload.lat === 'number' && typeof payload.lng === 'number') {
+    latestDriverLocation = { lat: payload.lat, lng: payload.lng };
+  }
+
   const destination = '/app/driver.location';
   const message = {
     ...payload,
@@ -674,17 +684,17 @@ function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undef
     id: toFiniteNumber(rawPassenger?.id) ?? 0,
     fullName: typeof rawPassenger?.fullName === 'string' ? rawPassenger.fullName
       : typeof rawPassenger?.name === 'string' ? rawPassenger.name
-      : 'Khách hàng',
+      : 'Passenger',
     phone: typeof rawPassenger?.phone === 'string' ? rawPassenger.phone : undefined,
     avatarUrl: typeof rawPassenger?.avatarUrl === 'string' ? rawPassenger.avatarUrl : undefined,
   };
 
   // Backend may use nested or flat structures for locations
-  const pickup = extractLocation(inner, 'pickup', 'Điểm đón');
+  const pickup = extractLocation(inner, 'pickup', 'Pickup location');
   
-  let dropoff = extractLocation(inner, 'dropoff', 'Điểm đến');
-  if (dropoff.address === 'Điểm đến' && (inner?.destination || inner?.destinationAddress)) {
-    dropoff = extractLocation(inner, 'destination', 'Điểm đến');
+  let dropoff = extractLocation(inner, 'dropoff', 'Destination');
+  if (dropoff.address === 'Destination' && (inner?.destination || inner?.destinationAddress)) {
+    dropoff = extractLocation(inner, 'destination', 'Destination');
   }
 
   return {
@@ -710,7 +720,7 @@ function normalizeDriverTripRequest(payload: unknown): DriverTripRequest | undef
         const meters = toFiniteNumber(inner?.distanceMeters);
         const km = dist > 0 ? dist : (meters && meters > 0 ? meters / 1000 : 0);
         if (km > 0) {
-          return Math.round(km * 2.5); // Ước tính 2.5 phút mỗi km
+          return Math.round(km * 2.5);
         }
       }
       return dur;
@@ -753,9 +763,9 @@ function extractLocation(
   }
 
   return {
-    lat,
-    lng,
-    address,
+    lat: lat ?? 0,
+    lng: lng ?? 0,
+    address: address ?? fallbackLabel,
     label: fallbackLabel,
   };
 }
@@ -951,7 +961,7 @@ function queueMockDriverRequest(driverId: number) {
         tripId: activeTrip.tripId,
         passenger: {
           id: 1,
-          fullName: 'Nguyen Van A',
+          fullName: 'Nguyễn Văn An',
           phone: '0901234567',
         },
         pickup: activeTrip.pickup,
@@ -963,31 +973,34 @@ function queueMockDriverRequest(driverId: number) {
 
       emit('notification', {
         type: 'NEW_TRIP_REQUEST',
-        title: 'Co cuoc moi',
-        body: `Tai xe ${driverId} co mot yeu cau dat xe moi.`,
+        title: 'Có cuốc xe mới',
+        body: `Tài xế ${driverId} có một yêu cầu đặt xe mới.`,
         data: { tripId: activeTrip.tripId },
       });
       return;
     }
 
+    const baseLat = latestDriverLocation?.lat ?? 10.762622;
+    const baseLng = latestDriverLocation?.lng ?? 106.660172;
+
     emit('driverRequest', {
       tripId: 101,
       passenger: {
         id: 1,
-        fullName: 'Nguyen Van A',
+        fullName: 'Nguyễn Văn An',
         phone: '0901234567',
       },
       pickup: {
-        lat: 10.762622,
-        lng: 106.660172,
-        address: 'Cong vien Tao Dan, Quan 1',
-        label: 'Diem don',
+        lat: baseLat + 0.003,
+        lng: baseLng + 0.002,
+        address: 'Điểm đón gần vị trí của bạn',
+        label: 'Điểm đón',
       },
       dropoff: {
-        lat: 10.772,
-        lng: 106.698,
-        address: 'Bitexco Financial Tower, Quan 1',
-        label: 'Diem den',
+        lat: baseLat + 0.015,
+        lng: baseLng + 0.012,
+        address: 'Điểm đến dự kiến',
+        label: 'Điểm đến',
       },
       estimatedFare: 48000,
       estimatedDistance: 3.8,
@@ -996,8 +1009,8 @@ function queueMockDriverRequest(driverId: number) {
 
     emit('notification', {
       type: 'NEW_TRIP_REQUEST',
-      title: 'Co cuoc moi',
-      body: `Tai xe ${driverId} co mot yeu cau dat xe moi.`,
+      title: 'Có cuốc xe mới',
+      body: `Tài xế có một yêu cầu đặt xe mới gần bạn.`,
       data: { tripId: 101 },
     });
   }, 2000);
@@ -1014,7 +1027,7 @@ subscribeMockBookings((trip) => {
         tripId: trip.tripId,
         passenger: {
           id: 1,
-          fullName: 'Nguyen Van A',
+          fullName: 'Nguyễn Văn An',
           phone: '0901234567',
         },
         pickup: trip.pickup,
@@ -1026,8 +1039,8 @@ subscribeMockBookings((trip) => {
 
       emit('notification', {
         type: 'NEW_TRIP_REQUEST',
-        title: 'Co cuoc moi',
-        body: 'Tai xe 5 co mot yeu cau dat xe moi.',
+        title: 'Có cuốc xe mới',
+        body: 'Tài xế có một yêu cầu đặt xe mới.',
         data: { tripId: trip.tripId },
       });
     }, 1000);

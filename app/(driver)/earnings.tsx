@@ -1,58 +1,58 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  useWindowDimensions,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DriverBottomNav } from '@/components/driver/driver-bottom-nav';
 import { rf, rs, rvs } from '@/constants/responsive';
 import { useLanguage } from '@/lib/i18n';
 import { listBookings } from '@/lib/ride-api';
 import type { TripDetail } from '@/types/ride';
 
 const palette = {
-  background: '#f7faf8',
+  background: '#F8FAFC',
   card: '#ffffff',
-  ink: '#08110d',
-  muted: '#637069',
-  line: '#e2e8f0',
-  green: '#00c853',
-  greenDark: '#053f2a',
-  greenSoft: '#e8fcdb',
-  mint: '#6df0a7',
-  blue: '#1664ff',
-  blueInk: '#050063',
-  blueSoft: '#edf4ff',
-  amber: '#f59e0b',
-  amberSoft: '#fff3d8',
-  danger: '#ef4444',
-  dangerSoft: '#fee2e2',
+  cardDark: '#0B1E14',
+  ink: '#0F172A',
+  muted: '#64748B',
+  line: '#E2E8F0',
+  green: '#00C853',
+  greenDark: '#044D29',
+  greenSoft: '#E8FADF',
+  mint: '#10B981',
+  mintSoft: '#D1FAE5',
+  blue: '#2563EB',
+  blueSoft: '#EFF6FF',
+  amber: '#F59E0B',
+  amberSoft: '#FEF3C7',
+  danger: '#EF4444',
+  dangerSoft: '#FEE2E2',
 };
 
-type RecentTrip = {
-  id: string;
-  service: string;
-  time: string;
-  distanceKm: number;
-  fare: number;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  tone: 'ride' | 'send';
+const shadow = {
+  shadowColor: '#0F172A',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.07,
+  shadowRadius: 14,
+  elevation: 4,
 };
+
+type Period = 'today' | 'week' | 'month';
 
 export default function DriverEarningsScreen() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { height } = useWindowDimensions();
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
   const [trips, setTrips] = useState<TripDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,64 +78,110 @@ export default function DriverEarningsScreen() {
     loadEarnings();
   }, [loadEarnings]);
 
-  const earningsSummary = useMemo(() => {
+  const filteredTrips = useMemo(() => {
     const now = new Date();
-    const isToday = (dateStr?: string | null) => {
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
+
+    const parseTripDate = (dateStr?: string | null) => {
+      return dateStr ? new Date(dateStr) : new Date();
+    };
+
+    const isToday = (date: Date) => {
       return (
-        d.getDate() === now.getDate() &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear()
+        date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear()
       );
     };
 
-    const todayTrips = trips.filter((t) => isToday(t.completedAt || t.requestedAt));
-    const completed = todayTrips.filter((t) => t.status === 'COMPLETED');
-    const totalEarnings = completed.reduce((sum, t) => sum + (t.finalFare ?? t.estimatedFare ?? 0), 0);
-    const platformFee = Math.round(totalEarnings * 0.15); // Standard platform fee estimation 15%
-    const totalTripsOffered = todayTrips.length;
-    const acceptanceRate = totalTripsOffered > 0
-      ? Math.round((completed.length / totalTripsOffered) * 100)
-      : 100;
+    const isWithinDays = (date: Date, days: number) => {
+      const diffMs = now.getTime() - date.getTime();
+      return diffMs / (1000 * 60 * 60 * 24) <= days;
+    };
+
+    return trips.filter((t) => {
+      const tripDate = parseTripDate(t.completedAt || t.requestedAt);
+      if (selectedPeriod === 'today') return isToday(tripDate);
+      if (selectedPeriod === 'week') return isWithinDays(tripDate, 7);
+      if (selectedPeriod === 'month') return isWithinDays(tripDate, 30);
+      return true;
+    });
+  }, [trips, selectedPeriod]);
+
+  const summary = useMemo(() => {
+    const completed = filteredTrips.filter((t) => t.status === 'COMPLETED');
+    const grossFare = completed.reduce((sum, t) => sum + (t.finalFare ?? t.estimatedFare ?? 0), 0);
+    const platformFee = Math.round(grossFare * 0.15);
+    const netEarnings = grossFare - platformFee;
+    const totalOffered = filteredTrips.length;
+    const acceptanceRate = totalOffered > 0 ? Math.round((completed.length / totalOffered) * 100) : 100;
+    const onlineHours = completed.length > 0 ? (completed.length * 0.6).toFixed(1) : '0';
+    const avgFare = completed.length > 0 ? Math.round(grossFare / completed.length) : 0;
 
     return {
-      totalToday: totalEarnings,
+      grossFare,
+      platformFee,
+      netEarnings,
       completedTrips: completed.length,
-      onlineHours: completed.length > 0 ? Math.max(1, Math.round(completed.length * 0.75)) : 0,
       acceptanceRate,
-      collectedCash: totalEarnings,
-      bonus: 0,
-      platformFee: -platformFee,
+      onlineHours,
+      avgFare,
+      completedList: completed,
     };
-  }, [trips]);
-
-  const recentTripsList = useMemo<RecentTrip[]>(() => {
-    const completed = trips.filter((t) => t.status === 'COMPLETED');
-    return completed.slice(0, 5).map((t) => {
-      const date = new Date(t.completedAt || t.requestedAt || Date.now());
-      const hh = String(date.getHours()).padStart(2, '0');
-      const mm = String(date.getMinutes()).padStart(2, '0');
-
-      return {
-        id: `ride-${t.tripId}`,
-        service: 'GoRide',
-        time: `${hh}:${mm}`,
-        distanceKm: t.estimatedDistance ?? 0,
-        fare: t.finalFare ?? t.estimatedFare ?? 0,
-        icon: 'motorbike',
-        tone: 'ride',
-      };
-    });
-  }, [trips]);
+  }, [filteredTrips]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
+
+      {/* HEADER */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>{t('driverEarnings.title')}</Text>
+          <Text style={styles.headerSubtitle}>
+            {selectedPeriod === 'today'
+              ? t('driverEarnings.periodToday')
+              : selectedPeriod === 'week'
+                ? t('driverActivity.periodWeek')
+                : t('driverActivity.periodMonth')}
+          </Text>
+        </View>
+
+        {/* PERIOD SELECTOR TABS */}
+        <View style={styles.periodTabs}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.periodTab, selectedPeriod === 'today' && styles.periodTabActive]}
+            onPress={() => setSelectedPeriod('today')}
+          >
+            <Text style={[styles.periodTabText, selectedPeriod === 'today' && styles.periodTabTextActive]}>
+              {t('driverEarnings.periodToday')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.periodTab, selectedPeriod === 'week' && styles.periodTabActive]}
+            onPress={() => setSelectedPeriod('week')}
+          >
+            <Text style={[styles.periodTabText, selectedPeriod === 'week' && styles.periodTabTextActive]}>
+              {t('driverEarnings.tab7D')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.periodTab, selectedPeriod === 'month' && styles.periodTabActive]}
+            onPress={() => setSelectedPeriod('month')}
+          >
+            <Text style={[styles.periodTabText, selectedPeriod === 'month' && styles.periodTabTextActive]}>
+              {t('driverEarnings.tab30D')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.container, { minHeight: height }]}
-        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -146,31 +192,6 @@ export default function DriverEarningsScreen() {
           />
         }
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/(driver)')}
-            style={({ pressed }) => [styles.driverIdentity, pressed ? styles.pressedButton : null]}
-          >
-            <View style={styles.avatarFrame}>
-              <Image source={require('../../assets/images/icon.png')} style={styles.avatar} contentFit="cover" />
-            </View>
-            <Text style={styles.brandText}>GoRide Driver</Text>
-          </Pressable>
-
-          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.iconButton, pressed ? styles.pressedButton : null]}>
-            <MaterialCommunityIcons name="cog-outline" size={rs(34)} color={palette.blueInk} />
-          </Pressable>
-        </View>
-
-        <View style={styles.titleRow}>
-          <Text style={styles.screenTitle}>{t('driverEarnings.title')}</Text>
-          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.periodPill, pressed ? styles.pressedButton : null]}>
-            <Text style={styles.periodText}>{t('driverEarnings.periodToday')}</Text>
-            <MaterialCommunityIcons name="chevron-down" size={rs(18)} color={palette.ink} />
-          </Pressable>
-        </View>
-
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={palette.green} />
@@ -178,197 +199,165 @@ export default function DriverEarningsScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>{t('driverEarnings.totalTodayLabel')}</Text>
-              <Text selectable style={styles.totalValue}>
-                {formatCurrency(earningsSummary.totalToday)}
-              </Text>
-            </View>
-
-            <View style={styles.metricsRow}>
-              <MetricCard icon="check-circle-outline" label={t('driverEarnings.completedLabel')} value={t('driverEarnings.tripCount', { count: earningsSummary.completedTrips })} />
-              <MetricCard icon="timer-outline" label={t('driverEarnings.onlineTimeLabel')} value={t('driverEarnings.hoursOnline', { count: earningsSummary.onlineHours })} />
-            </View>
-
-            <View style={styles.acceptanceCard}>
-              <View style={styles.acceptanceTopRow}>
-                <View style={styles.acceptanceLabelRow}>
-                  <MaterialCommunityIcons name="percent-outline" size={rs(22)} color={palette.muted} />
-                  <Text style={styles.acceptanceLabel}>{t('driverEarnings.acceptanceRateLabel')}</Text>
+            {/* 1. HERO TOTAL EARNINGS CARD */}
+            <View style={styles.heroCard}>
+              <View style={styles.heroTopRow}>
+                <View>
+                  <Text style={styles.heroLabel}>
+                    {t('driverEarnings.totalTodayLabel')}
+                  </Text>
+                  <Text selectable style={styles.heroAmount}>
+                    {formatFare(summary.grossFare)}
+                  </Text>
                 </View>
-                <Text selectable style={styles.acceptanceValue}>
-                  {earningsSummary.acceptanceRate}%
+                <View style={styles.heroBadge}>
+                  <MaterialCommunityIcons name="wallet-outline" size={rs(32)} color="#ffffff" />
+                </View>
+              </View>
+
+              <View style={styles.heroDivider} />
+
+              <View style={styles.heroBottomRow}>
+                <MaterialCommunityIcons name="shield-check" size={rs(20)} color={palette.mint} />
+                <Text style={styles.heroSubtext}>
+                  {t('driverEarnings.tripCount', { count: summary.completedTrips })} · {t('driverEarnings.acceptanceRateLabel')}: {summary.acceptanceRate}%
                 </Text>
               </View>
-              <ProgressBar value={earningsSummary.acceptanceRate} />
             </View>
 
-            <View style={styles.detailCard}>
-              <View style={styles.detailHeader}>
-                <Text style={styles.detailTitle}>{t('driverEarnings.earningsDetailsTitle')}</Text>
+            {/* 2. STAT METRICS GRID */}
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricCard}>
+                <View style={[styles.metricIconWrap, { backgroundColor: palette.greenSoft }]}>
+                  <MaterialCommunityIcons name="check-circle" size={rs(26)} color={palette.green} />
+                </View>
+                <Text style={styles.metricLabel}>{t('driverEarnings.completedLabel')}</Text>
+                <Text style={styles.metricValue}>{t('driverEarnings.tripCount', { count: summary.completedTrips })}</Text>
               </View>
-              <EarningsRow label={t('driverEarnings.collectedCash')} value={earningsSummary.collectedCash} />
-              {earningsSummary.bonus > 0 ? (
-                <EarningsRow label={t('driverEarnings.bonus')} value={earningsSummary.bonus} positive />
-              ) : null}
-              {earningsSummary.platformFee !== 0 ? (
-                <EarningsRow label={t('driverEarnings.platformFee')} value={earningsSummary.platformFee} negative />
-              ) : null}
+
+              <View style={styles.metricCard}>
+                <View style={[styles.metricIconWrap, { backgroundColor: palette.blueSoft }]}>
+                  <MaterialCommunityIcons name="clock-outline" size={rs(26)} color={palette.blue} />
+                </View>
+                <Text style={styles.metricLabel}>{t('driverEarnings.onlineTimeLabel')}</Text>
+                <Text style={styles.metricValue}>{t('driverEarnings.hoursOnline', { count: summary.onlineHours })}</Text>
+              </View>
+
+              <View style={styles.metricCard}>
+                <View style={[styles.metricIconWrap, { backgroundColor: palette.amberSoft }]}>
+                  <MaterialCommunityIcons name="target" size={rs(26)} color={palette.amber} />
+                </View>
+                <Text style={styles.metricLabel}>{t('driverEarnings.acceptanceRateLabel')}</Text>
+                <Text style={styles.metricValue}>{summary.acceptanceRate}%</Text>
+              </View>
+
+              <View style={styles.metricCard}>
+                <View style={[styles.metricIconWrap, { backgroundColor: palette.mintSoft }]}>
+                  <MaterialCommunityIcons name="chart-line" size={rs(26)} color={palette.mint} />
+                </View>
+                <Text style={styles.metricLabel}>{t('driverEarnings.avgPerTrip')}</Text>
+                <Text style={styles.metricValue}>{formatFare(summary.avgFare)}</Text>
+              </View>
             </View>
 
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>{t('driverEarnings.recentTripsTitle')}</Text>
+            {/* 3. EARNINGS BREAKDOWN CARD */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons name="receipt-text-outline" size={rs(24)} color={palette.ink} />
+                <Text style={styles.sectionTitle}>
+                  {t('driverEarnings.earningsDetailsTitle')}
+                </Text>
+              </View>
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>{t('driverEarnings.collectedCash')}</Text>
+                <Text style={styles.breakdownValue}>{formatFare(summary.grossFare)}</Text>
+              </View>
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>{t('driverEarnings.bonus')}</Text>
+                <Text style={[styles.breakdownValue, { color: palette.green }]}>+0đ</Text>
+              </View>
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>{t('driverEarnings.platformFee')}</Text>
+                <Text style={[styles.breakdownValue, { color: palette.danger }]}>-{formatFare(summary.platformFee)}</Text>
+              </View>
+
+              <View style={styles.breakdownDivider} />
+
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownTotalLabel}>{t('driverEarnings.netEarnings')}</Text>
+                <Text style={styles.breakdownTotalValue}>{formatFare(summary.netEarnings)}</Text>
+              </View>
+            </View>
+
+            {/* 4. RECENT TRIPS */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeadingTitle}>
+                {t('driverEarnings.recentTripsTitle')}
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/(driver)/activity')}
+                style={styles.viewAllBtn}
+              >
+                <Text style={styles.viewAllBtnText}>{t('driverEarnings.viewAllTripsBtn')}</Text>
+                <MaterialCommunityIcons name="chevron-right" size={rs(20)} color={palette.green} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.tripList}>
-              {recentTripsList.length === 0 ? (
+              {summary.completedList.length === 0 ? (
                 <View style={styles.emptyCard}>
-                  <MaterialCommunityIcons name="motorbike-off" size={rs(36)} color={palette.muted} />
+                  <MaterialCommunityIcons name="motorbike-off" size={rs(48)} color={palette.muted} />
                   <Text style={styles.emptyText}>{t('driverEarnings.noTripsToday')}</Text>
                 </View>
               ) : (
-                recentTripsList.map((trip) => (
-                  <RecentTripCard key={trip.id} trip={trip} />
-                ))
+                summary.completedList.slice(0, 8).map((trip) => {
+                  const date = new Date(trip.completedAt || trip.requestedAt || Date.now());
+                  const hh = String(date.getHours()).padStart(2, '0');
+                  const mm = String(date.getMinutes()).padStart(2, '0');
+
+                  return (
+                    <View key={trip.tripId} style={styles.tripItemCard}>
+                      <View style={styles.tripIconWrap}>
+                        <MaterialCommunityIcons name="motorbike" size={rs(28)} color={palette.greenDark} />
+                      </View>
+
+                      <View style={styles.tripInfoWrap}>
+                        <View style={styles.tripTitleRow}>
+                          <Text style={styles.tripServiceName}>GoRide #{trip.tripId}</Text>
+                          <Text style={styles.tripTimeText}>{`${hh}:${mm}`}</Text>
+                        </View>
+
+                        <Text style={styles.tripRouteText} numberOfLines={1}>
+                          {trip.pickup?.address || t('driver.pickupLabel')} ➔ {trip.dropoff?.address || t('driver.dropoffLabel')}
+                        </Text>
+                      </View>
+
+                      <View style={styles.tripFareWrap}>
+                        <Text style={styles.tripFareText}>
+                          {formatFare(trip.finalFare ?? trip.estimatedFare ?? 0)}
+                        </Text>
+                        <Text style={styles.paymentMethodText}>{t('driverEarnings.paymentCash')}</Text>
+                      </View>
+                    </View>
+                  );
+                })
               )}
             </View>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/(driver)/activity')}
-              style={({ pressed }) => [styles.viewAllButton, pressed ? styles.pressedButton : null]}
-            >
-              <Text style={styles.viewAllText}>{t('driverEarnings.viewAllTripsBtn')}</Text>
-            </Pressable>
           </>
         )}
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        <DriverNavItem icon="home-variant-outline" label="Home" onPress={() => router.push('/(driver)')} />
-        <DriverNavItem icon="cash-multiple" label="Earnings" active />
-        <DriverNavItem icon="history" label="Activity" onPress={() => router.push('./activity')} />
-        <DriverNavItem icon="account-outline" label="Account" onPress={() => router.push('./account')} />
-      </View>
+      {/* STANDARDIZED DRIVER BOTTOM NAVIGATION */}
+      <DriverBottomNav currentTab="earnings" />
     </SafeAreaView>
   );
 }
 
-function MetricCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.metricCard}>
-      <View style={styles.metricLabelRow}>
-        <View style={styles.metricIconCircle}>
-          <MaterialCommunityIcons name={icon} size={rs(20)} color={palette.muted} />
-        </View>
-        <Text style={styles.metricLabel}>{label}</Text>
-      </View>
-      <Text selectable style={styles.metricValue}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function ProgressBar({ value }: { value: number }) {
-  const boundedValue = Math.max(0, Math.min(value, 100));
-  const fillWidth = `${boundedValue}%` as `${number}%`;
-
-  return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: fillWidth }]} />
-    </View>
-  );
-}
-
-function EarningsRow({
-  label,
-  value,
-  positive = false,
-  negative = false,
-}: {
-  label: string;
-  value: number;
-  positive?: boolean;
-  negative?: boolean;
-}) {
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text
-        selectable
-        style={[
-          styles.detailValue,
-          positive ? styles.detailValuePositive : null,
-          negative ? styles.detailValueNegative : null,
-        ]}
-      >
-        {formatSignedCurrency(value)}
-      </Text>
-    </View>
-  );
-}
-
-function RecentTripCard({ trip }: { trip: RecentTrip }) {
-  const toneStyle = trip.tone === 'ride' ? styles.tripIconRide : styles.tripIconSend;
-
-  return (
-    <Pressable accessibilityRole="button" style={({ pressed }) => [styles.tripCard, pressed ? styles.pressedButton : null]}>
-      <View style={[styles.tripIcon, toneStyle]}>
-        <MaterialCommunityIcons name={trip.icon} size={rs(25)} color={palette.blueInk} />
-      </View>
-      <View style={styles.tripCopy}>
-        <Text style={styles.tripService}>{trip.service}</Text>
-        <Text style={styles.tripMeta}>
-          {trip.time} • {trip.distanceKm.toFixed(1)}km
-        </Text>
-      </View>
-      <Text selectable style={styles.tripFare}>
-        {formatCurrency(trip.fare)}
-      </Text>
-    </Pressable>
-  );
-}
-
-function DriverNavItem({
-  icon,
-  label,
-  active = false,
-  onPress,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  active?: boolean;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.navItem, active ? styles.navItemActive : null, pressed ? styles.pressedButton : null]}
-    >
-      <MaterialCommunityIcons name={icon} size={rs(28)} color={active ? palette.greenDark : palette.muted} />
-      <Text style={[styles.navLabel, active ? styles.navLabelActive : null]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function formatCurrency(value: number) {
-  return `${Math.round(value).toLocaleString('vi-VN')}đ`;
-}
-
-function formatSignedCurrency(value: number) {
-  const prefix = value > 0 ? '+' : '';
-
-  return `${prefix}${formatCurrency(value)}`;
+function formatFare(fare: number) {
+  return `${Math.round(fare).toLocaleString('vi-VN')}đ`;
 }
 
 const styles = StyleSheet.create({
@@ -376,338 +365,300 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
-  scroll: {
-    flex: 1,
-  },
-  container: {
-    paddingHorizontal: rs(20),
-    paddingTop: rvs(10),
-    paddingBottom: rvs(110),
-  },
   header: {
+    paddingHorizontal: rs(20),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(16),
+    backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: rvs(18),
   },
-  driverIdentity: {
+  headerTitle: {
+    color: palette.ink,
+    fontSize: rf(28),
+    fontWeight: '900',
+  },
+  headerSubtitle: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  periodTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: rs(16),
+    padding: 4,
+    gap: rs(4),
+  },
+  periodTab: {
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(8),
+    borderRadius: rs(12),
+  },
+  periodTabActive: {
+    backgroundColor: '#ffffff',
+    ...shadow,
+  },
+  periodTabText: {
+    fontSize: rf(15),
+    fontWeight: '700',
+    color: palette.muted,
+  },
+  periodTabTextActive: {
+    color: palette.greenDark,
+    fontWeight: '900',
+  },
+  scrollContent: {
+    paddingHorizontal: rs(18),
+    paddingTop: rvs(18),
+    paddingBottom: rvs(36),
+    gap: rvs(18),
+  },
+  heroCard: {
+    backgroundColor: palette.cardDark,
+    borderRadius: rs(26),
+    padding: rs(22),
+    ...shadow,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: rs(10),
+    justifyContent: 'space-between',
   },
-  avatarFrame: {
-    width: rs(40),
-    height: rs(40),
-    borderRadius: rs(20),
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: palette.green,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-  },
-  brandText: {
-    fontSize: rf(18),
+  heroLabel: {
+    color: '#94A3B8',
+    fontSize: rf(16),
     fontWeight: '800',
-    color: palette.ink,
-    letterSpacing: -0.3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  iconButton: {
-    width: rs(44),
-    height: rs(44),
-    borderRadius: rs(22),
-    backgroundColor: palette.card,
+  heroAmount: {
+    color: '#ffffff',
+    fontSize: rf(38),
+    fontWeight: '900',
+    marginTop: rvs(6),
+  },
+  heroBadge: {
+    width: rs(56),
+    height: rs(56),
+    borderRadius: rs(28),
+    backgroundColor: 'rgba(0, 200, 83, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: palette.line,
   },
-  titleRow: {
+  heroDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginVertical: rvs(16),
+  },
+  heroBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: rvs(16),
+    gap: rs(8),
   },
-  screenTitle: {
-    fontSize: rf(26),
-    fontWeight: '800',
-    color: palette.ink,
+  heroSubtext: {
+    color: '#F1F5F9',
+    fontSize: rf(16),
+    fontWeight: '700',
+    flex: 1,
   },
-  periodPill: {
+  metricsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(4),
-    backgroundColor: palette.card,
-    paddingHorizontal: rs(12),
-    paddingVertical: rvs(6),
-    borderRadius: rs(20),
-    borderWidth: 1,
-    borderColor: palette.line,
-  },
-  periodText: {
-    fontSize: rf(13),
-    fontWeight: '600',
-    color: palette.ink,
-  },
-  totalCard: {
-    backgroundColor: palette.greenDark,
-    borderRadius: rs(18),
-    paddingHorizontal: rs(20),
-    paddingVertical: rvs(18),
-    marginBottom: rvs(14),
-  },
-  totalLabel: {
-    fontSize: rf(13),
-    color: palette.mint,
-    fontWeight: '600',
-    marginBottom: rvs(4),
-  },
-  totalValue: {
-    fontSize: rf(32),
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  metricsRow: {
-    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: rs(12),
-    marginBottom: rvs(14),
   },
   metricCard: {
     flex: 1,
+    minWidth: '46%',
     backgroundColor: palette.card,
-    borderRadius: rs(14),
-    paddingHorizontal: rs(14),
-    paddingVertical: rvs(12),
+    borderRadius: rs(20),
+    padding: rs(18),
     borderWidth: 1,
     borderColor: palette.line,
+    ...shadow,
   },
-  metricLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(8),
-    marginBottom: rvs(6),
-  },
-  metricIconCircle: {
-    width: rs(30),
-    height: rs(30),
-    borderRadius: rs(15),
-    backgroundColor: palette.background,
+  metricIconWrap: {
+    width: rs(46),
+    height: rs(46),
+    borderRadius: rs(23),
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: rvs(10),
   },
   metricLabel: {
-    fontSize: rf(12),
-    fontWeight: '600',
     color: palette.muted,
-  },
-  metricValue: {
-    fontSize: rf(16),
-    fontWeight: '700',
-    color: palette.ink,
-  },
-  acceptanceCard: {
-    backgroundColor: palette.card,
-    borderRadius: rs(14),
-    paddingHorizontal: rs(16),
-    paddingVertical: rvs(14),
-    borderWidth: 1,
-    borderColor: palette.line,
-    marginBottom: rvs(14),
-  },
-  acceptanceTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: rvs(10),
-  },
-  acceptanceLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(8),
-  },
-  acceptanceLabel: {
-    fontSize: rf(14),
-    fontWeight: '600',
-    color: palette.ink,
-  },
-  acceptanceValue: {
-    fontSize: rf(16),
-    fontWeight: '700',
-    color: palette.ink,
-  },
-  progressTrack: {
-    height: rvs(6),
-    borderRadius: rs(3),
-    backgroundColor: palette.line,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: palette.green,
-    borderRadius: rs(3),
-  },
-  detailCard: {
-    backgroundColor: palette.card,
-    borderRadius: rs(14),
-    paddingHorizontal: rs(16),
-    paddingVertical: rvs(14),
-    borderWidth: 1,
-    borderColor: palette.line,
-    marginBottom: rvs(18),
-  },
-  detailHeader: {
-    marginBottom: rvs(10),
-  },
-  detailTitle: {
     fontSize: rf(15),
     fontWeight: '700',
-    color: palette.ink,
   },
-  detailRow: {
+  metricValue: {
+    color: palette.ink,
+    fontSize: rf(22),
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  sectionCard: {
+    backgroundColor: palette.card,
+    borderRadius: rs(24),
+    padding: rs(20),
+    borderWidth: 1,
+    borderColor: palette.line,
+    ...shadow,
+    gap: rvs(14),
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    paddingBottom: rvs(8),
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
+  },
+  sectionTitle: {
+    color: palette.ink,
+    fontSize: rf(18),
+    fontWeight: '900',
+  },
+  breakdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: rvs(6),
   },
-  detailLabel: {
-    fontSize: rf(13),
+  breakdownLabel: {
     color: palette.muted,
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: rf(14),
+    fontSize: rf(16),
     fontWeight: '600',
+  },
+  breakdownValue: {
     color: palette.ink,
-  },
-  detailValuePositive: {
-    color: palette.green,
-  },
-  detailValueNegative: {
-    color: palette.danger,
-  },
-  sectionTitleRow: {
-    marginBottom: rvs(12),
-  },
-  sectionTitle: {
     fontSize: rf(17),
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: palette.line,
+    marginVertical: rvs(4),
+  },
+  breakdownTotalLabel: {
     color: palette.ink,
+    fontSize: rf(18),
+    fontWeight: '900',
   },
-  tripList: {
-    gap: rvs(10),
-    marginBottom: rvs(16),
+  breakdownTotalValue: {
+    color: palette.greenDark,
+    fontSize: rf(22),
+    fontWeight: '900',
   },
-  tripCard: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: rvs(8),
+  },
+  sectionHeadingTitle: {
+    color: palette.ink,
+    fontSize: rf(20),
+    fontWeight: '900',
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  viewAllBtnText: {
+    color: palette.green,
+    fontSize: rf(16),
+    fontWeight: '800',
+  },
+  tripList: {
+    gap: rvs(12),
+  },
+  tripItemCard: {
     backgroundColor: palette.card,
-    borderRadius: rs(14),
-    paddingHorizontal: rs(14),
-    paddingVertical: rvs(12),
+    borderRadius: rs(20),
+    padding: rs(16),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(14),
     borderWidth: 1,
     borderColor: palette.line,
-    gap: rs(12),
+    ...shadow,
   },
-  tripIcon: {
-    width: rs(44),
-    height: rs(44),
-    borderRadius: rs(22),
+  tripIconWrap: {
+    width: rs(50),
+    height: rs(50),
+    borderRadius: rs(25),
+    backgroundColor: palette.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tripIconRide: {
-    backgroundColor: palette.greenSoft,
-  },
-  tripIconSend: {
-    backgroundColor: palette.blueSoft,
-  },
-  tripCopy: {
+  tripInfoWrap: {
     flex: 1,
   },
-  tripService: {
-    fontSize: rf(14),
-    fontWeight: '700',
-    color: palette.ink,
-    marginBottom: rvs(2),
+  tripTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  tripMeta: {
-    fontSize: rf(12),
+  tripServiceName: {
+    color: palette.ink,
+    fontSize: rf(17),
+    fontWeight: '800',
+  },
+  tripTimeText: {
     color: palette.muted,
+    fontSize: rf(14),
+    fontWeight: '600',
   },
-  tripFare: {
+  tripRouteText: {
+    color: palette.muted,
     fontSize: rf(15),
+    fontWeight: '500',
+  },
+  tripFareWrap: {
+    alignItems: 'flex-end',
+  },
+  tripFareText: {
+    color: palette.greenDark,
+    fontSize: rf(19),
+    fontWeight: '900',
+  },
+  paymentMethodText: {
+    color: palette.muted,
+    fontSize: rf(13),
     fontWeight: '700',
-    color: palette.ink,
+    marginTop: 2,
   },
   emptyCard: {
     backgroundColor: palette.card,
-    borderRadius: rs(14),
-    paddingHorizontal: rs(16),
-    paddingVertical: rvs(24),
+    borderRadius: rs(20),
+    paddingVertical: rvs(40),
+    paddingHorizontal: rs(20),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: rvs(8),
+    gap: rvs(10),
     borderWidth: 1,
     borderColor: palette.line,
   },
   emptyText: {
-    fontSize: rf(13),
     color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '600',
     textAlign: 'center',
   },
   loadingContainer: {
-    paddingVertical: rvs(40),
+    paddingVertical: rvs(60),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: rvs(12),
+    gap: rvs(14),
   },
   loadingText: {
-    fontSize: rf(13),
     color: palette.muted,
-  },
-  viewAllButton: {
-    backgroundColor: palette.card,
-    borderRadius: rs(12),
-    paddingVertical: rvs(12),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: palette.line,
-  },
-  viewAllText: {
-    fontSize: rf(13),
-    fontWeight: '700',
-    color: palette.ink,
-    letterSpacing: 0.5,
-  },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    backgroundColor: palette.card,
-    paddingVertical: rvs(10),
-    paddingHorizontal: rs(16),
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
-    justifyContent: 'space-around',
-  },
-  navItem: {
-    alignItems: 'center',
-    gap: rvs(4),
-  },
-  navItemActive: {},
-  navLabel: {
-    fontSize: rf(11),
+    fontSize: rf(16),
     fontWeight: '600',
-    color: palette.muted,
-  },
-  navLabelActive: {
-    color: palette.greenDark,
-  },
-  pressedButton: {
-    opacity: 0.8,
   },
 });

@@ -107,7 +107,7 @@ function getEtaCopy(status: TripStatus, t: any, estimatedDuration?: number | nul
   if (status === 'ACCEPTED') {
     return {
       label: t('booking.driverAccepted', 'Tài xế tới điểm đón'),
-      value: formatMinutes(getPickupEta(estimatedDuration, Boolean(driverLocation))),
+      value: formatMinutes(getPickupEta(estimatedDuration, Boolean(driverLocation)), t),
       description: driverLocation
         ? t('booking.driverAcceptedDescWithLocation', 'Tài xế đang di chuyển tới điểm đón. Theo dõi xe trên bản đồ để chuẩn bị lên xe.')
         : t('booking.driverAcceptedDescNoLocation', 'Đã có tài xế nhận chuyến. Vị trí tài xế sẽ được đồng bộ trong giây lát.'),
@@ -131,7 +131,7 @@ function getEtaCopy(status: TripStatus, t: any, estimatedDuration?: number | nul
   if (status === 'IN_PROGRESS') {
     return {
       label: t('booking.inProgress', 'Tới điểm đến'),
-      value: formatMinutes(estimatedDuration),
+      value: formatMinutes(estimatedDuration, t),
       description: t('booking.inProgressDesc', 'Chuyến đi đang diễn ra. ETA là ước tính dựa trên tuyến đường đã chọn.'),
       icon: 'navigation-variant' as const,
       color: palette.primary,
@@ -179,23 +179,27 @@ function getPickupEta(estimatedDuration?: number | null, hasDriverLocation?: boo
   return Math.max(2, Math.min(8, Math.round(estimatedDuration * 0.35)));
 }
 
-function formatMinutes(minutes?: number | null) {
+function formatMinutes(minutes?: number | null, t?: any) {
   if (!minutes || minutes <= 0) {
-    return '-- phút';
+    return t ? t('booking.dashMinutes', '-- phút') : '-- phút';
   }
 
   if (minutes < 60) {
-    return Math.round(minutes) + ' phút';
+    const mins = Math.round(minutes);
+    return t ? t('booking.etaMinutes', { minutes: mins }, `${mins} phút`) : `${mins} phút`;
   }
 
   const hours = Math.floor(minutes / 60);
   const rest = Math.round(minutes % 60);
-  return rest ? hours + ' giờ ' + rest + ' phút' : hours + ' giờ';
+  if (rest) {
+    return t ? t('booking.etaHoursMinutes', { hours, minutes: rest }, `${hours} giờ ${rest} phút`) : `${hours} giờ ${rest} phút`;
+  }
+  return t ? t('booking.etaHours', { hours }, `${hours} giờ`) : `${hours} giờ`;
 }
 
-function formatDistance(distance?: number | null) {
+function formatDistance(distance?: number | null, t?: any) {
   if (!distance || distance <= 0) {
-    return '-- km';
+    return t ? t('booking.dashKm', '-- km') : '-- km';
   }
 
   return distance.toFixed(distance < 10 ? 1 : 0) + ' km';

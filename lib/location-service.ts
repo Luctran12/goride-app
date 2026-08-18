@@ -71,23 +71,114 @@ export async function requestLocationPermission(): Promise<LocationPermissionRes
 }
 
 export async function getCurrentLocationPoint(options: CurrentLocationOptions = {}): Promise<LocationPoint> {
-  const location = await withTimeout(
-    Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    }),
-    options.timeoutMs ?? 10000,
-  );
+  let coords: Coordinates | null = null;
 
-  const coords = {
-    lat: location.coords.latitude,
-    lng: location.coords.longitude,
-  };
+  // 1. Check last known position first (instantaneous fix)
+  try {
+    const lastKnown = await Location.getLastKnownPositionAsync();
+    if (lastKnown?.coords) {
+      coords = {
+        lat: lastKnown.coords.latitude,
+        lng: lastKnown.coords.longitude,
+      };
+    }
+  } catch (err) {
+    // continue
+  }
+
+  // 2. Request fresh high/balanced GPS position
+  try {
+    const location = await withTimeout(
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      }),
+      options.timeoutMs ?? 7000,
+    );
+    coords = {
+      lat: location.coords.latitude,
+      lng: location.coords.longitude,
+    };
+  } catch (err) {
+    if (!coords) {
+      try {
+        const fallbackLoc = await withTimeout(
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          }),
+          4000,
+        );
+        coords = {
+          lat: fallbackLoc.coords.latitude,
+          lng: fallbackLoc.coords.longitude,
+        };
+      } catch (err2) {
+        // use last known or throw
+      }
+    }
+  }
+
+  if (!coords) {
+    throw new Error('Unable to obtain GPS location');
+  }
+
+  let address = formatCoordinates(coords);
+  try {
+    address = await reverseGeocode(coords);
+  } catch {
+    // Keep formatted coords as address
+  }
 
   return {
     ...coords,
-    address: await reverseGeocode(coords),
+    address,
     label: 'Vị trí hiện tại',
   };
+}
+
+export type LocationWatcher = {
+  remove: () => void;
+};
+
+export async function watchLocation(
+  onLocation: (point: LocationPoint, heading?: number, speed?: number) => void,
+  options?: { timeInterval?: number; distanceInterval?: number }
+): Promise<LocationWatcher | null> {
+  try {
+    const perm = await requestLocationPermission();
+    if (!perm.granted) {
+      return null;
+    }
+
+    const subscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: options?.timeInterval ?? 2000,
+        distanceInterval: options?.distanceInterval ?? 3,
+      },
+      (loc) => {
+        const coords = {
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        };
+        onLocation(
+          {
+            ...coords,
+            address: formatCoordinates(coords),
+            label: 'Vị trí hiện tại',
+          },
+          loc.coords.heading ?? undefined,
+          loc.coords.speed ?? undefined
+        );
+      }
+    );
+
+    return {
+      remove: () => subscription.remove(),
+    };
+  } catch (err) {
+    console.warn('[LocationService] watchLocation error:', err);
+    return null;
+  }
 }
 
 export async function reverseGeocode(coords: Coordinates): Promise<string> {

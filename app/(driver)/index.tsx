@@ -1,57 +1,67 @@
 import { useLanguage } from '@/lib/i18n';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Pressable,
-  RefreshControl,
-  ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
+  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
-import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Circle, Marker, Polyline, type Region } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThreeWordSearchModal } from '@/components/driver/three-word-search-modal';
+import { DriverBottomNav } from '@/components/driver/driver-bottom-nav';
+import { CustomAlertModal, type CustomAlertOptions } from '@/components/ui/custom-alert-modal';
 import { rf, rs, rvs } from '@/constants/responsive';
-import { USE_MOCK_REALTIME } from '@/lib/config';
-import { getCurrentLocationPoint, getDefaultLocationPoint, requestLocationPermission, reverseGeocode, fetchRoute } from '@/lib/location-service';
+import {
+  getCurrentLocationPoint,
+  getDefaultLocationPoint,
+  requestLocationPermission,
+  reverseGeocode,
+  fetchRoute,
+  watchLocation,
+  type LocationWatcher,
+} from '@/lib/location-service';
 import type { ThreeWordLocation } from '@/types/three-word';
 import {
   connectRealtime,
   disconnectRealtime,
   sendDriverHeartbeat,
   sendDriverLocation,
+  setRealtimeDriverLocation,
   sendTripStatus,
   subscribeDriverRequests,
   subscribeNotifications,
   subscribeRealtimeConnection,
   subscribeTrip,
+  subscribeTripMessages,
   type RealtimeSubscription,
 } from '@/lib/realtime';
 import { ApiError } from '@/lib/api';
 import { initializeAuthSession } from '@/lib/auth-api';
 import { getDriverProfile, sendHeartbeatRest, type DriverProfileResponse } from '@/lib/driver-api';
+import { getMyProfile, type UserProfile } from '@/lib/user-api';
 import { confirmCashPayment, getTrip, listBookings, respondToTrip, setDriverOnline, updateTripStatus } from '@/lib/ride-api';
+import { getTripMessageUnreadCount } from '@/lib/trip-message-api';
+import type { TripMessage } from '@/types/chat';
 import type { DriverAction, DriverTripRequest, LocationPoint, TripStatus, WsNotification } from '@/types/ride';
 
 const DRIVER_HEARTBEAT_INTERVAL_MS = 20000;
 const DRIVER_LOCATION_INTERVAL_MS = 5000;
 const DRIVER_LOCATION_TIMEOUT_MS = 4500;
-const DRIVER_MAP_DELTA = 0.01;
+const DRIVER_MAP_DELTA = 0.012;
 
 const palette = {
   background: '#F4F7F5',
-  backgroundDeep: '#E2EFE7',
   card: '#ffffff',
   cardDark: '#1E293B',
   ink: '#0F172A',
@@ -62,7 +72,7 @@ const palette = {
   greenSoft: '#E8FADF',
   amber: '#FF9500',
   amberSoft: '#FFF4E5',
-  danger: '#FF3B30',
+  danger: '#EF4444',
   dangerSoft: '#FFEBEA',
   blue: '#2563EB',
   blueInk: '#1E1B4B',
@@ -70,30 +80,61 @@ const palette = {
   mint: '#4ADE80',
 };
 
-type DriverRealtimeMode = 'offline' | 'connecting' | 'mock' | 'remote' | 'fallback';
+const shadow = {
+  shadowColor: '#0F172A',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.14,
+  shadowRadius: 18,
+  elevation: 8,
+};
 
-const ACTIVE_TRIP_STEPS: { label: string; status: TripStatus }[] = [
-  { label: 'Đã nhận', status: 'ACCEPTED' },
-  { label: 'Đã đến', status: 'ARRIVED' },
-  { label: 'Đang đi', status: 'IN_PROGRESS' },
-  { label: 'Hoàn thành', status: 'COMPLETED' },
+const HOTSPOTS = [
+  { lat: 10.7719, lng: 106.7048, radius: 500, label: 'Quận 1 - Bến Nghé' },
+  { lat: 10.7951, lng: 106.7218, radius: 600, label: 'Bình Thạnh - Landmark 81' },
+  { lat: 10.8185, lng: 106.6588, radius: 750, label: 'Tân Bình - Sân bay TSN' },
+  { lat: 10.7292, lng: 106.7198, radius: 450, label: 'Quận 7 - Phú Mỹ Hưng' },
 ];
+
+type DriverRealtimeMode = 'offline' | 'connecting' | 'mock' | 'remote' | 'fallback';
 
 export default function DriverScreen() {
   const router = useRouter();
+  const isScreenFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { height } = useWindowDimensions();
+
+  const activeTripSteps = useMemo(() => [
+    { label: t('driver.stepAccepted'), status: 'ACCEPTED' as TripStatus },
+    { label: t('driver.stepArrived'), status: 'ARRIVED' as TripStatus },
+    { label: t('driver.stepInProgress'), status: 'IN_PROGRESS' as TripStatus },
+    { label: t('driver.stepCompleted'), status: 'COMPLETED' as TripStatus },
+  ], [t]);
+
+  // Alert Modal State
+  const [alertConfig, setAlertConfig] = useState<Omit<CustomAlertOptions, 'visible' | 'onClose'> & { visible: boolean }>({
+    visible: false,
+    title: '',
+  });
+
+  const showAlert = useCallback((options: Omit<CustomAlertOptions, 'visible' | 'onClose'>) => {
+    setAlertConfig({ visible: true, ...options });
+  }, []);
+
+  const closeAlert = useCallback(() => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  }, []);
+
   const [isOnline, setIsOnline] = useState(false);
   const [toggleLoading, setToggleLoading] = useState(false);
   const [driverLocation, setDriverLocation] = useState<LocationPoint | null>(null);
-  const [locationMessage, setLocationMessage] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState('Bạn đang offline. Bật online để nhận cuốc mới.');
   const [realtimeMode, setRealtimeMode] = useState<DriverRealtimeMode>('offline');
+  const [showHotspots, setShowHotspots] = useState(false);
   const [incomingRequest, setIncomingRequest] = useState<DriverTripRequest | null>(null);
   const incomingRequestRef = useRef(incomingRequest);
   useEffect(() => {
     incomingRequestRef.current = incomingRequest;
   }, [incomingRequest]);
+
   const [requestResponse, setRequestResponse] = useState<{
     status: TripStatus;
     tripId: number;
@@ -102,31 +143,37 @@ export default function DriverScreen() {
   useEffect(() => {
     requestResponseRef.current = requestResponse;
   }, [requestResponse]);
+
   const [respondingAction, setRespondingAction] = useState<DriverAction | null>(null);
   const [updatingTripStatus, setUpdatingTripStatus] = useState<TripStatus | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
-  const [lastDriverLocationSentAt, setLastDriverLocationSentAt] = useState<string | null>(null);
-  const [driverTrackingMessage, setDriverTrackingMessage] = useState('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
   const [latestNotification, setLatestNotification] = useState<WsNotification | null>(null);
+  const [latestChatMessage, setLatestChatMessage] = useState<TripMessage | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<string | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [totalExpiryTime, setTotalExpiryTime] = useState<number>(30);
+  const [totalExpiryTime] = useState<number>(30);
+
   const requestSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const notificationSubscriptionRef = useRef<RealtimeSubscription | null>(null);
+  const messageSubscriptionRef = useRef<RealtimeSubscription | null>(null);
   const connectionSubscriptionRef = useRef<RealtimeSubscription | null>(null);
+  const locationWatcherRef = useRef<LocationWatcher | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const driverLocationRef = useRef<LocationPoint | null>(null);
   const driverGpsPingInFlightRef = useRef(false);
-  const lastFetchedLocationRef = useRef<{ tripId: number; status: TripStatus | null; lat: number; lng: number } | null>(null);
-  const lastRouteFetchTimeRef = useRef<number>(0);
   const mapRef = useRef<MapView | null>(null);
+  const chatNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenChatMessageIdsRef = useRef(new Set<string>());
+  const isScreenFocusedRef = useRef(isScreenFocused);
 
   const [search3WordModalVisible, setSearch3WordModalVisible] = useState(false);
   const [threeWordPreview, setThreeWordPreview] = useState<ThreeWordLocation | null>(null);
   const [showDevTools, setShowDevTools] = useState(false);
 
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const driverIdRef = useRef<number>(5);
@@ -138,9 +185,12 @@ export default function DriverScreen() {
     earnings: 0,
     completedTrips: 0,
   });
-  const [refreshing, setRefreshing] = useState(false);
 
   const fetchProfile = useCallback(() => {
+    getMyProfile()
+      .then((uProfile) => setUserProfile(uProfile))
+      .catch(() => {});
+
     getDriverProfile()
       .then((profile) => {
         setDriverProfile(profile);
@@ -151,11 +201,15 @@ export default function DriverScreen() {
         if (error instanceof ApiError && error.status === 404) {
           router.replace('/(driver)/onboarding' as any);
         } else {
-          Alert.alert('Lỗi tải hồ sơ', error.message || 'Không thể tải thông tin hồ sơ tài xế.');
+          showAlert({
+            type: 'danger',
+            title: t('driver.loadProfileErrorTitle'),
+            message: error.message || t('driver.loadProfileErrorMsg'),
+          });
           setLoadingProfile(false);
         }
       });
-  }, [router]);
+  }, [router, showAlert, t]);
 
   const fetchTodayStats = useCallback(async () => {
     try {
@@ -189,51 +243,139 @@ export default function DriverScreen() {
     }
   }, []);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await Promise.all([fetchProfile(), fetchTodayStats()]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [fetchProfile, fetchTodayStats]);
-
   useEffect(() => {
     let isCurrent = true;
     initializeAuthSession().then((session) => {
       if (isCurrent && session) {
-        // Auth session initialized, profile load will assign real driver ID
+        // Auth session initialized
       }
     });
 
     fetchProfile();
     fetchTodayStats();
 
+    // Initial GPS fix with real-time coordinate update and map animation
+    requestLocationPermission().then(async (perm) => {
+      if (perm.granted) {
+        try {
+          const pt = await getCurrentLocationPoint({ timeoutMs: 8000 });
+          setDriverLocation(pt);
+          driverLocationRef.current = pt;
+          setRealtimeDriverLocation(pt.lat, pt.lng);
+          mapRef.current?.animateToRegion(
+            {
+              latitude: pt.lat,
+              longitude: pt.lng,
+              latitudeDelta: DRIVER_MAP_DELTA,
+              longitudeDelta: DRIVER_MAP_DELTA,
+            },
+            600
+          );
+        } catch {
+          const def = getDefaultLocationPoint();
+          setDriverLocation(def);
+          driverLocationRef.current = def;
+        }
+      }
+    });
+
     return () => {
       isCurrent = false;
     };
   }, [fetchProfile, fetchTodayStats]);
 
-  const realtimeCopy = useMemo(() => getRealtimeCopy(realtimeMode), [realtimeMode]);
   const activeTripId = requestResponse && isDriverTrackingStatus(requestResponse.status) ? requestResponse.tripId : null;
+  const isTripActive = Boolean(requestResponse && isDriverTrackingStatus(requestResponse.status));
   const progressPercent = timeLeft !== null && totalExpiryTime > 0
     ? (timeLeft / totalExpiryTime) * 100
     : 100;
   const todayTripCount = todayStats.completedTrips;
   const todayEarnings = todayStats.earnings;
-  const listeningCopy = getListeningCopy(isOnline, incomingRequest);
 
   useEffect(() => {
     driverLocationRef.current = driverLocation;
   }, [driverLocation]);
 
+  useEffect(() => {
+    isScreenFocusedRef.current = isScreenFocused;
+  }, [isScreenFocused]);
+
+  useEffect(() => {
+    if (!activeTripId) {
+      setLatestChatMessage(null);
+      setUnreadChatCount(0);
+      seenChatMessageIdsRef.current.clear();
+      return;
+    }
+
+    if (!isScreenFocused) {
+      return;
+    }
+
+    void getTripMessageUnreadCount(activeTripId, driverProfile?.id)
+      .then((result) => setUnreadChatCount(result.unreadCount))
+      .catch(() => undefined);
+  }, [activeTripId, driverProfile?.id, isScreenFocused]);
+
+  useEffect(() => {
+    if (!activeTripId || !isOnline || (realtimeMode !== 'mock' && realtimeMode !== 'remote')) {
+      messageSubscriptionRef.current?.unsubscribe();
+      messageSubscriptionRef.current = null;
+      return;
+    }
+
+    const subscription = subscribeTripMessages(activeTripId, {
+      onMessage: (message) => {
+        if (message.senderRole === 'DRIVER' || !isScreenFocusedRef.current) {
+          return;
+        }
+
+        const messageKey = message.id > 0 ? `id:${message.id}` : `client:${message.clientMessageId}`;
+        if (seenChatMessageIdsRef.current.has(messageKey)) {
+          return;
+        }
+
+        seenChatMessageIdsRef.current.add(messageKey);
+        setLatestChatMessage(message);
+        setUnreadChatCount((current) => current + 1);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        if (chatNoticeTimerRef.current) {
+          clearTimeout(chatNoticeTimerRef.current);
+        }
+        chatNoticeTimerRef.current = setTimeout(() => {
+          setLatestChatMessage(null);
+          chatNoticeTimerRef.current = null;
+        }, 7000);
+      },
+    });
+
+    messageSubscriptionRef.current = subscription;
+    return () => {
+      subscription.unsubscribe();
+      if (messageSubscriptionRef.current === subscription) {
+        messageSubscriptionRef.current = null;
+      }
+    };
+  }, [activeTripId, isOnline, realtimeMode]);
+
   const stopOnlineServices = useCallback(() => {
+    locationWatcherRef.current?.remove();
+    locationWatcherRef.current = null;
+
     requestSubscriptionRef.current?.unsubscribe();
     requestSubscriptionRef.current = null;
     notificationSubscriptionRef.current?.unsubscribe();
     notificationSubscriptionRef.current = null;
+    messageSubscriptionRef.current?.unsubscribe();
+    messageSubscriptionRef.current = null;
     connectionSubscriptionRef.current?.unsubscribe();
     connectionSubscriptionRef.current = null;
+
+    if (chatNoticeTimerRef.current) {
+      clearTimeout(chatNoticeTimerRef.current);
+      chatNoticeTimerRef.current = null;
+    }
 
     if (heartbeatTimerRef.current) {
       clearInterval(heartbeatTimerRef.current);
@@ -255,23 +397,25 @@ export default function DriverScreen() {
     try {
       const lat = driverLocationRef.current?.lat ?? 10.7769;
       const lng = driverLocationRef.current?.lng ?? 106.7009;
-      const response = await setDriverOnline(false, lat, lng);
+      await setDriverOnline(false, lat, lng);
       stopOnlineServices();
       setIsOnline(false);
       setIncomingRequest(null);
       setRequestResponse(null);
       setRespondingAction(null);
       setUpdatingTripStatus(null);
-      setLastDriverLocationSentAt(null);
-      setDriverTrackingMessage('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
       setRealtimeMode('offline');
-      setStatusMessage(response.message);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (error: unknown) {
-      Alert.alert('Không thể tắt online', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+      showAlert({
+        type: 'danger',
+        title: t('driver.goOfflineErrorTitle'),
+        message: getErrorMessage(error, t('driver.tryAgainLater')),
+      });
     } finally {
       setToggleLoading(false);
     }
-  }, [stopOnlineServices]);
+  }, [showAlert, stopOnlineServices, t]);
 
   const startHeartbeat = useCallback(() => {
     if (heartbeatTimerRef.current) {
@@ -301,6 +445,18 @@ export default function DriverScreen() {
     heartbeatTimerRef.current = setInterval(sendHeartbeat, DRIVER_HEARTBEAT_INTERVAL_MS);
   }, [goOffline]);
 
+  const resetCompletedTrip = useCallback(() => {
+    setIncomingRequest(null);
+    setRequestResponse(null);
+    setRespondingAction(null);
+    setUpdatingTripStatus(null);
+  }, []);
+
+  const resetCompletedTripRef = useRef(resetCompletedTrip);
+  useEffect(() => {
+    resetCompletedTripRef.current = resetCompletedTrip;
+  }, [resetCompletedTrip]);
+
   const startRealtime = useCallback(async () => {
     let remoteConnectionOpened = false;
 
@@ -314,7 +470,6 @@ export default function DriverScreen() {
       if (state.status === 'connected') {
         remoteConnectionOpened = true;
         setRealtimeMode('remote');
-        setStatusMessage('Bạn đang online. GoRide đang nghe cuốc mới qua realtime.');
         return;
       }
 
@@ -325,13 +480,11 @@ export default function DriverScreen() {
 
       if (state.status === 'reconnecting' && remoteConnectionOpened) {
         setRealtimeMode('fallback');
-        setStatusMessage('Realtime đang kết nối lại. GoRide vẫn giữ tài xế online và tiếp tục gửi heartbeat khi kênh trở lại.');
         return;
       }
 
       if (state.status === 'error') {
         setRealtimeMode('fallback');
-        setStatusMessage(state.lastError ?? 'Realtime tạm thời gián đoạn, GoRide sẽ tự kết nối lại.');
       }
     });
 
@@ -343,13 +496,17 @@ export default function DriverScreen() {
           const cancelledTripId = request.tripId;
           if (incomingRequestRef.current?.tripId === cancelledTripId && !requestResponseRef.current) {
             setIncomingRequest(null);
-            setStatusMessage('Yêu cầu cuốc xe đã bị hành khách hủy.');
-            Alert.alert('Cuốc xe đã bị hủy', 'Hành khách đã hủy yêu cầu đặt xe này.');
+            showAlert({
+              type: 'warning',
+              title: t('driver.requestCancelledTitle'),
+              message: t('driver.requestCancelledMsg'),
+            });
           } else if (requestResponseRef.current?.tripId === cancelledTripId) {
-            Alert.alert(
-              'Chuyến xe đã bị hủy',
-              'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
-            );
+            showAlert({
+              type: 'warning',
+              title: t('driver.tripCancelledTitle'),
+              message: t('driver.tripCancelledMsg'),
+            });
             resetCompletedTripRef.current();
           }
           return;
@@ -357,9 +514,9 @@ export default function DriverScreen() {
 
         setIncomingRequest(request);
         setRequestResponse(null);
-        setStatusMessage('Có cuốc mới đang chờ bạn phản hồi.');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-        // Fetch full trip details from REST API to populate missing info (like address, passenger details)
+        // Fetch full trip details from REST API
         getTrip(request.tripId)
           .then((detail) => {
             setIncomingRequest((current) => {
@@ -384,8 +541,6 @@ export default function DriverScreen() {
           })
           .catch(async (err) => {
             console.warn('[Driver] Failed to fetch full trip details:', err);
-            
-            // Fallback: If 403/Forbidden (permission error before accepting), perform reverse geocoding on coordinates!
             if (request.pickup.lat && request.pickup.lng) {
               try {
                 const pickupAddress = await reverseGeocode({ lat: request.pickup.lat, lng: request.pickup.lng });
@@ -407,6 +562,7 @@ export default function DriverScreen() {
             }
           });
       });
+
       notificationSubscriptionRef.current = subscribeNotifications((notification) => {
         setLatestNotification(notification);
         if (notification.type === 'TRIP_CANCELLED') {
@@ -414,13 +570,17 @@ export default function DriverScreen() {
           if (notificationTripId) {
             if (incomingRequestRef.current?.tripId === notificationTripId && !requestResponseRef.current) {
               setIncomingRequest(null);
-              setStatusMessage('Yêu cầu cuốc xe đã bị hành khách hủy.');
-              Alert.alert('Cuốc xe đã bị hủy', 'Hành khách đã hủy yêu cầu đặt xe này.');
+              showAlert({
+                type: 'warning',
+                title: t('driver.requestCancelledTitle'),
+                message: t('driver.requestCancelledMsg'),
+              });
             } else if (requestResponseRef.current?.tripId === notificationTripId) {
-              Alert.alert(
-                'Chuyến xe đã bị hủy',
-                'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
-              );
+              showAlert({
+                type: 'warning',
+                title: t('driver.tripCancelledTitle'),
+                message: t('driver.tripCancelledMsg'),
+              });
               resetCompletedTripRef.current();
             }
           }
@@ -429,70 +589,77 @@ export default function DriverScreen() {
       startHeartbeat();
     } catch (error: unknown) {
       setRealtimeMode('fallback');
-      setStatusMessage(getErrorMessage(error, 'Realtime chưa sẵn sàng, GoRide sẽ thử lại ở bước sau.'));
     }
-  }, [startHeartbeat]);
+  }, [showAlert, startHeartbeat, t]);
 
   const goOnline = useCallback(async () => {
     setToggleLoading(true);
 
     try {
       const permission = await requestLocationPermission();
-      let nextLocation = getDefaultLocationPoint();
+      let nextLocation = driverLocationRef.current ?? getDefaultLocationPoint();
 
       if (permission.granted) {
         try {
-          nextLocation = await getCurrentLocationPoint({ timeoutMs: 10000 });
-          setLocationMessage('Đã lấy GPS hiện tại để sẵn sàng nhận cuốc.');
-        } catch (error: unknown) {
-          setLocationMessage(getErrorMessage(error, 'GPS quá lâu, tạm dùng vị trí gần nhất.'));
+          nextLocation = await getCurrentLocationPoint({ timeoutMs: 8000 });
+        } catch {
+          // Keep driverLocationRef.current
         }
       } else if (permission.status === 'gps-disabled') {
         setToggleLoading(false);
-        Alert.alert(
-          'GPS đang tắt',
-          'Vui lòng bật GPS (Dịch vụ vị trí) để GoRide có thể xác định vị trí của bạn và nhận cuốc.',
-          [
-            { text: 'Mở Cài đặt', onPress: () => void Linking.openSettings() },
-            { text: 'Để sau', style: 'cancel' },
-          ],
-        );
+        showAlert({
+          type: 'warning',
+          title: t('driver.gpsDisabledTitle'),
+          message: t('driver.gpsDisabledMsg'),
+          confirmText: t('driver.openSettings'),
+          cancelText: t('driver.maybeLater'),
+          onConfirm: () => void Linking.openSettings(),
+        });
         return;
       } else {
-        // Permission denied
         setToggleLoading(false);
-        if (permission.canAskAgain === false) {
-          Alert.alert(
-            'Cần quyền truy cập vị trí',
-            'Bạn đã từ chối quyền vị trí trước đó. Vui lòng vào Cài đặt > Ứng dụng > GoRide > Quyền và bật quyền Vị trí.',
-            [
-              { text: 'Mở Cài đặt', onPress: () => void Linking.openSettings() },
-              { text: 'Để sau', style: 'cancel' },
-            ],
-          );
-        } else {
-          Alert.alert(
-            'Cần quyền truy cập vị trí',
-            'GoRide cần quyền truy cập vị trí để xác định điểm đứng của bạn và gửi cho khách hàng. Vui lòng cấp quyền khi được hỏi.',
-          );
-        }
+        showAlert({
+          type: 'warning',
+          title: t('driver.locationPermissionTitle'),
+          message: t('driver.locationPermissionDeniedMsg'),
+          confirmText: t('driver.openSettings'),
+          cancelText: t('driver.maybeLater'),
+          onConfirm: () => void Linking.openSettings(),
+        });
         return;
       }
 
-      const response = await setDriverOnline(true, nextLocation.lat, nextLocation.lng);
+      await setDriverOnline(true, nextLocation.lat, nextLocation.lng);
       setDriverLocation(nextLocation);
+      driverLocationRef.current = nextLocation;
+      setRealtimeDriverLocation(nextLocation.lat, nextLocation.lng);
+
+      mapRef.current?.animateToRegion(
+        {
+          latitude: nextLocation.lat,
+          longitude: nextLocation.lng,
+          latitudeDelta: DRIVER_MAP_DELTA,
+          longitudeDelta: DRIVER_MAP_DELTA,
+        },
+        600
+      );
+
       setIsOnline(true);
-      setStatusMessage(response.message);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await startRealtime();
     } catch (error: unknown) {
-      Alert.alert('Không thể bật online', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+      showAlert({
+        type: 'danger',
+        title: t('driver.goOnlineErrorTitle'),
+        message: getErrorMessage(error, t('driver.tryAgainLater')),
+      });
       stopOnlineServices();
       setIsOnline(false);
       setRealtimeMode('offline');
     } finally {
       setToggleLoading(false);
     }
-  }, [startRealtime, stopOnlineServices]);
+  }, [showAlert, startRealtime, stopOnlineServices, t]);
 
   const handleToggleOnline = (value: boolean) => {
     if (toggleLoading) {
@@ -501,7 +668,12 @@ export default function DriverScreen() {
 
     if (value) {
       if (!driverProfile || driverProfile.approvalStatus !== 'APPROVED') {
-        Alert.alert('Không thể hoạt động', 'Hồ sơ tài xế của bạn chưa được duyệt hoặc chưa hoàn tất.');
+        showAlert({
+          type: 'warning',
+          title: t('driver.cannotOperateTitle'),
+          message: t('driver.cannotOperateMsg'),
+          confirmText: t('common.understood', 'Đã hiểu'),
+        });
         return;
       }
       void goOnline();
@@ -526,11 +698,7 @@ export default function DriverScreen() {
         });
 
         if (action === 'ACCEPT') {
-          setStatusMessage('Bạn đã nhận cuốc. Chuẩn bị di chuyển đến điểm đón.');
-          setDriverTrackingMessage('Đang khởi động GPS cuốc để gửi vị trí cho khách.');
-
-          // Now that trip is ACCEPTED, driver has permission to fetch full trip details!
-          // This retrieves passenger name and phone number.
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           void getTrip(incomingRequest.tripId)
             .then((detail) => {
               setIncomingRequest((current) => {
@@ -553,25 +721,22 @@ export default function DriverScreen() {
                 };
               });
             })
-            .catch((err) => {
-              console.warn('[Driver] Failed to fetch trip details after accept:', err);
-            });
-
+            .catch(() => {});
           return;
         }
 
         setIncomingRequest(null);
-        setStatusMessage('Bạn đã từ chối cuốc. GoRide tiếp tục nghe request mới.');
       } catch (error: unknown) {
-        Alert.alert(
-          action === 'ACCEPT' ? 'Không thể nhận cuốc' : 'Không thể từ chối cuốc',
-          getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'),
-        );
+        showAlert({
+          type: 'danger',
+          title: action === 'ACCEPT' ? t('driver.acceptErrorTitle') : t('driver.rejectErrorTitle'),
+          message: getErrorMessage(error, t('driver.tryAgainLater')),
+        });
       } finally {
         setRespondingAction(null);
       }
     },
-    [incomingRequest, respondingAction],
+    [incomingRequest, respondingAction, showAlert, t],
   );
 
   const handleUpdateActiveTripStatus = useCallback(
@@ -589,23 +754,30 @@ export default function DriverScreen() {
           status: response.status,
         });
         sendTripStatus(response.tripId, response.status);
-        setStatusMessage(getDriverStatusMessage(response.status));
-        setDriverTrackingMessage(getDriverTrackingMessage(response.status));
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         if (response.status === 'COMPLETED') {
           void fetchTodayStats();
         }
       } catch (error: unknown) {
-        Alert.alert('Không thể cập nhật chuyến', getErrorMessage(error, 'Vui lòng thử lại sau ít phút.'));
+        showAlert({
+          type: 'danger',
+          title: t('driver.updateTripErrorTitle'),
+          message: getErrorMessage(error, t('driver.tryAgainLater')),
+        });
       } finally {
         setUpdatingTripStatus(null);
       }
     },
-    [fetchTodayStats, requestResponse, updatingTripStatus],
+    [fetchTodayStats, requestResponse, showAlert, t, updatingTripStatus],
   );
 
   const handleCallPassenger = useCallback(() => {
     if (!incomingRequest?.passenger?.phone) {
-      Alert.alert('Không tìm thấy số điện thoại', 'Số điện thoại của khách hàng chưa được cập nhật.');
+      showAlert({
+        type: 'warning',
+        title: t('driver.noPhoneTitle'),
+        message: t('driver.noPhoneMsg'),
+      });
       return;
     }
 
@@ -615,13 +787,15 @@ export default function DriverScreen() {
         if (supported) {
           void Linking.openURL(telUrl);
         } else {
-          Alert.alert('Không thể gọi điện', 'Thiết bị của bạn không hỗ trợ tính năng cuộc gọi điện thoại.');
+          showAlert({
+            type: 'warning',
+            title: t('driver.cannotCallTitle'),
+            message: t('driver.cannotCallMsg'),
+          });
         }
       })
-      .catch((err) => {
-        console.warn('[Driver] Failed to place call:', err);
-      });
-  }, [incomingRequest]);
+      .catch(() => {});
+  }, [incomingRequest, showAlert, t]);
 
   const handleOpenNavigation = useCallback(() => {
     if (!incomingRequest || !requestResponse) return;
@@ -636,29 +810,16 @@ export default function DriverScreen() {
           if (supported) {
             void Linking.openURL(url);
           } else {
-            Alert.alert('Không thể mở bản đồ', 'Thiết bị của bạn không hỗ trợ liên kết này.');
+            showAlert({
+              type: 'warning',
+              title: t('driver.cannotOpenMapTitle'),
+              message: t('driver.cannotOpenMapMsg'),
+            });
           }
         })
-        .catch((err) => {
-          console.warn('[Driver] Failed to open maps:', err);
-        });
+        .catch(() => {});
     }
-  }, [incomingRequest, requestResponse]);
-
-  const resetCompletedTrip = useCallback(() => {
-    setIncomingRequest(null);
-    setRequestResponse(null);
-    setRespondingAction(null);
-    setUpdatingTripStatus(null);
-    setLastDriverLocationSentAt(null);
-    setDriverTrackingMessage('GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.');
-    setStatusMessage('Bạn đang online. GoRide tiếp tục nghe cuốc mới.');
-  }, []);
-
-  const resetCompletedTripRef = useRef(resetCompletedTrip);
-  useEffect(() => {
-    resetCompletedTripRef.current = resetCompletedTrip;
-  }, [resetCompletedTrip]);
+  }, [incomingRequest, requestResponse, showAlert, t]);
 
   const handleConfirmPaymentAndReady = useCallback(async () => {
     if (!requestResponse) {
@@ -670,12 +831,22 @@ export default function DriverScreen() {
       await confirmCashPayment(requestResponse.tripId);
       resetCompletedTrip();
       void fetchTodayStats();
+      showAlert({
+        type: 'success',
+        title: t('driver.tripCompletedTitle', 'Hoàn thành chuyến'),
+        message: t('driver.tripCompletedMsg', 'Chuyến đã hoàn thành. Cảm ơn bạn đã chạy cùng GoRide.'),
+        confirmText: t('common.understood', 'Đã hiểu'),
+      });
     } catch (error: unknown) {
-      Alert.alert('Lỗi xác nhận thanh toán', getErrorMessage(error, 'Không thể xác nhận thanh toán tiền mặt lúc này.'));
+      showAlert({
+        type: 'danger',
+        title: t('driver.paymentConfirmErrorTitle'),
+        message: getErrorMessage(error, t('driver.paymentConfirmErrorMsg')),
+      });
     } finally {
       setConfirmingPayment(false);
     }
-  }, [fetchTodayStats, requestResponse, resetCompletedTrip]);
+  }, [fetchTodayStats, requestResponse, resetCompletedTrip, showAlert, t]);
 
   const sendDriverGpsPing = useCallback(async (tripId: number) => {
     if (driverGpsPingInFlightRef.current) {
@@ -687,70 +858,151 @@ export default function DriverScreen() {
 
     try {
       nextLocation = await getCurrentLocationPoint({ timeoutMs: DRIVER_LOCATION_TIMEOUT_MS });
-      setDriverTrackingMessage('GPS cuốc đang gửi vị trí thật theo chu kỳ.');
-    } catch (error: unknown) {
-      setDriverTrackingMessage(getErrorMessage(error, 'Không lấy được GPS mới, tạm gửi vị trí gần nhất.'));
+    } catch {
+      // Fallback
     } finally {
       driverGpsPingInFlightRef.current = false;
     }
 
     const sentAt = new Date().toISOString();
-
     driverLocationRef.current = nextLocation;
     setDriverLocation(nextLocation);
-    const publishResult = sendDriverLocation({
+    setRealtimeDriverLocation(nextLocation.lat, nextLocation.lng);
+    sendDriverLocation({
       tripId,
       driverId: driverIdRef.current,
       lat: nextLocation.lat,
       lng: nextLocation.lng,
       updatedAt: sentAt,
     });
+  }, []);
 
-    if (publishResult.sent) {
-      setLastDriverLocationSentAt(sentAt);
+  // Active real-time GPS tracking whenever driver is online
+  useEffect(() => {
+    if (!isOnline) {
+      locationWatcherRef.current?.remove();
+      locationWatcherRef.current = null;
       return;
     }
 
-    setRealtimeMode('fallback');
-    setDriverTrackingMessage('Realtime chưa sẵn sàng để gửi GPS, GoRide sẽ thử lại ở nhịp tiếp theo.');
-  }, []);
+    let isMounted = true;
+    void watchLocation((point, heading, speed) => {
+      if (!isMounted) return;
+      setDriverLocation(point);
+      driverLocationRef.current = point;
+      setRealtimeDriverLocation(point.lat, point.lng);
+
+      if (activeTripId) {
+        sendDriverLocation({
+          tripId: activeTripId,
+          driverId: driverIdRef.current,
+          lat: point.lat,
+          lng: point.lng,
+          bearing: heading,
+          speed: speed,
+        });
+      }
+    }).then((watcher) => {
+      if (isMounted) {
+        locationWatcherRef.current = watcher;
+      } else {
+        watcher?.remove();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      locationWatcherRef.current?.remove();
+      locationWatcherRef.current = null;
+    };
+  }, [isOnline, activeTripId]);
 
   useEffect(() => {
     return () => stopOnlineServices();
   }, [stopOnlineServices]);
 
+  // Route fetching when during active trip
   useEffect(() => {
-    if (!activeTripId) {
-      if (driverLocationTimerRef.current) {
-        clearInterval(driverLocationTimerRef.current);
-        driverLocationTimerRef.current = null;
-      }
-
-      if (requestResponse?.status === 'COMPLETED') {
-        setDriverTrackingMessage('GPS cuốc đã dừng sau khi hoàn thành chuyến.');
-      }
-
+    if (!incomingRequest || !driverLocation) {
+      setRouteCoordinates([]);
       return;
     }
 
-    if (driverLocationTimerRef.current) {
-      clearInterval(driverLocationTimerRef.current);
+    const isHeadingToPickup = requestResponse?.status === 'ACCEPTED' || requestResponse?.status === 'ARRIVED';
+    const target = isHeadingToPickup ? incomingRequest.pickup : incomingRequest.dropoff;
+
+    if (driverLocation.lat && driverLocation.lng && target?.lat && target?.lng) {
+      fetchRoute(
+        { lat: driverLocation.lat, lng: driverLocation.lng },
+        { lat: target.lat, lng: target.lng }
+      )
+        .then((res) => {
+          if (res.coordinates && res.coordinates.length > 0) {
+            setRouteCoordinates(res.coordinates);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [incomingRequest, requestResponse?.status, driverLocation?.lat, driverLocation?.lng]);
+
+  // When active trip starts or updates, zoom to fit driver and destination
+  useEffect(() => {
+    if (isTripActive && incomingRequest && mapRef.current) {
+      const isHeadingToPickup = requestResponse?.status === 'ACCEPTED' || requestResponse?.status === 'ARRIVED';
+      const target = isHeadingToPickup ? incomingRequest.pickup : incomingRequest.dropoff;
+      if (target?.lat && target?.lng && driverLocation) {
+        mapRef.current.fitToCoordinates(
+          [
+            { latitude: driverLocation.lat, longitude: driverLocation.lng },
+            { latitude: target.lat, longitude: target.lng },
+          ],
+          {
+            edgePadding: { top: 140, right: 60, bottom: 300, left: 60 },
+            animated: true,
+          }
+        );
+      }
+    }
+  }, [isTripActive, incomingRequest?.tripId, requestResponse?.status]);
+
+  // Simulated movement along the route during testing/demo if device is stationary
+  useEffect(() => {
+    if (!isTripActive || !activeTripId || routeCoordinates.length === 0) {
+      return;
     }
 
-    void sendDriverGpsPing(activeTripId);
-    driverLocationTimerRef.current = setInterval(() => {
-      void sendDriverGpsPing(activeTripId);
-    }, DRIVER_LOCATION_INTERVAL_MS);
+    let stepIndex = 0;
+    const interval = setInterval(() => {
+      if (stepIndex < routeCoordinates.length) {
+        const nextCoord = routeCoordinates[stepIndex];
+        const nextPoint: LocationPoint = {
+          lat: nextCoord.latitude,
+          lng: nextCoord.longitude,
+          address: driverLocationRef.current?.address || 'Đang di chuyển',
+          label: 'Vị trí hiện tại',
+        };
 
-    return () => {
-      if (driverLocationTimerRef.current) {
-        clearInterval(driverLocationTimerRef.current);
-        driverLocationTimerRef.current = null;
+        setDriverLocation(nextPoint);
+        driverLocationRef.current = nextPoint;
+        setRealtimeDriverLocation(nextPoint.lat, nextPoint.lng);
+
+        sendDriverLocation({
+          tripId: activeTripId,
+          driverId: driverIdRef.current,
+          lat: nextPoint.lat,
+          lng: nextPoint.lng,
+          bearing: 90,
+          speed: 30,
+        });
+
+        stepIndex += Math.max(1, Math.floor(routeCoordinates.length / 15));
       }
-    };
-  }, [activeTripId, requestResponse?.status, sendDriverGpsPing]);
+    }, 2500);
 
-  // Polling check to handle TRIP_CANCELLED in case the backend hasn't implemented websocket notification yet
+    return () => clearInterval(interval);
+  }, [isTripActive, activeTripId, routeCoordinates]);
+
+  // Polling checks for cancellation
   useEffect(() => {
     if (!activeTripId) return;
 
@@ -758,96 +1010,33 @@ export default function DriverScreen() {
       try {
         const trip = await getTrip(activeTripId);
         if (trip.status === 'CANCELLED') {
-          Alert.alert(
-            'Chuyến xe đã bị hủy',
-            'Hành khách đã hủy chuyến xe này. Hệ thống sẽ đưa bạn trở lại trạng thái sẵn sàng.'
-          );
+          showAlert({
+            type: 'warning',
+            title: t('driver.tripCancelledTitle'),
+            message: t('driver.tripCancelledMsg'),
+          });
           resetCompletedTrip();
         }
-      } catch (err) {
-        console.warn('[Driver] Polling trip status failed:', err);
-      }
-    }, 10000); // Check every 10 seconds
+      } catch {}
+    }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [activeTripId, resetCompletedTrip]);
+  }, [activeTripId, resetCompletedTrip, showAlert, t]);
 
-  // Polling and WebSocket subscription to handle TRIP_CANCELLED for incoming trip request before acceptance
-  useEffect(() => {
-    if (!incomingRequest || requestResponse) return;
-
-    const tripId = incomingRequest.tripId;
-    let wsSubscription: RealtimeSubscription | null = null;
-
-    try {
-      wsSubscription = subscribeTrip(tripId, {
-        onStatus: (message) => {
-          if (message.status === 'CANCELLED') {
-            Alert.alert(
-              'Cuốc xe đã bị hủy',
-              'Hành khách đã hủy yêu cầu đặt xe này.'
-            );
-            resetCompletedTrip();
-          }
-        },
-      });
-    } catch (wsErr) {
-      console.warn('[Driver] Failed to subscribe to incoming trip status WS:', wsErr);
-    }
-
-    const intervalId = setInterval(async () => {
-      try {
-        const trip = await getTrip(tripId);
-        if (trip.status === 'CANCELLED') {
-          Alert.alert(
-            'Cuốc xe đã bị hủy',
-            'Hành khách đã hủy yêu cầu đặt xe này.'
-          );
-          resetCompletedTrip();
-        }
-      } catch (err) {
-        console.warn('[Driver] Polling incoming request status failed:', err);
-      }
-    }, 3000); // Check every 3 seconds
-
-    return () => {
-      if (wsSubscription) {
-        wsSubscription.unsubscribe();
-      }
-      clearInterval(intervalId);
-    };
-  }, [incomingRequest, requestResponse, resetCompletedTrip]);
-
-  // Countdown timer for incoming trip requests
+  // Countdown timer for incoming request
   useEffect(() => {
     if (!incomingRequest || requestResponse) {
       setTimeLeft(null);
       return;
     }
 
-    let initialSeconds = 30;
-    if (incomingRequest.expiresAt) {
-      const msLeft = new Date(incomingRequest.expiresAt).getTime() - Date.now();
-      initialSeconds = Math.max(0, Math.round(msLeft / 1000));
-    }
-
-    // If request already expired, dismiss immediately
-    if (initialSeconds <= 0) {
-      setIncomingRequest(null);
-      setStatusMessage('Yêu cầu cuốc xe đã hết hạn phản hồi.');
-      return;
-    }
-
-    setTimeLeft(initialSeconds);
-    setTotalExpiryTime(initialSeconds);
-
+    setTimeLeft(30);
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(timer);
           setIncomingRequest(null);
-          setStatusMessage('Yêu cầu cuốc xe đã hết hạn phản hồi.');
-          return 0;
+          return null;
         }
         return prev - 1;
       });
@@ -856,876 +1045,544 @@ export default function DriverScreen() {
     return () => clearInterval(timer);
   }, [incomingRequest, requestResponse]);
 
-  // Play sound & vibration when a new trip request arrives
-  useEffect(() => {
-    if (!incomingRequest || requestResponse) {
-      return;
-    }
-
-    // Play haptic feedback immediately
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-
-    // Play notification sound
-    let soundObj: Audio.Sound | null = null;
-    const loadAndPlaySound = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          playThroughEarpieceAndroid: false,
-        });
-
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav' },
-          { shouldPlay: true, isLooping: true, volume: 1.0 }
-        );
-        soundObj = sound;
-      } catch (err) {
-        console.warn('[Driver] Failed to play notification sound:', err);
-      }
-    };
-
-    void loadAndPlaySound();
-
-    // Trigger haptic pulse every 2 seconds while ringing
-    const hapticInterval = setInterval(() => {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }, 2000);
-
-    return () => {
-      clearInterval(hapticInterval);
-      if (soundObj) {
-        soundObj.stopAsync()
-          .then(() => soundObj?.unloadAsync())
-          .catch((err) => console.warn('[Driver] Failed to cleanup sound:', err));
-      }
-    };
-  }, [incomingRequest?.tripId, requestResponse]);
-
-  useEffect(() => {
-    if (!incomingRequest) {
-      setRouteCoordinates([]);
-      lastFetchedLocationRef.current = null;
-      lastRouteFetchTimeRef.current = 0;
-      return;
-    }
-
-    const tripId = incomingRequest.tripId;
-    const status = requestResponse?.status ?? null;
-    const now = Date.now();
-
-    // 1. Nếu chưa ACCEPT (đang rung chuông): vẽ lộ trình từ pickup đến dropoff
-    if (!requestResponse || requestResponse.tripId !== tripId) {
-      if (incomingRequest.pickup?.lat && incomingRequest.dropoff?.lat) {
-        void fetchRoute(
-          { lat: incomingRequest.pickup.lat, lng: incomingRequest.pickup.lng },
-          { lat: incomingRequest.dropoff.lat, lng: incomingRequest.dropoff.lng }
-        )
-          .then((res) => {
-            setRouteCoordinates(res.coordinates);
-          })
-          .catch(() => setRouteCoordinates([]));
-      }
-      return;
-    }
-
-    // Determine current driver location
-    const currentLoc = driverLocation ?? driverLocationRef.current ?? getDefaultLocationPoint();
-    if (!currentLoc?.lat || !currentLoc?.lng) {
-      return;
-    }
-
-    // Check throttle and distance
-    const isFirstFetchForStatus =
-      !lastFetchedLocationRef.current ||
-      lastFetchedLocationRef.current.tripId !== tripId ||
-      lastFetchedLocationRef.current.status !== status;
-
-    if (!isFirstFetchForStatus && lastFetchedLocationRef.current) {
-      // Throttle: fetch at most once every 12 seconds when moving
-      if (now - lastRouteFetchTimeRef.current < 12000) {
-        return;
-      }
-      // Distance check: must move > 50 meters
-      const distanceMoved = getDistanceBetweenPoints(
-        currentLoc.lat,
-        currentLoc.lng,
-        lastFetchedLocationRef.current.lat,
-        lastFetchedLocationRef.current.lng
+  const handleRecenter = () => {
+    if (driverLocation && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: driverLocation.lat,
+          longitude: driverLocation.lng,
+          latitudeDelta: DRIVER_MAP_DELTA,
+          longitudeDelta: DRIVER_MAP_DELTA,
+        },
+        600
       );
-      if (distanceMoved <= 50) {
-        return;
-      }
     }
-
-    // 2. Nếu đã ACCEPTED hoặc ARRIVED: vẽ lộ trình từ vị trí tài xế hiện tại đến điểm đón
-    if (status === 'ACCEPTED' || status === 'ARRIVED') {
-      if (incomingRequest.pickup?.lat) {
-        void fetchRoute(
-          { lat: currentLoc.lat, lng: currentLoc.lng },
-          { lat: incomingRequest.pickup.lat, lng: incomingRequest.pickup.lng }
-        )
-          .then((res) => {
-            setRouteCoordinates(res.coordinates);
-            lastFetchedLocationRef.current = { tripId, status, lat: currentLoc.lat, lng: currentLoc.lng };
-            lastRouteFetchTimeRef.current = now;
-          })
-          .catch(() => {});
-      }
-      return;
-    }
-
-    // 3. Nếu đang IN_PROGRESS: vẽ lộ trình từ vị trí tài xế đến điểm trả khách
-    if (status === 'IN_PROGRESS') {
-      if (incomingRequest.dropoff?.lat) {
-        void fetchRoute(
-          { lat: currentLoc.lat, lng: currentLoc.lng },
-          { lat: incomingRequest.dropoff.lat, lng: incomingRequest.dropoff.lng }
-        )
-          .then((res) => {
-            setRouteCoordinates(res.coordinates);
-            lastFetchedLocationRef.current = { tripId, status, lat: currentLoc.lat, lng: currentLoc.lng };
-            lastRouteFetchTimeRef.current = now;
-          })
-          .catch(() => {});
-      }
-      return;
-    }
-  }, [
-    incomingRequest?.tripId,
-    requestResponse?.status,
-    incomingRequest?.pickup?.lat,
-    incomingRequest?.dropoff?.lat,
-    driverLocation,
-  ]);
-
-  // Animate map to show the trip region when status or location changes
-  useEffect(() => {
-    if (!incomingRequest || !mapRef.current) return;
-
-    const nextRegion = getTripMapRegion(
-      incomingRequest,
-      driverLocation,
-      requestResponse?.status ?? null
-    );
-
-    mapRef.current.animateToRegion(nextRegion, 1000);
-  }, [incomingRequest?.tripId, requestResponse?.status, driverLocation?.lat, driverLocation?.lng]);
-
-  if (loadingProfile) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={palette.green} />
-        <Text style={{ marginTop: rvs(10), color: palette.muted, fontSize: rf(16), fontWeight: '700' }}>
-          Đang tải thông tin tài xế...
-        </Text>
-      </SafeAreaView>
-    );
-  }
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.container, { minHeight: height }]}
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void handleRefresh()}
-            colors={[palette.green]}
-            tintColor={palette.green}
-          />
-        }
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
+      {/* 1. FULLSCREEN MAPVIEW (Edge-to-Edge like Grab Driver) */}
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={getDriverMapRegion(driverLocation ?? getDefaultLocationPoint())}
+        loadingEnabled
+        showsCompass={false}
+        showsMyLocationButton={false}
+        showsUserLocation={false}
+        zoomControlEnabled={false}
       >
-        {/* COCKPIT HEADER */}
-        <View style={styles.consoleHeader}>
-          <View style={styles.driverIdentity}>
+        {/* Hotspots / Demand Heatmap Overlay */}
+        {showHotspots &&
+          HOTSPOTS.map((h, i) => (
+            <Circle
+              key={`hotspot-${i}`}
+              center={{ latitude: h.lat, longitude: h.lng }}
+              radius={h.radius}
+              fillColor="rgba(239, 68, 68, 0.18)"
+              strokeColor="rgba(239, 68, 68, 0.55)"
+              strokeWidth={1.5}
+            />
+          ))}
+
+        {/* Driver Navigation Marker with Pulse Ring (like Grab screenshot) */}
+        {driverLocation && (
+          <Marker
+            coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            title={userProfile?.fullName ?? (driverProfile ? t('driver.headerTitleWithId', { id: String(driverProfile.id) }) : t('driver.headerTitle'))}
+            zIndex={50}
+          >
+            <View style={styles.driverNavPin}>
+              <View style={[styles.driverNavHalo, isOnline && styles.driverNavHaloOnline]} />
+              <View style={[styles.driverNavCircle, isOnline && styles.driverNavCircleOnline]}>
+                <MaterialCommunityIcons
+                  name="navigation"
+                  size={rs(22)}
+                  color="#ffffff"
+                  style={{ transform: [{ rotate: '-45deg' }] }}
+                />
+              </View>
+            </View>
+          </Marker>
+        )}
+
+        {/* Active Trip Polyline & Destination Markers */}
+        {isTripActive && incomingRequest && (
+          <>
+            {routeCoordinates.length > 0 && (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor={palette.blue}
+                strokeWidth={5}
+                lineCap="round"
+                lineJoin="round"
+              />
+            )}
+
+            {incomingRequest.pickup?.lat && (
+              <Marker
+                coordinate={{ latitude: incomingRequest.pickup.lat, longitude: incomingRequest.pickup.lng }}
+                title={t('driver.pickupLabel')}
+                description={incomingRequest.pickup.address}
+                pinColor="green"
+              />
+            )}
+
+            {incomingRequest.dropoff?.lat && (
+              <Marker
+                coordinate={{ latitude: incomingRequest.dropoff.lat, longitude: incomingRequest.dropoff.lng }}
+                title={t('driver.dropoffLabel')}
+                description={incomingRequest.dropoff.address}
+                pinColor="red"
+              />
+            )}
+          </>
+        )}
+
+        {/* 3-Word Marker Preview */}
+        {threeWordPreview && (
+          <Marker
+            coordinate={{ latitude: threeWordPreview.lat, longitude: threeWordPreview.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            title={`/// ${threeWordPreview.wordAddress}`}
+            zIndex={40}
+          >
+            <View style={styles.threeWordMapPin}>
+              <Text style={styles.threeWordPinSymbol}>{'///'}</Text>
+            </View>
+          </Marker>
+        )}
+      </MapView>
+
+      {/* 2. FLOATING TOP COCKPIT BAR (Overlay) */}
+      <View style={[styles.topOverlay, { top: insets.top + rvs(8) }]}>
+        <View style={styles.cockpitBar}>
+          <TouchableOpacity
+            activeOpacity={0.84}
+            style={styles.driverProfileBtn}
+            onPress={() => router.push('/(driver)/account')}
+          >
             <View style={styles.driverAvatar}>
-              <MaterialCommunityIcons name="account" size={rs(34)} color={palette.greenDark} />
+              <MaterialCommunityIcons name="account" size={rs(26)} color={palette.greenDark} />
             </View>
-            <View>
-              <Text style={styles.consoleTitle}>{driverProfile ? `Tài xế GoRide #${driverProfile.id}` : 'Tài xế GoRide'}</Text>
-              <Text style={styles.driverSubhead}>Đối tác tài xế</Text>
+            <View style={styles.driverInfoTextWrap}>
+              <Text style={styles.driverNameText} numberOfLines={1}>
+                {userProfile?.fullName ?? (driverProfile ? t('driver.headerTitleWithId', { id: String(driverProfile.id) }) : t('driver.headerTitle'))}
+              </Text>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={rs(13)} color="#F59E0B" />
+                <Text style={styles.ratingText}>4.9</Text>
+                <View style={styles.bulletDot} />
+                <View style={[styles.miniStatusDot, { backgroundColor: isOnline ? palette.green : palette.muted }]} />
+                <Text style={[styles.miniStatusText, { color: isOnline ? palette.green : palette.muted }]}>
+                  {isOnline ? t('driver.statusPillOnline') : t('driver.statusPillOffline')}
+                </Text>
+              </View>
             </View>
+          </TouchableOpacity>
+
+          <View style={styles.cockpitRightActions}>
+            <TouchableOpacity
+              activeOpacity={0.84}
+              style={styles.todayEarningsChip}
+              onPress={() => router.push('/(driver)/earnings')}
+            >
+              <Text style={styles.todayEarningsLabel}>{t('driverEarnings.periodToday')}</Text>
+              <Text style={styles.todayEarningsAmount}>{formatFare(todayEarnings)}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.84}
+              style={styles.bellBtn}
+              onPress={() => {
+                if (latestNotification) {
+                  showAlert({
+                    type: 'info',
+                    title: latestNotification.title,
+                    message: latestNotification.body,
+                  });
+                }
+              }}
+            >
+              <MaterialCommunityIcons name="bell-outline" size={rs(24)} color={palette.ink} />
+              {latestNotification && <View style={styles.bellDot} />}
+            </TouchableOpacity>
           </View>
-          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.bellButton, pressed ? styles.pressedButton : null]}>
-            <MaterialCommunityIcons name="bell-outline" size={rs(32)} color={palette.blueInk} />
-            {latestNotification ? <View style={styles.bellDot} /> : null}
-          </Pressable>
         </View>
 
-        {/* EARNINGS STAT GRID */}
-        <View style={styles.statGrid}>
-          <StatCard label="THU NHẬP HÔM NAY" value={formatFare(todayEarnings)} />
-          <StatCard label="CHUYẾN ĐI" value={String(todayTripCount)} />
-        </View>
-
-        {!loadingProfile && driverProfile && driverProfile.approvalStatus !== 'APPROVED' ? (
-          <View style={[styles.warningCard, driverProfile.approvalStatus === 'REJECTED' && styles.dangerCard]}>
+        {/* Profile Warning Banner if pending/rejected */}
+        {!loadingProfile && driverProfile && driverProfile.approvalStatus !== 'APPROVED' && (
+          <View style={[styles.warningBanner, driverProfile.approvalStatus === 'REJECTED' && styles.dangerBanner]}>
             <MaterialCommunityIcons
               name={driverProfile.approvalStatus === 'PENDING' ? 'clock-outline' : 'alert-circle-outline'}
-              size={rs(24)}
+              size={rs(20)}
               color={driverProfile.approvalStatus === 'PENDING' ? palette.amber : palette.danger}
             />
-            <View style={styles.warningCopy}>
-              <Text style={styles.warningTitle}>
-                {driverProfile.approvalStatus === 'PENDING' ? 'Hồ sơ đang chờ duyệt' : 'Hồ sơ bị từ chối'}
-              </Text>
-              <Text style={styles.warningText}>
-                {driverProfile.approvalStatus === 'PENDING'
-                  ? 'Ban quản trị đang xem xét hồ sơ của bạn. Bạn chưa thể bật online nhận chuyến lúc này.'
-                  : 'Hồ sơ đăng ký tài xế không được chấp nhận. Vui lòng liên hệ bộ phận hỗ trợ.'}
-              </Text>
-            </View>
+            <Text style={styles.warningBannerText} numberOfLines={2}>
+              {driverProfile.approvalStatus === 'PENDING' ? t('driver.profilePendingMsg') : t('driver.profileRejectedMsg')}
+            </Text>
           </View>
-        ) : null}
+        )}
+      </View>
 
-        {/* MAIN ONLINE/OFFLINE CONTROL CARD */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTopRow}>
-            <View style={[styles.statusPill, isOnline ? styles.statusPillOnline : styles.statusPillOffline]}>
-              <View style={[styles.statusDot, { backgroundColor: isOnline ? palette.green : palette.muted }]} />
-              <Text style={[styles.statusPillText, isOnline ? styles.statusTextOnline : styles.statusTextOffline]}>
-                {isOnline ? 'ĐANG ONLINE' : 'ĐANG OFFLINE'}
-              </Text>
-            </View>
-            <Switch
-              value={isOnline}
-              onValueChange={handleToggleOnline}
-              disabled={toggleLoading}
-              trackColor={{ false: '#314038', true: palette.greenSoft }}
-              thumbColor={isOnline ? palette.green : '#f4f7f5'}
-            />
-          </View>
+      {/* 3. FLOATING MAP ACTION BUTTONS (Right Stack) */}
+      <View style={[styles.floatingActionStack, { bottom: isTripActive ? rvs(360) : rvs(165) + insets.bottom }]}>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          style={[styles.mapActionButton, showHotspots && styles.mapActionButtonActive]}
+          onPress={() => setShowHotspots((prev) => !prev)}
+          accessibilityRole="button"
+          accessibilityLabel={t('driver.hotspots', 'Khu vực đông khách')}
+        >
+          <MaterialCommunityIcons
+            name="weather-lightning"
+            size={rs(26)}
+            color={showHotspots ? palette.amber : palette.ink}
+          />
+        </TouchableOpacity>
 
-          <Text style={styles.title}>{isOnline ? 'Sẵn sàng nhận cuốc' : 'Bật công tắc để nhận cuốc'}</Text>
-          <Text style={styles.subtitle}>
-            {isOnline
-              ? 'GoRide đang tìm chuyến đi phù hợp xung quanh vị trí của bạn...'
-              : 'Bật online để bắt đầu nhận cuốc và gửi tín hiệu định vị.'}
-          </Text>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          style={styles.mapActionButton}
+          onPress={() => setSearch3WordModalVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('driver.search3Word', 'Tra cứu 3 từ')}
+        >
+          <Text style={styles.threeWordActionSymbol}>{'///'}</Text>
+        </TouchableOpacity>
 
+        <TouchableOpacity
+          activeOpacity={0.84}
+          style={styles.mapActionButton}
+          onPress={handleRecenter}
+          accessibilityRole="button"
+          accessibilityLabel={t('driver.currentLocationLabel', 'Vị trí hiện tại')}
+        >
+          <MaterialCommunityIcons name="crosshairs-gps" size={rs(26)} color={palette.blue} />
+        </TouchableOpacity>
+      </View>
+
+      {/* 4. FLOATING POWER TOGGLE BUTTON (Bottom Left, raised above offline/online card) */}
+      {!isTripActive && !incomingRequest && (
+        <TouchableOpacity
+          activeOpacity={0.86}
+          disabled={toggleLoading}
+          onPress={() => handleToggleOnline(!isOnline)}
+          style={[
+            styles.floatingPowerButton,
+            isOnline ? styles.floatingPowerButtonOnline : styles.floatingPowerButtonOffline,
+            { bottom: rvs(165) + insets.bottom },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={isOnline ? t('driver.statusPillOnline') : t('driver.statusPillOffline')}
+        >
           {toggleLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={palette.green} />
-              <Text style={styles.loadingText}>Đang cập nhật trạng thái...</Text>
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <MaterialCommunityIcons name="power" size={rs(34)} color="#ffffff" />
+          )}
+        </TouchableOpacity>
+      )}
+
+      {/* 5. FLOATING BOTTOM STATUS BAR / BOTTOM SHEET (Grab Driver Style) */}
+      <View style={styles.bottomContainer}>
+        {/* State A: INCOMING TRIP REQUEST MODAL / SHEET */}
+        {incomingRequest && !requestResponse ? (
+          <View style={styles.incomingRequestCard}>
+            <View style={styles.incomingHeaderRow}>
+              <View style={styles.incomingTitleWrap}>
+                <Text style={styles.incomingTitle}>{t('driver.newRequestTitle', 'Cuốc xe mới')}</Text>
+                <Text style={styles.passengerName}>
+                  {incomingRequest.passenger?.fullName ?? t('driver.defaultPassengerName')}
+                </Text>
+              </View>
+              <View style={styles.fareBadge}>
+                <Text style={styles.fareAmountText}>{formatFare(incomingRequest.estimatedFare)}</Text>
+              </View>
             </View>
-          ) : null}
-        </View>
 
-        {/* NẾU CÓ CUỐC XE: Hiển thị Yêu cầu cuốc xe mới */}
-        {incomingRequest ? (
-          <View style={styles.requestCard}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, styles.requestIcon]}>
-                <MaterialCommunityIcons name="bell-ring-outline" size={rs(34)} color={palette.blue} />
+            {timeLeft !== null && (
+              <View style={styles.timerProgressTrack}>
+                <View style={[styles.timerProgressBar, { width: `${progressPercent}%` }]} />
               </View>
-              <View style={styles.sectionCopy}>
-                <Text style={styles.sectionTitle}>Yêu cầu cuốc xe mới</Text>
-                <Text style={styles.sectionSubtitle}>Có chuyến đi mới đang chờ bạn phản hồi</Text>
+            )}
+
+            <View style={styles.routeBox}>
+              <View style={styles.routeItemRow}>
+                <View style={styles.pickupDot} />
+                <Text style={styles.routeAddressText} numberOfLines={1}>
+                  {incomingRequest.pickup?.address ?? t('driver.defaultPickup')}
+                </Text>
+              </View>
+              <View style={styles.routeItemRow}>
+                <View style={styles.dropoffDot} />
+                <Text style={styles.routeAddressText} numberOfLines={1}>
+                  {incomingRequest.dropoff?.address ?? t('driver.defaultDropoff')}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.incomingBox}>
-              <View style={styles.incomingTopRow}>
-                <View>
-                  <Text style={styles.incomingLabel}>Cuốc #{incomingRequest.tripId}</Text>
-                  <Text style={styles.passengerName}>{incomingRequest.passenger?.fullName ?? 'Khách hàng'}</Text>
-                </View>
-                <View style={styles.fareBadge}>
-                  <Text style={styles.fareText}>{formatFare(incomingRequest.estimatedFare)}</Text>
-                </View>
-              </View>
+            <View style={styles.incomingMetaRow}>
+              <Text style={styles.incomingMetaText}>
+                {formatDistance(incomingRequest.estimatedDistance, t)} · {formatDuration(incomingRequest.estimatedDuration, t)}
+              </Text>
+              <Text style={styles.incomingTimerText}>
+                {t('driver.timerExpire', { seconds: String(timeLeft ?? 30) })}
+              </Text>
+            </View>
 
-              {timeLeft !== null && (
-                <View style={styles.timerContainer}>
-                  <View style={styles.timerRow}>
-                    <MaterialCommunityIcons name="timer-sand" size={rs(16)} color={palette.amber} />
-                    <Text style={styles.timerText}>Tự động trôi sau {timeLeft} giây</Text>
-                  </View>
-                  <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-                  </View>
-                </View>
-              )}
+            <View style={styles.incomingActionRow}>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                disabled={Boolean(respondingAction)}
+                style={styles.rejectBtn}
+                onPress={() => void handleRespondToRequest('REJECT')}
+              >
+                {respondingAction === 'REJECT' ? (
+                  <ActivityIndicator size="small" color={palette.danger} />
+                ) : (
+                  <Text style={styles.rejectBtnText}>{t('driver.rejectBtn')}</Text>
+                )}
+              </TouchableOpacity>
 
-              <RouteLine label="Đón" address={incomingRequest.pickup?.address ?? 'Điểm đón'} color={palette.green} />
-              <RouteLine label="Đến" address={incomingRequest.dropoff?.address ?? 'Điểm đến'} color={palette.danger} />
-
-              <View style={styles.requestMetaRow}>
-                <Text style={styles.requestMetaText}>{formatDistance(incomingRequest.estimatedDistance)}</Text>
-                <Text style={styles.requestMetaText}>{formatDuration(incomingRequest.estimatedDuration)}</Text>
-              </View>
-
-              {/* Routing Map Preview */}
-              <View style={styles.routingMapFrame}>
-                <MapView
-                  ref={mapRef}
-                  style={StyleSheet.absoluteFill}
-                  initialRegion={getTripMapRegion(incomingRequest, driverLocation, requestResponse?.status ?? null)}
-                  loadingEnabled
-                  pitchEnabled={false}
-                  rotateEnabled={false}
-                  zoomControlEnabled={true}
-                >
-                  {(requestResponse?.status === 'ACCEPTED' || requestResponse?.status === 'ARRIVED' || !requestResponse) && (
-                    <Marker
-                      coordinate={{ latitude: incomingRequest.pickup.lat, longitude: incomingRequest.pickup.lng }}
-                      title="Điểm đón"
-                      description={incomingRequest.pickup.address}
-                      pinColor="green"
-                    />
-                  )}
-
-                  {(requestResponse?.status === 'IN_PROGRESS' || !requestResponse) && (
-                    <Marker
-                      coordinate={{ latitude: incomingRequest.dropoff.lat, longitude: incomingRequest.dropoff.lng }}
-                      title="Điểm đến"
-                      description={incomingRequest.dropoff.address}
-                    />
-                  )}
-
-                  {requestResponse && driverLocation && (
-                    <Marker
-                      coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
-                      title="Vị trí của bạn"
-                      anchor={{ x: 0.5, y: 0.5 }}
-                    >
-                      <View style={styles.driverMapPin}>
-                        <View style={styles.driverMapPinHalo} />
-                        <View style={styles.driverMapPinBubble}>
-                          <MaterialCommunityIcons name="navigation-variant" size={rs(18)} color={palette.card} />
-                        </View>
-                      </View>
-                    </Marker>
-                  )}
-
-                  {threeWordPreview && (
-                    <Marker
-                      coordinate={{ latitude: threeWordPreview.lat, longitude: threeWordPreview.lng }}
-                      anchor={{ x: 0.5, y: 0.5 }}
-                      title="Kết quả tra cứu 3 từ"
-                      description={`/// ${threeWordPreview.wordAddress}`}
-                      zIndex={30}
-                    >
-                      <View style={styles.threeWordMapPin}>
-                        <Text style={styles.threeWordPinSymbol}>///</Text>
-                      </View>
-                    </Marker>
-                  )}
-
-                  {routeCoordinates.length > 0 && (
-                    <Polyline
-                      coordinates={routeCoordinates}
-                      strokeColor={palette.blue}
-                      strokeWidth={5}
-                      lineCap="round"
-                      lineJoin="round"
-                    />
-                  )}
-                </MapView>
-
-                {threeWordPreview ? (
-                  <View style={styles.activeTripThreeWordBanner}>
-                    <View style={styles.threeWordTagPill}>
-                      <Text style={styles.threeWordTagSymbol}>///</Text>
-                      <Text style={styles.threeWordTagAddress}>{threeWordPreview.wordAddress}</Text>
-                    </View>
-                    <Text style={styles.activeTripThreeWordCoords} numberOfLines={1}>
-                      {threeWordPreview.lat.toFixed(5)}, {threeWordPreview.lng.toFixed(5)}
-                    </Text>
-                    <Pressable onPress={() => setThreeWordPreview(null)} style={styles.closeThreeWordBtn}>
-                      <MaterialCommunityIcons name="close-circle" size={rs(20)} color={palette.muted} />
-                    </Pressable>
-                  </View>
-                ) : null}
-              </View>
-
-              {requestResponse?.tripId === incomingRequest.tripId ? (
-                <View style={styles.activeTripBox}>
-                  <View style={styles.acceptedBox}>
-                    <MaterialCommunityIcons name="check-circle" size={rs(30)} color={palette.green} />
-                    <Text style={styles.acceptedText}>
-                      Cuốc #{requestResponse.tripId}. Trạng thái: {formatTripStatus(requestResponse.status)}.
-                    </Text>
-                  </View>
-
-                  <View style={styles.tripProgressRail}>
-                    {ACTIVE_TRIP_STEPS.map((step) => (
-                      <View key={step.status} style={styles.tripProgressItem}>
-                        <View
-                          style={[
-                            styles.tripProgressDot,
-                            isTripStepCompleted(requestResponse.status, step.status) ? styles.tripProgressDotActive : null,
-                          ]}
-                        />
-                        <Text
-                          style={[
-                            styles.tripProgressLabel,
-                            isTripStepCompleted(requestResponse.status, step.status) ? styles.tripProgressLabelActive : null,
-                          ]}
-                        >
-                          {step.label}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* UTILITY BUTTONS: Call passenger, Open navigation & 3-Word lookup */}
-                  <View style={styles.tripUtilityRow}>
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={handleCallPassenger}
-                      style={({ pressed }) => [
-                        styles.utilityButton,
-                        styles.callButton,
-                        pressed ? styles.pressedButton : null,
-                      ]}
-                    >
-                      <MaterialCommunityIcons name="phone" size={rs(20)} color={palette.green} />
-                      <Text style={[styles.utilityButtonText, styles.callButtonText]}>Gọi khách</Text>
-                    </Pressable>
-
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={handleOpenNavigation}
-                      style={({ pressed }) => [
-                        styles.utilityButton,
-                        styles.navButton,
-                        pressed ? styles.pressedButton : null,
-                      ]}
-                    >
-                      <MaterialCommunityIcons name="google-maps" size={rs(20)} color={palette.blue} />
-                      <Text style={[styles.utilityButtonText, styles.navButtonText]}>Chỉ đường</Text>
-                    </Pressable>
-
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => setSearch3WordModalVisible(true)}
-                      style={({ pressed }) => [
-                        styles.utilityButton,
-                        styles.threeWordUtilityBtn,
-                        pressed ? styles.pressedButton : null,
-                      ]}
-                    >
-                      <MaterialCommunityIcons name="grid" size={rs(20)} color={palette.blue} />
-                      <Text style={[styles.utilityButtonText, styles.threeWordUtilityText]}>Tra 3 từ</Text>
-                    </Pressable>
-                  </View>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() =>
-                      router.push({
-                        pathname: '/(driver)/chat' as any,
-                        params: {
-                          tripId: String(requestResponse.tripId),
-                          status: requestResponse.status,
-                          participantName: incomingRequest.passenger?.fullName ?? 'Hành khách',
-                        },
-                      })
-                    }
-                    style={({ pressed }) => [styles.chatUtilityButton, pressed ? styles.pressedButton : null]}
-                  >
-                    <MaterialCommunityIcons name="message-text-outline" size={rs(22)} color={palette.greenDark} />
-                    <View style={styles.chatUtilityCopy}>
-                      <Text style={styles.chatUtilityTitle}>Nhắn tin với hành khách</Text>
-                      <Text style={styles.chatUtilitySubtitle}>Trao đổi nhanh về điểm đón và lộ trình</Text>
-                    </View>
-                    <MaterialCommunityIcons name="chevron-right" size={rs(22)} color={palette.greenDark} />
-                  </Pressable>
-
-                  {getNextDriverStatus(requestResponse.status) ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      disabled={Boolean(updatingTripStatus)}
-                      onPress={() => {
-                        const nextStatus = getNextDriverStatus(requestResponse.status);
-
-                        if (nextStatus) {
-                          void handleUpdateActiveTripStatus(nextStatus);
-                        }
-                      }}
-                      style={({ pressed }) => [
-                        styles.statusButton,
-                        pressed && !updatingTripStatus ? styles.pressedButton : null,
-                        updatingTripStatus ? styles.disabledButton : null,
-                      ]}
-                    >
-                      {updatingTripStatus ? (
-                        <ActivityIndicator color={palette.card} />
-                      ) : (
-                        <MaterialCommunityIcons
-                          name={getNextStatusIcon(getNextDriverStatus(requestResponse.status))}
-                          size={rs(30)}
-                          color={palette.card}
-                        />
-                      )}
-                      <Text style={styles.statusButtonText}>
-                        {updatingTripStatus
-                          ? 'Đang cập nhật'
-                          : getNextStatusButtonLabel(getNextDriverStatus(requestResponse.status))}
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <View style={styles.completedTripStack}>
-                      <View style={styles.completedTripBox}>
-                        <MaterialCommunityIcons name="cash-register" size={rs(30)} color={palette.green} />
-                        <Text style={styles.completedTripText}>
-                          Hãy thu {incomingRequest ? formatFare(incomingRequest.estimatedFare) : 'tiền'} tiền mặt của khách. Xác nhận sau khi đã nhận đủ.
-                        </Text>
-                      </View>
-                      <Pressable
-                        accessibilityRole="button"
-                        disabled={confirmingPayment}
-                        onPress={handleConfirmPaymentAndReady}
-                        style={({ pressed }) => [
-                          styles.readyButton,
-                          pressed && !confirmingPayment ? styles.pressedButton : null,
-                          confirmingPayment ? styles.disabledButton : null,
-                        ]}
-                      >
-                        {confirmingPayment ? (
-                          <ActivityIndicator color={palette.card} />
-                        ) : (
-                          <MaterialCommunityIcons name="check-decagram" size={rs(28)} color={palette.card} />
-                        )}
-                        <Text style={styles.readyButtonText}>
-                          {confirmingPayment ? 'Đang xác nhận...' : 'Đã nhận tiền mặt & Sẵn sàng'}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.actionRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={Boolean(respondingAction)}
-                    onPress={() => void handleRespondToRequest('REJECT')}
-                    style={({ pressed }) => [
-                      styles.actionButton,
-                      styles.rejectButton,
-                      pressed && !respondingAction ? styles.pressedButton : null,
-                      respondingAction ? styles.disabledButton : null,
-                    ]}
-                  >
-                    {respondingAction === 'REJECT' ? (
-                      <ActivityIndicator color={palette.danger} />
-                    ) : (
-                      <MaterialCommunityIcons name="close-circle-outline" size={rs(30)} color={palette.danger} />
-                    )}
-                    <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
-                      {respondingAction === 'REJECT' ? 'Đang từ chối' : 'Từ chối'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={Boolean(respondingAction)}
-                    onPress={() => void handleRespondToRequest('ACCEPT')}
-                    style={({ pressed }) => [
-                      styles.actionButton,
-                      styles.acceptButton,
-                      pressed && !respondingAction ? styles.pressedButton : null,
-                      respondingAction ? styles.disabledButton : null,
-                    ]}
-                  >
-                    {respondingAction === 'ACCEPT' ? (
-                      <ActivityIndicator color={palette.card} />
-                    ) : (
-                      <MaterialCommunityIcons name="check-circle-outline" size={rs(30)} color={palette.card} />
-                    )}
-                    <Text style={[styles.actionButtonText, styles.acceptButtonText]}>
-                      {respondingAction === 'ACCEPT' ? 'Đang nhận' : 'Nhận cuốc'}
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
+              <TouchableOpacity
+                activeOpacity={0.84}
+                disabled={Boolean(respondingAction)}
+                style={styles.acceptBtn}
+                onPress={() => void handleRespondToRequest('ACCEPT')}
+              >
+                {respondingAction === 'ACCEPT' ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.acceptBtnText}>{t('driver.acceptBtn')}</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        ) : null}
+        ) : isTripActive && incomingRequest && requestResponse ? (
+          /* State B: ACTIVE TRIP COCKPIT BOTTOM SHEET */
+          <View style={styles.activeTripCard}>
+            <View style={styles.handleBar} />
 
-        {/* MAP PREVIEW (Shown when no active request is selected) */}
-        {!incomingRequest && (
-          <View style={styles.locationCard}>
-            <DriverMapPreview
-              location={driverLocation}
-              threeWordPreview={threeWordPreview}
-              onClearPreview={() => setThreeWordPreview(null)}
-            />
-            <View style={styles.locationBox}>
-              <Text style={styles.locationLabel}>Vị trí đứng hiện tại</Text>
-              <Text style={styles.locationValue} numberOfLines={2} selectable>
-                {driverLocation?.address ?? 'Đang xác định vị trí...'}
+            <View style={styles.activeTripHeader}>
+              <View style={styles.passengerInfoWrap}>
+                <Text style={styles.activeTripStatusTitle}>
+                  {formatTripStatus(requestResponse.status, t)}
+                </Text>
+                <Text style={styles.activePassengerName} numberOfLines={1}>
+                  {incomingRequest.passenger?.fullName ?? t('driver.defaultPassengerName')}
+                </Text>
+              </View>
+              <View style={styles.activeTripFareWrap}>
+                <Text style={styles.activeFareText}>{formatFare(incomingRequest.estimatedFare)}</Text>
+              </View>
+            </View>
+
+            {/* Quick Action Utilities: Call, Nav, Chat, 3-Words */}
+            <View style={styles.activeTripUtilityRow}>
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={styles.utilityBtn}
+                onPress={handleCallPassenger}
+              >
+                <MaterialCommunityIcons name="phone" size={rs(22)} color={palette.green} />
+                <Text style={styles.utilityBtnText}>{t('driver.callPassenger', 'Gọi điện')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={styles.utilityBtn}
+                onPress={handleOpenNavigation}
+              >
+                <MaterialCommunityIcons name="google-maps" size={rs(22)} color={palette.blue} />
+                <Text style={styles.utilityBtnText}>{t('driver.navigation', 'Chỉ đường')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={styles.utilityBtn}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(driver)/chat' as any,
+                    params: {
+                      tripId: String(requestResponse.tripId),
+                      status: requestResponse.status,
+                      participantName: incomingRequest.passenger?.fullName ?? t('driver.defaultPassengerName'),
+                    },
+                  })
+                }
+              >
+                <MaterialCommunityIcons name="message-text-outline" size={rs(22)} color={palette.ink} />
+                <Text style={styles.utilityBtnText}>{t('driver.chatTitle', 'Nhắn tin')}</Text>
+                {unreadChatCount > 0 && <View style={styles.chatBadgeDot} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={styles.utilityBtn}
+                onPress={() => setSearch3WordModalVisible(true)}
+              >
+                <Text style={styles.utility3WordSymbol}>{'///'}</Text>
+                <Text style={styles.utilityBtnText}>{t('driver.search3Word', '3 từ')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Status Progress Step Button */}
+            {getNextDriverStatus(requestResponse.status) ? (
+              <TouchableOpacity
+                activeOpacity={0.86}
+                disabled={Boolean(updatingTripStatus)}
+                style={styles.mainTripActionBtn}
+                onPress={() => {
+                  const nextStatus = getNextDriverStatus(requestResponse.status);
+                  if (nextStatus) {
+                    void handleUpdateActiveTripStatus(nextStatus);
+                  }
+                }}
+              >
+                {updatingTripStatus ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons
+                      name={getNextStatusIcon(getNextDriverStatus(requestResponse.status))}
+                      size={rs(24)}
+                      color="#ffffff"
+                    />
+                    <Text style={styles.mainTripActionText}>
+                      {getNextStatusButtonLabel(getNextDriverStatus(requestResponse.status), t)}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.86}
+                disabled={confirmingPayment}
+                style={[styles.mainTripActionBtn, styles.completePaymentBtn]}
+                onPress={handleConfirmPaymentAndReady}
+              >
+                {confirmingPayment ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check-decagram" size={rs(24)} color="#ffffff" />
+                    <Text style={styles.mainTripActionText}>
+                      {t('driver.cashReceivedReady', 'Thu tiền mặt & Sẵn sàng')}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : isOnline ? (
+          /* State C: ONLINE & IDLE (Exact match to screenshot) */
+          <View style={styles.onlineIdleCard}>
+            <View style={styles.onlineIdleContent}>
+              <MaterialCommunityIcons name="lightning-bolt" size={rs(24)} color={palette.green} />
+              <Text style={styles.onlineIdleTitle}>
+                {t('driver.autoAccepting', 'Đang tự động nhận cuốc xe đến.')}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          /* State D: OFFLINE */
+          <View style={styles.offlineCard}>
+            <View style={styles.offlineContent}>
+              <MaterialCommunityIcons name="power" size={rs(22)} color={palette.muted} />
+              <Text style={styles.offlineTitle}>
+                {t('driver.offlinePrompt', 'Bạn đang ngoại tuyến. Bật nút nguồn để nhận cuốc.')}
               </Text>
             </View>
           </View>
         )}
 
-        {latestNotification ? (
-          <View style={styles.notificationCard}>
-            <MaterialCommunityIcons name="message-badge-outline" size={rs(36)} color={palette.blue} />
-            <View style={styles.notificationCopy}>
-              <Text style={styles.notificationTitle}>{latestNotification.title}</Text>
-              <Text style={styles.notificationBody}>{latestNotification.body}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* COLLAPSIBLE DEVELOPER & GPS TOOLS */}
-        <View style={styles.devAccordionCard}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setShowDevTools((prev) => !prev)}
-            style={({ pressed }) => [styles.devAccordionHeader, pressed && styles.pressedButton]}
-          >
-            <View style={styles.devAccordionTitleRow}>
-              <MaterialCommunityIcons name="cog-outline" size={rs(24)} color={palette.muted} />
-              <Text style={styles.devAccordionTitle}>Công cụ kỹ thuật & GPS</Text>
-            </View>
-            <MaterialCommunityIcons
-              name={showDevTools ? 'chevron-up' : 'chevron-down'}
-              size={rs(26)}
-              color={palette.muted}
-            />
-          </Pressable>
-
-          {showDevTools && (
-            <View style={styles.devAccordionBody}>
-              <View style={styles.heroMetricRow}>
-                <MetricTile icon="access-point" label="Kênh" value={realtimeCopy.label} tone={realtimeCopy.tone} />
-                <MetricTile icon="heart-pulse" label="Heartbeat" value={formatTrackingTime(lastHeartbeatAt)} tone="green" />
-              </View>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setSearch3WordModalVisible(true)}
-                style={({ pressed }) => [styles.threeWordTriggerBtn, pressed && styles.pressedButton]}
-              >
-                <MaterialCommunityIcons name="grid" size={rs(24)} color="#ffffff" />
-                <Text style={styles.threeWordTriggerText}>Tra tọa độ bằng 3 từ</Text>
-              </Pressable>
-
-              {threeWordPreview ? (
-                <View style={styles.threeWordResultCard}>
-                  <View style={styles.threeWordResultHeader}>
-                    <View style={styles.threeWordTagPill}>
-                      <Text style={styles.threeWordTagSymbol}>///</Text>
-                      <Text style={styles.threeWordTagAddress}>{threeWordPreview.wordAddress}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.threeWordResultCoords}>
-                    Tọa độ: {threeWordPreview.lat.toFixed(6)}, {threeWordPreview.lng.toFixed(6)}
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={styles.trackingBox}>
-                <View style={styles.trackingIcon}>
-                  <MaterialCommunityIcons name="map-marker-path" size={rs(26)} color={palette.blue} />
-                </View>
-                <View style={styles.trackingCopy}>
-                  <Text style={styles.trackingLabel}>GPS cuốc xe</Text>
-                  <Text style={styles.trackingText}>{driverTrackingMessage}</Text>
-                  <Text style={styles.trackingTime}>Lần gửi cuối: {formatTrackingTime(lastDriverLocationSentAt)}</Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {latestNotification ? (
-          <View style={styles.notificationCard}>
-            <MaterialCommunityIcons name="message-badge-outline" size={rs(36)} color={palette.blue} />
-            <View style={styles.notificationCopy}>
-              <Text style={styles.notificationTitle}>{latestNotification.title}</Text>
-              <Text style={styles.notificationBody}>{latestNotification.body}</Text>
-            </View>
-          </View>
-        ) : null}
-      </ScrollView>
-
-      <View style={styles.bottomNav}>
-        <DriverNavItem icon="home-variant" label="Home" active />
-        <DriverNavItem icon="cash-multiple" label="Earnings" onPress={() => router.push('/(driver)/earnings')} />
-        <DriverNavItem icon="history" label="Activity" onPress={() => router.push('./activity')} />
-        <DriverNavItem icon="account-outline" label="Account" onPress={() => router.push('./account')} />
+        {/* 6. STANDARDIZED DRIVER BOTTOM NAVIGATION BAR */}
+        <DriverBottomNav currentTab="home" />
       </View>
 
+      {/* 3-Word Search Modal */}
       <ThreeWordSearchModal
         visible={search3WordModalVisible}
         onClose={() => setSearch3WordModalVisible(false)}
         onSelectResult={(result) => {
           setThreeWordPreview(result);
-          if (mapRef.current) {
-            mapRef.current.animateToRegion(
-              {
-                latitude: result.lat,
-                longitude: result.lng,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              },
-              800,
-            );
-          }
+          mapRef.current?.animateToRegion(
+            {
+              latitude: result.lat,
+              longitude: result.lng,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            },
+            700
+          );
         }}
       />
-    </SafeAreaView>
-  );
-}
 
-function MetricTile({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  value: string;
-  tone: 'green' | 'blue' | 'amber' | 'muted';
-}) {
-  const toneStyle = getToneStyle(tone);
-
-  return (
-    <View style={styles.metricTile}>
-      <View style={[styles.metricIcon, { backgroundColor: toneStyle.background }]}>
-        <MaterialCommunityIcons name={icon} size={rs(30)} color={toneStyle.color} />
-      </View>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
+      {/* Custom Alert Modal for all dialogs */}
+      <CustomAlertModal
+        {...alertConfig}
+        onClose={closeAlert}
+      />
     </View>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue} selectable>
-        {value}
-      </Text>
-    </View>
-  );
+function isDriverTrackingStatus(status: TripStatus) {
+  return status === 'ACCEPTED' || status === 'ARRIVED' || status === 'IN_PROGRESS' || status === 'COMPLETED';
 }
 
-function QuickActionTile({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.quickActionTile, pressed ? styles.pressedButton : null]}
-    >
-      <View style={styles.quickActionIcon}>
-        <MaterialCommunityIcons name={icon} size={rs(30)} color={palette.blueInk} />
-      </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
-    </Pressable>
-  );
+function formatFare(fare: number) {
+  return `${Math.round(fare).toLocaleString('vi-VN')}đ`;
 }
 
-function DriverMapPreview({
-  location,
-  threeWordPreview,
-  onClearPreview,
-}: {
-  location: LocationPoint | null;
-  threeWordPreview?: ThreeWordLocation | null;
-  onClearPreview?: () => void;
-}) {
-  const mapPoint = threeWordPreview
-    ? { lat: threeWordPreview.lat, lng: threeWordPreview.lng, address: `/// ${threeWordPreview.wordAddress}` }
-    : (location ?? getDefaultLocationPoint());
-  const region = getDriverMapRegion(mapPoint as LocationPoint);
+function formatDistance(distanceKm: number | null | undefined, t: (key: string) => string) {
+  if (!distanceKm || distanceKm <= 0) return t('driver.distanceUnknown');
+  return `${distanceKm.toFixed(1)} km`;
+}
 
-  return (
-    <View style={styles.mapCard}>
-      <View style={styles.mapCanvas}>
-        <MapView
-          style={StyleSheet.absoluteFill}
-          initialRegion={region}
-          region={region}
-          loadingEnabled
-          pitchEnabled={false}
-          rotateEnabled={false}
-          scrollEnabled={true}
-          showsCompass={false}
-          showsMyLocationButton={false}
-          showsUserLocation={false}
-          toolbarEnabled={false}
-          zoomControlEnabled={false}
-          zoomEnabled={true}
-        >
-          {location && (
-            <Marker
-              coordinate={{ latitude: location.lat, longitude: location.lng }}
-              anchor={{ x: 0.5, y: 0.5 }}
-              title="Vị trí tài xế"
-              description={location.address}
-            >
-              <View style={styles.mapPin}>
-                <View style={styles.mapPinHalo} />
-                <View style={styles.mapPinBubble}>
-                  <MaterialCommunityIcons name="navigation-variant" size={rs(24)} color={palette.card} />
-                </View>
-              </View>
-            </Marker>
-          )}
+function formatDuration(durationMinutes: number | null | undefined, t: (key: string) => string) {
+  if (!durationMinutes || durationMinutes <= 0) return t('driver.durationUnknown');
+  return `${Math.round(durationMinutes)} phút`;
+}
 
-          {threeWordPreview && (
-            <Marker
-              coordinate={{ latitude: threeWordPreview.lat, longitude: threeWordPreview.lng }}
-              anchor={{ x: 0.5, y: 0.5 }}
-              title="Kết quả tra cứu"
-              description={`/// ${threeWordPreview.wordAddress}`}
-              zIndex={20}
-            >
-              <View style={styles.threeWordMapPin}>
-                <Text style={styles.threeWordPinSymbol}>///</Text>
-              </View>
-            </Marker>
-          )}
-        </MapView>
-      </View>
+function formatTripStatus(status: TripStatus, t: (key: string) => string) {
+  switch (status) {
+    case 'ACCEPTED':
+      return t('driver.stepAccepted');
+    case 'ARRIVED':
+      return t('driver.stepArrived');
+    case 'IN_PROGRESS':
+      return t('driver.stepInProgress');
+    case 'COMPLETED':
+      return t('driver.stepCompleted');
+    default:
+      return status;
+  }
+}
 
-      <View style={styles.mapLocationRow}>
-        <View style={styles.mapLocationIcon}>
-          <MaterialCommunityIcons
-            name={threeWordPreview ? 'map-marker-check' : 'crosshairs-gps'}
-            size={rs(28)}
-            color={threeWordPreview ? palette.blue : palette.blue}
-          />
-        </View>
-        <View style={styles.mapLocationCopy}>
-          <Text style={styles.mapLocationTitle} numberOfLines={1}>
-            {threeWordPreview ? `/// ${threeWordPreview.wordAddress}` : (location?.address ?? 'Công viên Tao Đàn, Quận 1')}
-          </Text>
-          <Text style={styles.mapLocationCoords} selectable>
-            {threeWordPreview
-              ? `Tọa độ 3 từ: ${threeWordPreview.lat.toFixed(5)}, ${threeWordPreview.lng.toFixed(5)}`
-              : (location ? formatCoordinates(location) : '10.76262, 106.66017')}
-          </Text>
-        </View>
-        {threeWordPreview && onClearPreview && (
-          <Pressable onPress={onClearPreview} style={styles.clearPreviewIconBtn}>
-            <MaterialCommunityIcons name="close-circle" size={rs(26)} color={palette.muted} />
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
+function getNextDriverStatus(currentStatus: TripStatus): TripStatus | null {
+  if (currentStatus === 'ACCEPTED') return 'ARRIVED';
+  if (currentStatus === 'ARRIVED') return 'IN_PROGRESS';
+  if (currentStatus === 'IN_PROGRESS') return 'COMPLETED';
+  return null;
+}
+
+function getNextStatusIcon(nextStatus: TripStatus | null): keyof typeof MaterialCommunityIcons.glyphMap {
+  if (nextStatus === 'ARRIVED') return 'map-marker-check';
+  if (nextStatus === 'IN_PROGRESS') return 'car-sports';
+  if (nextStatus === 'COMPLETED') return 'flag-checkered';
+  return 'check';
+}
+
+function getNextStatusButtonLabel(nextStatus: TripStatus | null, t: (key: string) => string): string {
+  if (nextStatus === 'ARRIVED') return t('driver.stepArrived');
+  if (nextStatus === 'IN_PROGRESS') return t('driver.stepInProgress');
+  if (nextStatus === 'COMPLETED') return t('driver.stepCompleted');
+  return t('common.confirm');
 }
 
 function getDriverMapRegion(location: LocationPoint): Region {
@@ -1737,1374 +1594,532 @@ function getDriverMapRegion(location: LocationPoint): Region {
   };
 }
 
-function DriverNavItem({
-  icon,
-  label,
-  active = false,
-  onPress,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  active?: boolean;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.navItem, active ? styles.navItemActive : null, pressed ? styles.pressedButton : null]}
-    >
-      <MaterialCommunityIcons name={icon} size={rs(30)} color={active ? palette.greenDark : palette.muted} />
-      <Text style={[styles.navLabel, active ? styles.navLabelActive : null]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function RouteLine({ label, address, color }: { label: string; address: string; color: string }) {
-  return (
-    <View style={styles.routeLine}>
-      <View style={[styles.routeDot, { backgroundColor: color }]} />
-      <View style={styles.routeCopy}>
-        <Text style={styles.routeLabel}>{label}</Text>
-        <Text style={styles.routeAddress} numberOfLines={2} selectable>
-          {address}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function getListeningCopy(
-  isOnline: boolean,
-  request: DriverTripRequest | null,
-): { icon: keyof typeof MaterialCommunityIcons.glyphMap; title: string; text: string } {
-  if (request) {
-    return {
-      icon: 'bell-ring-outline',
-      title: 'Cuốc mới đang chờ',
-      text: `${request.passenger?.fullName ?? 'Khách hàng'} - ${formatFare(request.estimatedFare)} - phản hồi để giữ tỷ lệ nhận cuốc.`,
-    };
-  }
-
-  if (isOnline) {
-    return {
-      icon: 'target',
-      title: 'Đang nghe cuốc mới',
-      text: 'Hệ thống đang tìm khách hàng gần nhất...',
-    };
-  }
-
-  return {
-    icon: 'power-sleep',
-    title: 'Tạm dừng nhận cuốc',
-    text: 'Bật online để mở kênh request, GPS và heartbeat.',
-  };
-}
-
-function getToneStyle(tone: 'green' | 'blue' | 'amber' | 'muted') {
-  if (tone === 'green') {
-    return { color: palette.green, background: palette.greenSoft };
-  }
-
-  if (tone === 'blue') {
-    return { color: palette.blue, background: palette.blueSoft };
-  }
-
-  if (tone === 'amber') {
-    return { color: palette.amber, background: palette.amberSoft };
-  }
-
-  return { color: palette.muted, background: '#edf2ef' };
-}
-
-function getRealtimeCopy(mode: DriverRealtimeMode): { label: string; tone: 'green' | 'blue' | 'amber' | 'muted' } {
-  if (mode === 'mock') {
-    return { label: 'Mock realtime', tone: 'green' };
-  }
-
-  if (mode === 'remote') {
-    return { label: 'Remote WS', tone: 'blue' };
-  }
-
-  if (mode === 'connecting') {
-    return { label: 'Đang nối', tone: 'amber' };
-  }
-
-  if (mode === 'fallback') {
-    return { label: 'Fallback', tone: 'amber' };
-  }
-
-  return { label: 'Đóng', tone: 'muted' };
-}
-
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
-
-function formatCoordinates(location: LocationPoint) {
-  return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
-}
-
-function getTripMapRegion(
-  request: DriverTripRequest,
-  driverLoc: LocationPoint | null,
-  status: TripStatus | null
-): Region {
-  let lat = request.pickup.lat;
-  let lng = request.pickup.lng;
-
-  let latDelta = 0.015;
-  let lngDelta = 0.015;
-
-  if (status === 'IN_PROGRESS') {
-    lat = request.dropoff.lat;
-    lng = request.dropoff.lng;
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
-
-  if (driverLoc && status && (status === 'ACCEPTED' || status === 'ARRIVED' || status === 'IN_PROGRESS')) {
-    const destLat = status === 'IN_PROGRESS' ? request.dropoff.lat : request.pickup.lat;
-    const destLng = status === 'IN_PROGRESS' ? request.dropoff.lng : request.pickup.lng;
-
-    lat = (driverLoc.lat + destLat) / 2;
-    lng = (driverLoc.lng + destLng) / 2;
-
-    latDelta = Math.max(Math.abs(driverLoc.lat - destLat) * 1.5, 0.008);
-    lngDelta = Math.max(Math.abs(driverLoc.lng - destLng) * 1.5, 0.008);
-  } else {
-    lat = (request.pickup.lat + request.dropoff.lat) / 2;
-    lng = (request.pickup.lng + request.dropoff.lng) / 2;
-    latDelta = Math.max(Math.abs(request.pickup.lat - request.dropoff.lat) * 1.5, 0.01);
-    lngDelta = Math.max(Math.abs(request.pickup.lng - request.dropoff.lng) * 1.5, 0.01);
-  }
-
-  return {
-    latitude: lat,
-    longitude: lng,
-    latitudeDelta: Math.min(latDelta, 0.08),
-    longitudeDelta: Math.min(lngDelta, 0.08),
-  };
-}
-
-function formatTrackingTime(value: string | null) {
-  if (!value) {
-    return 'Chưa gửi';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleTimeString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
-
-function formatFare(value: number) {
-  return Math.round(value).toLocaleString('vi-VN') + 'đ';
-}
-
-function formatDistance(distance?: number) {
-  if (!distance || distance <= 0) {
-    return '-- km';
-  }
-
-  return distance.toFixed(distance < 10 ? 1 : 0) + ' km';
-}
-
-function formatDuration(duration?: number) {
-  if (!duration || duration <= 0) {
-    return '-- phút';
-  }
-
-  return Math.round(duration) + ' phút';
-}
-
-function formatTripStatus(status: TripStatus) {
-  if (status === 'CANCELLED') {
-    return 'Đã hủy';
-  }
-
-  if (status === 'ACCEPTED') {
-    return 'Đã nhận';
-  }
-
-  if (status === 'ARRIVED') {
-    return 'Tài xế đã đến';
-  }
-
-  if (status === 'IN_PROGRESS') {
-    return 'Đang di chuyển';
-  }
-
-  if (status === 'COMPLETED') {
-    return 'Hoàn thành';
-  }
-
-  if (status === 'SEARCHING') {
-    return 'Đang tìm tài xế';
-  }
-
-  return status;
-}
-
-function getNextDriverStatus(status: TripStatus): TripStatus | null {
-  if (status === 'ACCEPTED') {
-    return 'ARRIVED';
-  }
-
-  if (status === 'ARRIVED') {
-    return 'IN_PROGRESS';
-  }
-
-  if (status === 'IN_PROGRESS') {
-    return 'COMPLETED';
-  }
-
-  return null;
-}
-
-function isDriverTrackingStatus(status: TripStatus) {
-  return status === 'ACCEPTED' || status === 'ARRIVED' || status === 'IN_PROGRESS';
-}
-
-function getNextStatusButtonLabel(status: TripStatus | null) {
-  if (status === 'ARRIVED') {
-    return 'Đã đến điểm đón';
-  }
-
-  if (status === 'IN_PROGRESS') {
-    return 'Bắt đầu chuyến';
-  }
-
-  if (status === 'COMPLETED') {
-    return 'Hoàn thành chuyến';
-  }
-
-  return 'Cập nhật chuyến';
-}
-
-function getNextStatusIcon(status: TripStatus | null): keyof typeof MaterialCommunityIcons.glyphMap {
-  if (status === 'ARRIVED') {
-    return 'map-marker-check';
-  }
-
-  if (status === 'IN_PROGRESS') {
-    return 'navigation-variant';
-  }
-
-  if (status === 'COMPLETED') {
-    return 'flag-checkered';
-  }
-
-  return 'check-circle-outline';
-}
-
-function getDriverStatusMessage(status: TripStatus) {
-  if (status === 'CANCELLED') {
-    return 'Chuyến xe đã bị hủy bởi hành khách.';
-  }
-
-  if (status === 'ARRIVED') {
-    return 'Bạn đã đến điểm đón. Hãy đón khách và bắt đầu chuyến khi sẵn sàng.';
-  }
-
-  if (status === 'IN_PROGRESS') {
-    return 'Chuyến đang diễn ra. Tiếp tục di chuyển đến điểm trả khách.';
-  }
-
-  if (status === 'COMPLETED') {
-    return 'Chuyến đã hoàn thành. Cảm ơn bạn đã chạy cùng GoRide.';
-  }
-
-  return `Trạng thái chuyến: ${formatTripStatus(status)}.`;
-}
-
-function getDriverTrackingMessage(status: TripStatus) {
-  if (isDriverTrackingStatus(status)) {
-    return 'GPS cuốc đang gửi vị trí cho hành khách.';
-  }
-
-  if (status === 'COMPLETED') {
-    return 'GPS cuốc đã dừng sau khi hoàn thành chuyến.';
-  }
-
-  return 'GPS cuốc sẽ bắt đầu gửi sau khi tài xế nhận chuyến.';
-}
-
-function isTripStepCompleted(currentStatus: TripStatus, stepStatus: TripStatus) {
-  const currentIndex = ACTIVE_TRIP_STEPS.findIndex((step) => step.status === currentStatus);
-  const stepIndex = ACTIVE_TRIP_STEPS.findIndex((step) => step.status === stepStatus);
-
-  return currentIndex >= 0 && stepIndex >= 0 && stepIndex <= currentIndex;
-}
-
-function getDistanceBetweenPoints(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3; // metres
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // in metres
+  return fallback;
 }
 
 const styles = StyleSheet.create({
-  warningCard: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fef3c7',
-    borderWidth: 1,
-    borderRadius: rs(16),
-    padding: rs(18),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(12),
-    marginBottom: rvs(8),
-  },
-  dangerCard: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fee2e2',
-  },
-  warningCopy: {
+  root: {
     flex: 1,
-    gap: rvs(4),
+    backgroundColor: '#000000',
   },
-  warningTitle: {
-    fontSize: rf(16),
-    fontWeight: '800',
-    color: '#08110d',
+  topOverlay: {
+    position: 'absolute',
+    left: rs(16),
+    right: rs(16),
+    zIndex: 40,
   },
-  warningText: {
-    fontSize: rf(14),
-    fontWeight: '600',
-    color: '#637069',
-    lineHeight: rf(18),
-  },
-  driverSubhead: {
-    color: palette.muted,
-    fontSize: rf(14),
-    fontWeight: '700',
-  },
-  devAccordionCard: {
-    borderRadius: rs(20),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    padding: rs(18),
-    gap: rvs(14),
-    marginTop: rvs(10),
-  },
-  devAccordionHeader: {
+  cockpitBar: {
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderRadius: rs(28),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(10),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...shadow,
   },
-  devAccordionTitleRow: {
+  driverProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    flex: 1,
+  },
+  driverAvatar: {
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(22),
+    backgroundColor: palette.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverInfoTextWrap: {
+    flex: 1,
+  },
+  driverNameText: {
+    color: palette.ink,
+    fontSize: rf(19),
+    fontWeight: '800',
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(4),
+    marginTop: 2,
+  },
+  ratingText: {
+    color: palette.ink,
+    fontSize: rf(15),
+    fontWeight: '700',
+  },
+  bulletDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: palette.muted,
+    marginHorizontal: 2,
+  },
+  miniStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  miniStatusText: {
+    fontSize: rf(14),
+    fontWeight: '700',
+  },
+  cockpitRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(10),
   },
-  devAccordionTitle: {
-    color: palette.muted,
-    fontSize: rf(18),
-    fontWeight: '800',
-  },
-  devAccordionBody: {
-    gap: rvs(14),
-    paddingTop: rvs(12),
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f7faf8',
-  },
-  scroll: {
-    flex: 1,
-    backgroundColor: '#f7faf8',
-  },
-  container: {
-    flexGrow: 1,
-    paddingHorizontal: rs(30),
-    paddingTop: rvs(18),
-    paddingBottom: rvs(154),
-    gap: rvs(16),
-    backgroundColor: '#f7faf8',
-  },
-  consoleHeader: {
-    minHeight: rvs(54),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rs(16),
-  },
-  driverIdentity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(12),
-  },
-  driverAvatar: {
-    width: rs(46),
-    height: rs(46),
-    borderRadius: rs(23),
+  todayEarningsChip: {
     backgroundColor: palette.greenSoft,
+    borderRadius: rs(16),
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(6),
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#bfeeda',
   },
-  consoleTitle: {
-    color: palette.blueInk,
-    fontSize: rf(30),
+  todayEarningsLabel: {
+    color: palette.greenDark,
+    fontSize: rf(12),
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  todayEarningsAmount: {
+    color: palette.greenDark,
+    fontSize: rf(16),
     fontWeight: '900',
   },
-  bellButton: {
-    width: rs(44),
-    height: rs(44),
-    borderRadius: rs(22),
+  bellBtn: {
+    width: rs(40),
+    height: rs(40),
+    borderRadius: rs(20),
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   bellDot: {
     position: 'absolute',
-    top: rvs(8),
+    top: rs(8),
     right: rs(8),
     width: rs(8),
     height: rs(8),
     borderRadius: rs(4),
     backgroundColor: palette.danger,
   },
-  heroCard: {
-    padding: rs(24),
-    borderRadius: rs(18),
-    backgroundColor: palette.card,
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(8),
+    backgroundColor: palette.amberSoft,
+    borderRadius: rs(16),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(8),
+    marginTop: rvs(8),
     borderWidth: 1,
-    borderColor: palette.line,
-    borderLeftWidth: rs(6),
-    borderLeftColor: palette.green,
+    borderColor: '#FDE68A',
+  },
+  dangerBanner: {
+    backgroundColor: palette.dangerSoft,
+    borderColor: '#FECACA',
+  },
+  warningBannerText: {
+    flex: 1,
+    color: palette.ink,
+    fontSize: rf(14),
+    fontWeight: '600',
+  },
+  floatingActionStack: {
+    position: 'absolute',
+    right: rs(16),
+    zIndex: 42,
     gap: rvs(12),
   },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rs(12),
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(8),
-    paddingHorizontal: rs(12),
-    height: rvs(34),
-    borderRadius: rs(999),
-  },
-  statusPillOnline: {
-    backgroundColor: palette.greenSoft,
-  },
-  statusPillOffline: {
-    backgroundColor: '#edf2ef',
-  },
-  statusDot: {
-    width: rs(12),
-    height: rs(12),
-    borderRadius: rs(6),
-  },
-  statusPillText: {
-    fontSize: rf(24),
-    fontWeight: '900',
-  },
-  statusTextOnline: {
-    color: palette.greenDark,
-  },
-  statusTextOffline: {
-    color: palette.muted,
-  },
-  title: {
-    color: palette.ink,
-    fontSize: rf(29),
-    fontWeight: '900',
-    lineHeight: rf(36),
-  },
-  subtitle: {
-    color: palette.muted,
-    fontSize: rf(22),
-    fontWeight: '700',
-    lineHeight: rf(30),
-  },
-  heroMetricRow: {
-    flexDirection: 'row',
-    gap: rs(18),
-    paddingTop: rvs(12),
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
-  },
-  metricTile: {
-    flex: 1,
-    padding: 0,
-    gap: rvs(4),
-  },
-  metricIcon: {
-    width: rs(30),
-    height: rs(30),
-    borderRadius: rs(15),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricLabel: {
-    color: palette.muted,
-    fontSize: rf(18),
-    fontWeight: '800',
-  },
-  metricValue: {
-    color: palette.ink,
-    fontSize: rf(22),
-    fontWeight: '900',
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(12),
-    padding: rs(12),
-    borderRadius: rs(14),
-    backgroundColor: palette.greenSoft,
-  },
-  loadingText: {
-    flex: 1,
-    color: palette.greenDark,
-    fontSize: rf(22),
-    fontWeight: '800',
-  },
-  listeningCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(18),
-    padding: rs(22),
-    borderRadius: rs(16),
-    backgroundColor: '#d1f3df',
-  },
-  listeningCardHot: {
-    backgroundColor: '#fff4d9',
-  },
-  listeningCardIdle: {
-    backgroundColor: '#edf2ef',
-  },
-  listeningIcon: {
-    width: rs(72),
-    height: rs(72),
-    borderRadius: rs(36),
-    backgroundColor: '#d8fbec',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#80a9ff',
-  },
-  listeningCopy: {
-    flex: 1,
-    gap: rvs(4),
-  },
-  listeningTitle: {
-    color: palette.ink,
-    fontSize: rf(25),
-    fontWeight: '900',
-  },
-  listeningText: {
-    color: palette.muted,
-    fontSize: rf(21),
-    fontWeight: '700',
-    lineHeight: rf(29),
-  },
-  statGrid: {
-    flexDirection: 'row',
-    gap: rs(16),
-  },
-  statCard: {
-    flex: 1,
-    minHeight: rvs(86),
-    paddingHorizontal: rs(22),
-    paddingVertical: rvs(18),
-    borderRadius: rs(16),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    justifyContent: 'center',
-    gap: rvs(4),
-  },
-  statLabel: {
-    color: palette.muted,
-    fontSize: rf(18),
-    fontWeight: '900',
-  },
-  statValue: {
-    color: palette.ink,
-    fontSize: rf(32),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-  },
-  quickActionGrid: {
-    flexDirection: 'row',
-    gap: rs(14),
-  },
-  quickActionTile: {
-    flex: 1,
-    minHeight: rvs(86),
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: rvs(8),
-    paddingHorizontal: rs(8),
-    paddingVertical: rvs(12),
-    borderRadius: rs(16),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-  },
-  quickActionIcon: {
-    width: rs(50),
-    height: rs(50),
-    borderRadius: rs(25),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#edf8f2',
-  },
-  quickActionLabel: {
-    color: palette.ink,
-    fontSize: rf(17),
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  mapCard: {
-    overflow: 'hidden',
-    borderRadius: rs(16),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-  },
-  mapCanvas: {
-    height: rvs(148),
-    overflow: 'hidden',
-    backgroundColor: '#e8f2ee',
-  },
-  mapPin: {
-    width: rs(54),
-    height: rs(54),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapPinHalo: {
-    position: 'absolute',
-    width: rs(54),
-    height: rs(54),
-    borderRadius: rs(27),
-    backgroundColor: '#dce8ff',
-  },
-  mapPinBubble: {
-    width: rs(42),
-    height: rs(42),
-    borderRadius: rs(21),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.blue,
-    borderWidth: rs(4),
-    borderColor: palette.card,
-  },
-  mapLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(14),
-    padding: rs(22),
-  },
-  mapLocationIcon: {
-    width: rs(38),
-    height: rs(38),
-    borderRadius: rs(19),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapLocationCopy: {
-    flex: 1,
-    gap: rvs(3),
-  },
-  mapLocationTitle: {
-    color: palette.ink,
-    fontSize: rf(24),
-    fontWeight: '800',
-  },
-  mapLocationCoords: {
-    color: '#5f6c64',
-    fontSize: rf(22),
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  locationCard: {
-    padding: rs(24),
-    borderRadius: rs(18),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    gap: rvs(16),
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: rs(16),
-  },
-  sectionIcon: {
+  mapActionButton: {
     width: rs(58),
     height: rs(58),
-    borderRadius: rs(18),
-    backgroundColor: palette.greenSoft,
+    borderRadius: rs(29),
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  requestIcon: {
-    backgroundColor: palette.blueSoft,
-  },
-  sectionCopy: {
-    flex: 1,
-    gap: rvs(4),
-  },
-  sectionTitle: {
-    color: palette.ink,
-    fontSize: rf(28),
-    fontWeight: '900',
-  },
-  sectionSubtitle: {
-    color: palette.muted,
-    fontSize: rf(21),
-    fontWeight: '700',
-    lineHeight: rf(30),
-  },
-  locationBox: {
-    padding: rs(18),
-    borderRadius: rs(14),
-    backgroundColor: '#f6faf8',
-    gap: rvs(8),
-  },
-  locationLabel: {
-    color: palette.muted,
-    fontSize: rf(20),
-    fontWeight: '800',
-  },
-  locationValue: {
-    color: palette.ink,
-    fontSize: rf(24),
-    fontWeight: '900',
-    lineHeight: rf(32),
-  },
-  locationCoords: {
-    color: palette.green,
-    fontSize: rf(22),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-  },
-  trackingBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: rs(14),
-    padding: rs(16),
-    borderRadius: rs(14),
-    backgroundColor: palette.blueSoft,
-  },
-  trackingIcon: {
-    width: rs(48),
-    height: rs(48),
-    borderRadius: rs(18),
-    backgroundColor: palette.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trackingCopy: {
-    flex: 1,
-    gap: rvs(4),
-  },
-  trackingLabel: {
-    color: palette.blue,
-    fontSize: rf(22),
-    fontWeight: '900',
-  },
-  trackingText: {
-    color: '#27446f',
-    fontSize: rf(21),
-    fontWeight: '800',
-    lineHeight: rf(30),
-  },
-  trackingTime: {
-    color: palette.muted,
-    fontSize: rf(20),
-    fontWeight: '800',
-  },
-  requestCard: {
-    padding: rs(24),
-    borderRadius: rs(18),
-    backgroundColor: palette.card,
     borderWidth: 1,
     borderColor: palette.line,
-    gap: rvs(16),
+    ...shadow,
   },
-  incomingBox: {
-    padding: rs(20),
-    borderRadius: rs(16),
-    backgroundColor: '#f8fbff',
-    borderWidth: 1,
-    borderColor: '#dce7ff',
-    gap: rvs(18),
+  mapActionButtonActive: {
+    backgroundColor: palette.amberSoft,
+    borderColor: palette.amber,
   },
-  timerContainer: {
-    marginVertical: rvs(4),
-    backgroundColor: '#fffbeb',
-    borderRadius: rs(8),
-    padding: rs(10),
-    borderColor: '#fef3c7',
-    borderWidth: 1,
-  },
-  timerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(6),
-    marginBottom: rvs(6),
-  },
-  timerText: {
-    fontSize: rf(14),
-    fontWeight: '700',
-    color: palette.amber,
-  },
-  progressBarBg: {
-    height: rvs(6),
-    backgroundColor: '#fef3c7',
-    borderRadius: rs(3),
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: palette.amber,
-    borderRadius: rs(3),
-  },
-  incomingTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rs(12),
-  },
-  incomingLabel: {
-    color: palette.blue,
-    fontSize: rf(20),
+  threeWordActionSymbol: {
+    color: palette.danger,
+    fontSize: rf(22),
     fontWeight: '900',
+    letterSpacing: -1,
   },
-  passengerName: {
-    color: palette.ink,
-    fontSize: rf(36),
-    fontWeight: '900',
-  },
-  fareBadge: {
-    paddingHorizontal: rs(18),
-    paddingVertical: rvs(10),
-    borderRadius: rs(18),
-    backgroundColor: palette.greenSoft,
-  },
-  fareText: {
-    color: palette.greenDark,
-    fontSize: rf(26),
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-  },
-  routeLine: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: rs(14),
-  },
-  routeDot: {
-    width: rs(18),
-    height: rs(18),
-    borderRadius: rs(9),
-    marginTop: rvs(9),
-  },
-  routeCopy: {
-    flex: 1,
-    gap: rvs(3),
-  },
-  routeLabel: {
-    color: palette.muted,
-    fontSize: rf(20),
-    fontWeight: '800',
-  },
-  routeAddress: {
-    color: palette.ink,
-    fontSize: rf(27),
-    fontWeight: '800',
-    lineHeight: rf(36),
-  },
-  requestMetaRow: {
-    flexDirection: 'row',
-    gap: rs(14),
-  },
-  requestMetaText: {
-    color: palette.blue,
-    fontSize: rf(24),
-    fontWeight: '900',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: rs(12),
-  },
-  actionButton: {
-    flex: 1,
-    minHeight: rvs(58),
-    borderRadius: rs(22),
+  floatingPowerButton: {
+    position: 'absolute',
+    left: rs(20),
+    width: rs(68),
+    height: rs(68),
+    borderRadius: rs(34),
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: rs(8),
-    paddingHorizontal: rs(14),
-    paddingVertical: rvs(12),
+    zIndex: 45,
+    ...shadow,
   },
-  acceptButton: {
+  floatingPowerButtonOnline: {
     backgroundColor: palette.green,
+    shadowColor: palette.green,
+    shadowOpacity: 0.45,
   },
-  rejectButton: {
-    backgroundColor: palette.dangerSoft,
-    borderWidth: 1,
-    borderColor: '#ffcaca',
+  floatingPowerButtonOffline: {
+    backgroundColor: '#334155',
   },
-  pressedButton: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
-  },
-  disabledButton: {
-    opacity: 0.7,
-  },
-  actionButtonText: {
-    fontSize: rf(22),
-    fontWeight: '900',
-  },
-  acceptButtonText: {
-    color: palette.card,
-  },
-  rejectButtonText: {
-    color: palette.danger,
-  },
-  acceptedBox: {
-    flexDirection: 'row',
+  driverNavPin: {
+    width: rs(52),
+    height: rs(52),
     alignItems: 'center',
-    gap: rs(10),
-    padding: rs(16),
-    borderRadius: rs(22),
-    backgroundColor: palette.greenSoft,
+    justifyContent: 'center',
   },
-  acceptedText: {
-    flex: 1,
-    color: palette.greenDark,
-    fontSize: rf(22),
-    fontWeight: '800',
-    lineHeight: rf(30),
+  driverNavHalo: {
+    position: 'absolute',
+    width: rs(52),
+    height: rs(52),
+    borderRadius: rs(26),
+    backgroundColor: 'rgba(37, 99, 235, 0.22)',
   },
-  activeTripBox: {
-    gap: rvs(14),
+  driverNavHaloOnline: {
+    backgroundColor: 'rgba(0, 200, 83, 0.24)',
   },
-  tripProgressRail: {
-    padding: rs(16),
-    borderRadius: rs(24),
+  driverNavCircle: {
+    width: rs(34),
+    height: rs(34),
+    borderRadius: rs(17),
+    backgroundColor: palette.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: '#ffffff',
+  },
+  driverNavCircleOnline: {
+    backgroundColor: palette.blue,
+  },
+  threeWordMapPin: {
     backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: '#dce7ff',
-    gap: rvs(10),
+    borderRadius: rs(12),
+    paddingHorizontal: rs(10),
+    paddingVertical: rvs(4),
+    borderWidth: 1.5,
+    borderColor: palette.danger,
   },
-  tripProgressItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(10),
-  },
-  tripProgressDot: {
-    width: rs(16),
-    height: rs(16),
-    borderRadius: rs(8),
-    backgroundColor: '#d6ddd9',
-  },
-  tripProgressDotActive: {
-    backgroundColor: palette.green,
-  },
-  tripProgressLabel: {
-    color: palette.muted,
-    fontSize: rf(22),
-    fontWeight: '800',
-  },
-  tripProgressLabelActive: {
-    color: palette.greenDark,
-  },
-  tripUtilityRow: {
-    flexDirection: 'row',
-    gap: rs(12),
-    marginVertical: rvs(8),
-  },
-  chatUtilityButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(10),
-    paddingHorizontal: rs(14),
-    paddingVertical: rvs(11),
-    borderRadius: rs(14),
-    backgroundColor: palette.greenSoft,
-    borderWidth: 1,
-    borderColor: '#b2f2d9',
-  },
-  chatUtilityCopy: {
-    flex: 1,
-    gap: rvs(2),
-  },
-  chatUtilityTitle: {
-    color: palette.greenDark,
+  threeWordPinSymbol: {
+    color: palette.danger,
     fontSize: rf(16),
     fontWeight: '900',
   },
-  chatUtilitySubtitle: {
-    color: palette.muted,
-    fontSize: rf(12),
-    fontWeight: '600',
-  },
-  utilityButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: rvs(10),
-    borderRadius: rs(10),
-    borderWidth: 1,
-    gap: rs(8),
-  },
-  callButton: {
-    backgroundColor: palette.greenSoft,
-    borderColor: '#b2f2d9',
-  },
-  navButton: {
-    backgroundColor: palette.blueSoft,
-    borderColor: '#cce0ff',
-  },
-  utilityButtonText: {
-    fontSize: rf(14),
-    fontWeight: '700',
-  },
-  callButtonText: {
-    color: palette.green,
-  },
-  navButtonText: {
-    color: palette.blue,
-  },
-  threeWordUtilityBtn: {
-    backgroundColor: palette.blueSoft,
-    borderColor: '#cce0ff',
-  },
-  threeWordUtilityText: {
-    color: palette.blue,
-  },
-  activeTripThreeWordBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: rs(14),
-    paddingVertical: rvs(8),
-    backgroundColor: palette.card,
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
-    gap: rs(8),
-  },
-  activeTripThreeWordCoords: {
-    flex: 1,
-    fontSize: rf(13),
-    color: palette.muted,
-    fontWeight: '700',
-  },
-  closeThreeWordBtn: {
-    padding: rs(4),
-  },
-  statusButton: {
-    minHeight: rvs(62),
-    borderRadius: rs(24),
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: rs(10),
-    paddingHorizontal: rs(18),
-    paddingVertical: rvs(14),
-    backgroundColor: palette.blue,
-  },
-  statusButtonText: {
-    color: palette.card,
-    fontSize: rf(23),
-    fontWeight: '900',
-  },
-  completedTripStack: {
-    gap: rvs(12),
-  },
-  completedTripBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(10),
-    padding: rs(16),
-    borderRadius: rs(22),
-    backgroundColor: '#f0fff7',
-    borderWidth: 1,
-    borderColor: palette.backgroundDeep,
-  },
-  completedTripText: {
-    flex: 1,
-    color: palette.greenDark,
-    fontSize: rf(22),
-    fontWeight: '800',
-    lineHeight: rf(30),
-  },
-  readyButton: {
-    minHeight: rvs(58),
-    borderRadius: rs(22),
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: rs(10),
-    paddingHorizontal: rs(16),
-    paddingVertical: rvs(12),
-    backgroundColor: palette.green,
-  },
-  readyButtonText: {
-    color: palette.card,
-    fontSize: rf(22),
-    fontWeight: '900',
-  },
-  emptyRequestBox: {
-    minHeight: rvs(240),
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: rs(24),
-    borderRadius: rs(30),
-    backgroundColor: '#f6faf8',
-    gap: rvs(12),
-  },
-  emptyTitle: {
-    color: palette.ink,
-    fontSize: rf(34),
-    fontWeight: '900',
-  },
-  emptyText: {
-    color: palette.muted,
-    fontSize: rf(24),
-    fontWeight: '700',
-    lineHeight: rf(34),
-    textAlign: 'center',
-  },
-  notificationCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: rs(16),
-    padding: rs(24),
-    borderRadius: rs(32),
-    backgroundColor: palette.blueSoft,
-  },
-  notificationCopy: {
-    flex: 1,
-    gap: rvs(4),
-  },
-  notificationTitle: {
-    color: palette.blue,
-    fontSize: rf(28),
-    fontWeight: '900',
-  },
-  notificationBody: {
-    color: '#27446f',
-    fontSize: rf(22),
-    fontWeight: '700',
-    lineHeight: rf(30),
-  },
-  bottomNav: {
+  bottomContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    minHeight: rvs(86),
-    paddingHorizontal: rs(22),
-    paddingTop: rvs(12),
-    paddingBottom: rvs(14),
+    zIndex: 40,
+  },
+  onlineIdleCard: {
+    marginHorizontal: rs(14),
+    marginBottom: rvs(10),
+    backgroundColor: '#ffffff',
+    borderRadius: rs(22),
+    paddingHorizontal: rs(18),
+    paddingVertical: rvs(14),
+    ...shadow,
+  },
+  onlineIdleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+  },
+  onlineIdleTitle: {
+    color: palette.ink,
+    fontSize: rf(19),
+    fontWeight: '800',
+    flex: 1,
+  },
+  offlineCard: {
+    marginHorizontal: rs(14),
+    marginBottom: rvs(10),
+    backgroundColor: '#ffffff',
+    borderRadius: rs(22),
+    paddingHorizontal: rs(18),
+    paddingVertical: rvs(14),
+    ...shadow,
+  },
+  offlineContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+  },
+  offlineTitle: {
+    color: palette.muted,
+    fontSize: rf(17),
+    fontWeight: '700',
+    flex: 1,
+  },
+  incomingRequestCard: {
+    marginHorizontal: rs(14),
+    marginBottom: rvs(10),
+    backgroundColor: '#ffffff',
+    borderRadius: rs(28),
+    padding: rs(22),
+    ...shadow,
+  },
+  incomingHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: palette.card,
+    marginBottom: rvs(12),
+  },
+  incomingTitleWrap: {
+    flex: 1,
+  },
+  incomingTitle: {
+    color: palette.muted,
+    fontSize: rf(15),
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  passengerName: {
+    color: palette.ink,
+    fontSize: rf(24),
+    fontWeight: '900',
+  },
+  fareBadge: {
+    backgroundColor: palette.greenSoft,
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(8),
+    borderRadius: rs(16),
+  },
+  fareAmountText: {
+    color: palette.greenDark,
+    fontSize: rf(22),
+    fontWeight: '900',
+  },
+  timerProgressTrack: {
+    height: rvs(6),
+    backgroundColor: '#E2E8F0',
+    borderRadius: rs(3),
+    overflow: 'hidden',
+    marginBottom: rvs(14),
+  },
+  timerProgressBar: {
+    height: '100%',
+    backgroundColor: palette.amber,
+  },
+  routeBox: {
+    gap: rvs(8),
+    marginBottom: rvs(12),
+  },
+  routeItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+  },
+  pickupDot: {
+    width: rs(12),
+    height: rs(12),
+    borderRadius: rs(6),
+    backgroundColor: palette.green,
+  },
+  dropoffDot: {
+    width: rs(12),
+    height: rs(12),
+    borderRadius: rs(6),
+    backgroundColor: palette.danger,
+  },
+  routeAddressText: {
+    flex: 1,
+    color: palette.ink,
+    fontSize: rf(18),
+    fontWeight: '700',
+  },
+  incomingMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: rvs(16),
+  },
+  incomingMetaText: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '600',
+  },
+  incomingTimerText: {
+    color: palette.amber,
+    fontSize: rf(16),
+    fontWeight: '800',
+  },
+  incomingActionRow: {
+    flexDirection: 'row',
+    gap: rs(12),
+  },
+  rejectBtn: {
+    flex: 1,
+    height: rvs(64),
+    borderRadius: rs(18),
+    borderWidth: 1.5,
+    borderColor: palette.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectBtnText: {
+    color: palette.danger,
+    fontSize: rf(20),
+    fontWeight: '800',
+  },
+  acceptBtn: {
+    flex: 2,
+    height: rvs(64),
+    borderRadius: rs(18),
+    backgroundColor: palette.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptBtnText: {
+    color: '#ffffff',
+    fontSize: rf(22),
+    fontWeight: '900',
+  },
+  activeTripCard: {
+    marginHorizontal: rs(14),
+    marginBottom: rvs(10),
+    backgroundColor: '#ffffff',
+    borderRadius: rs(28),
+    paddingHorizontal: rs(22),
+    paddingTop: rvs(14),
+    paddingBottom: rvs(18),
+    ...shadow,
+  },
+  handleBar: {
+    width: rs(44),
+    height: rvs(5),
+    borderRadius: rs(3),
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: rvs(12),
+  },
+  activeTripHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: rvs(14),
+  },
+  passengerInfoWrap: {
+    flex: 1,
+  },
+  activeTripStatusTitle: {
+    color: palette.blue,
+    fontSize: rf(16),
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  activePassengerName: {
+    color: palette.ink,
+    fontSize: rf(24),
+    fontWeight: '900',
+  },
+  activeTripFareWrap: {
+    backgroundColor: palette.greenSoft,
+    borderRadius: rs(14),
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(6),
+  },
+  activeFareText: {
+    color: palette.greenDark,
+    fontSize: rf(20),
+    fontWeight: '900',
+  },
+  activeTripUtilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: rvs(16),
+    gap: rs(8),
+  },
+  utilityBtn: {
+    flex: 1,
+    height: rvs(58),
+    borderRadius: rs(16),
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: palette.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  utilityBtnText: {
+    color: palette.ink,
+    fontSize: rf(13),
+    fontWeight: '700',
+  },
+  utility3WordSymbol: {
+    color: palette.danger,
+    fontSize: rf(16),
+    fontWeight: '900',
+  },
+  chatBadgeDot: {
+    position: 'absolute',
+    top: 6,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: palette.danger,
+  },
+  mainTripActionBtn: {
+    height: rvs(72),
+    borderRadius: rs(20),
+    backgroundColor: palette.blue,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rs(10),
+  },
+  completePaymentBtn: {
+    backgroundColor: palette.green,
+  },
+  mainTripActionText: {
+    color: '#ffffff',
+    fontSize: rf(22),
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  bottomNav: {
+    height: rvs(76),
+    borderTopLeftRadius: rs(20),
+    borderTopRightRadius: rs(20),
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
     borderTopWidth: 1,
     borderTopColor: palette.line,
   },
   navItem: {
-    flex: 1,
-    minHeight: rvs(62),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: rvs(4),
-    borderRadius: rs(999),
+    minWidth: rs(80),
   },
-  navItemActive: {
-    backgroundColor: palette.mint,
-  },
-  navLabel: {
-    color: palette.muted,
-    fontSize: rf(16),
-    fontWeight: '900',
-  },
-  navLabelActive: {
-    color: palette.greenDark,
-  },
-  routingMapFrame: {
-    height: rvs(420),
-    borderRadius: rs(20),
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: palette.line,
-    marginTop: rvs(12),
-    marginBottom: rvs(8),
-    backgroundColor: '#eef3f0',
-  },
-  driverMapPin: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: rs(40),
-    height: rs(40),
-  },
-  driverMapPinHalo: {
-    position: 'absolute',
-    width: rs(32),
-    height: rs(32),
-    borderRadius: rs(16),
-    backgroundColor: palette.blueSoft,
-    opacity: 0.6,
-  },
-  driverMapPinBubble: {
-    width: rs(24),
-    height: rs(24),
-    borderRadius: rs(12),
-    backgroundColor: palette.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: palette.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  threeWordTriggerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: rs(8),
-    height: rvs(48),
-    borderRadius: rs(16),
-    backgroundColor: palette.blue,
-    marginTop: rvs(8),
-    marginBottom: rvs(4),
-  },
-  threeWordTriggerText: {
-    color: '#ffffff',
-    fontSize: rf(18),
-    fontWeight: '800',
-  },
-  threeWordResultCard: {
-    backgroundColor: palette.blueSoft,
-    borderRadius: rs(16),
-    padding: rs(14),
-    marginTop: rvs(8),
-    gap: rvs(8),
-    borderWidth: 1,
-    borderColor: '#bcd6ff',
-  },
-  threeWordResultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  threeWordTagPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(4),
-    backgroundColor: palette.blue,
-    paddingHorizontal: rs(12),
-    paddingVertical: rvs(4),
-    borderRadius: rs(12),
-  },
-  threeWordTagSymbol: {
-    color: '#ff4b4b',
-    fontSize: rf(16),
-    fontWeight: '900',
-  },
-  threeWordTagAddress: {
-    color: '#ffffff',
-    fontSize: rf(16),
-    fontWeight: '800',
-  },
-  threeWordResultBadge: {
-    color: palette.blue,
+  navText: {
+    color: '#64748B',
     fontSize: rf(14),
-    fontWeight: '800',
-  },
-  threeWordResultCoords: {
-    color: palette.ink,
-    fontSize: rf(15),
     fontWeight: '600',
+    marginTop: 2,
   },
-  threeWordResultActions: {
-    flexDirection: 'row',
-    gap: rs(10),
-    marginTop: rvs(4),
-  },
-  useLocationBtn: {
-    flex: 1,
-    height: rvs(38),
-    borderRadius: rs(10),
-    backgroundColor: palette.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  useLocationBtnText: {
-    color: '#ffffff',
-    fontSize: rf(15),
+  navTextActive: {
+    color: palette.green,
     fontWeight: '800',
-  },
-  closePreviewBtn: {
-    paddingHorizontal: rs(14),
-    height: rvs(38),
-    borderRadius: rs(10),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closePreviewBtnText: {
-    color: palette.muted,
-    fontSize: rf(15),
-    fontWeight: '700',
-  },
-  threeWordMapPin: {
-    width: rs(42),
-    height: rs(42),
-    borderRadius: rs(21),
-    backgroundColor: palette.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  threeWordPinSymbol: {
-    color: '#ff4b4b',
-    fontSize: rf(18),
-    fontWeight: '900',
-  },
-  clearPreviewIconBtn: {
-    padding: rs(4),
   },
 });

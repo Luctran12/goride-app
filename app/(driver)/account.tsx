@@ -4,49 +4,66 @@ import { getDriverProfile, type DriverProfileResponse } from '@/lib/driver-api';
 import { setMockDriverApproved } from '@/lib/mock-driver-api';
 import { getMyProfile, type UserProfile } from '@/lib/user-api';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  useWindowDimensions,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DriverBottomNav } from '@/components/driver/driver-bottom-nav';
+import { CustomAlertModal, type CustomAlertOptions } from '@/components/ui/custom-alert-modal';
 import { LanguageSelectorModal } from '@/components/ui/language-toggle';
 import { rf, rs, rvs } from '@/constants/responsive';
 import { useLanguage } from '@/lib/i18n';
 
 const palette = {
-  background: '#f7faf8',
+  background: '#F8FAFC',
   card: '#ffffff',
-  ink: '#08110d',
-  muted: '#637069',
-  line: '#e2e8f0',
-  green: '#00c853',
-  greenDark: '#053f2a',
-  greenSoft: '#e8fcdb',
-  mint: '#6df0a7',
-  blue: '#1664ff',
-  blueInk: '#050063',
-  blueSoft: '#edf4ff',
-  amber: '#f59e0b',
-  danger: '#ef4444',
-  dangerSoft: '#fee2e2',
+  ink: '#0F172A',
+  muted: '#64748B',
+  line: '#E2E8F0',
+  green: '#00C853',
+  greenDark: '#044D29',
+  greenSoft: '#E8FADF',
+  blue: '#2563EB',
+  blueSoft: '#EFF6FF',
+  amber: '#F59E0B',
+  amberSoft: '#FEF3C7',
+  danger: '#EF4444',
+  dangerSoft: '#FEE2E2',
+};
+
+const shadow = {
+  shadowColor: '#0F172A',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.07,
+  shadowRadius: 14,
+  elevation: 4,
 };
 
 export default function DriverAccountScreen() {
   const router = useRouter();
-  const { height } = useWindowDimensions();
   const { t, language } = useLanguage();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<Omit<CustomAlertOptions, 'visible' | 'onClose'> & { visible: boolean }>({
+    visible: false,
+    title: '',
+  });
+
+  const showAlert = useCallback((options: Omit<CustomAlertOptions, 'visible' | 'onClose'>) => {
+    setAlertConfig({ visible: true, ...options });
+  }, []);
+
+  const closeAlert = useCallback(() => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  }, []);
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
@@ -72,7 +89,12 @@ export default function DriverAccountScreen() {
 
   async function handleQuickApprove() {
     setMockDriverApproved(true);
-    Alert.alert(t('driverAccount.successTitle'), t('driverAccount.quickApproveMsg'));
+    showAlert({
+      type: 'success',
+      title: t('driverAccount.successTitle'),
+      message: t('driverAccount.quickApproveMsg'),
+      confirmText: t('common.understood', 'OK'),
+    });
     loadData();
   }
 
@@ -84,125 +106,230 @@ export default function DriverAccountScreen() {
     );
   }
 
-  const documents = [
-    {
-      id: 'license',
-      title: `GPLX (${driverProfile?.licenseNumber ?? t('driverAccount.unknown')})`,
-      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? t('driverAccount.unknown'),
-      status: driverProfile?.approvalStatus === 'APPROVED' ? t('driverAccount.approvedTitle') : driverProfile?.approvalStatus === 'PENDING' ? t('driverAccount.pendingTitle') : t('driverAccount.rejectedTitle')
-    },
-    {
-      id: 'identity',
-      title: `CCCD (${driverProfile?.idCardNumber ?? t('driverAccount.unknown')})`,
-      updatedAt: driverProfile?.updatedAt?.split('T')[0] ?? t('driverAccount.unknown'),
-      status: driverProfile?.approvalStatus === 'APPROVED' ? t('driverAccount.approvedTitle') : driverProfile?.approvalStatus === 'PENDING' ? t('driverAccount.pendingTitle') : t('driverAccount.rejectedTitle')
-    },
-  ];
+  const isApproved = driverProfile?.approvalStatus === 'APPROVED';
+  const isPending = driverProfile?.approvalStatus === 'PENDING';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.container, { minHeight: height }]}
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <View style={styles.headerTitleWrap}>
-            <Image source={{ uri: userProfile?.avatarUrl ?? 'https://i.pravatar.cc/160?img=12' }} style={styles.headerAvatar} contentFit="cover" />
-            <Text style={styles.headerTitle}>{t('driverAccount.title')}</Text>
-          </View>
 
-          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.iconButton, pressed ? styles.pressedButton : null]}>
-            <MaterialCommunityIcons name="cog-outline" size={rs(34)} color={palette.blueInk} />
-          </Pressable>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t('driverAccount.title')}</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* 1. DRIVER PROFILE HEADER (NO AVATAR, BOLD & BIG FONTS) */}
+        <View style={styles.profileHeaderCard}>
+          <View style={styles.profileInfoWrap}>
+            <View style={styles.nameBadgeRow}>
+              <Text style={styles.driverName}>
+                {userProfile?.fullName || (driverProfile ? `Tài xế GoRide #${driverProfile.id}` : t('driver.gorideDriver'))}
+              </Text>
+              <View style={styles.verifiedChip}>
+                <MaterialCommunityIcons name="check-decagram" size={rs(18)} color={palette.green} />
+                <Text style={styles.verifiedText}>{t('driverAccount.partnerBadge')}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.contactText}>
+              {userProfile?.phone || driverProfile?.idCardNumber || t('driverAccount.noPhone')}
+            </Text>
+
+            <View style={styles.statusRow}>
+              <View
+                style={[
+                  styles.approvalStatusPill,
+                  isApproved
+                    ? styles.statusPillApproved
+                    : isPending
+                      ? styles.statusPillPending
+                      : styles.statusPillRejected,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor: isApproved
+                        ? palette.green
+                        : isPending
+                          ? palette.amber
+                          : palette.danger,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    {
+                      color: isApproved
+                        ? palette.greenDark
+                        : isPending
+                          ? '#92400E'
+                          : palette.danger,
+                    },
+                  ]}
+                >
+                  {isApproved
+                    ? t('driverAccount.approvedStatus')
+                    : isPending
+                      ? t('driverAccount.pendingStatus')
+                      : t('driverAccount.rejectedStatus')}
+                </Text>
+              </View>
+
+              <View style={styles.ratingBadge}>
+                <MaterialCommunityIcons name="star" size={rs(18)} color={palette.amber} />
+                <Text style={styles.ratingText}>4.9</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.approvalCard}>
-          <View style={styles.approvalTitleRow}>
-            <MaterialCommunityIcons
-              name={driverProfile?.approvalStatus === 'APPROVED' ? 'check-decagram' : driverProfile?.approvalStatus === 'PENDING' ? 'clock-outline' : 'alert-circle-outline'}
-              size={rs(24)}
-              color={driverProfile?.approvalStatus === 'APPROVED' ? palette.green : driverProfile?.approvalStatus === 'PENDING' ? palette.amber : palette.danger}
-            />
-            <Text style={[styles.approvalTitle, driverProfile?.approvalStatus === 'PENDING' && { color: palette.amber }, driverProfile?.approvalStatus === 'REJECTED' && { color: palette.danger }]}>
-              {driverProfile?.approvalStatus === 'APPROVED' ? t('driverAccount.approvedTitle') : driverProfile?.approvalStatus === 'PENDING' ? t('driverAccount.pendingTitle') : t('driverAccount.rejectedTitle')}
+        {/* 2. STATS ROW */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>4.9</Text>
+            <Text style={styles.statLabel}>{t('driverAccount.statsRating')}</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>100%</Text>
+            <Text style={styles.statLabel}>{t('driverEarnings.acceptanceRateLabel')}</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>
+              {driverProfile?.createdAt
+                ? new Date(driverProfile.createdAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', {
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : '2026'}
+            </Text>
+            <Text style={styles.statLabel}>{t('driverAccount.joined')}</Text>
+          </View>
+        </View>
+
+        {/* 3. VEHICLE INFORMATION CARD */}
+        <View style={styles.cardSection}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="motorbike" size={rs(26)} color={palette.ink} />
+            <Text style={styles.cardTitle}>{t('driverAccount.vehicleInfoTitle')}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t('driverAccount.vehiclePlate')}</Text>
+            <View style={styles.plateBadge}>
+              <Text style={styles.plateText}>{driverProfile?.vehiclePlate || '59-X3 888.88'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t('driverAccount.vehicleType')}</Text>
+            <Text style={styles.infoValue}>
+              {driverProfile?.vehicleType === 'MOTORBIKE'
+                ? t('driverAccount.motorbike')
+                : driverProfile?.vehicleType === 'CAR_4_SEAT'
+                  ? t('driverAccount.car4')
+                  : t('driverAccount.car7')}
             </Text>
           </View>
-          <Text style={styles.approvalText}>
-            {driverProfile?.approvalStatus === 'APPROVED'
-              ? t('driverAccount.approvedMsg')
-              : driverProfile?.approvalStatus === 'PENDING'
-              ? t('driverAccount.pendingMsg')
-              : t('driverAccount.rejectedMsg')}
-          </Text>
-          {USE_MOCK_API && driverProfile?.approvalStatus === 'PENDING' ? (
-            <Pressable
-              onPress={handleQuickApprove}
-              style={({ pressed }) => [styles.quickApproveButton, pressed && styles.pressedButton]}
-            >
-              <MaterialCommunityIcons name="check-decagram" size={rs(20)} color="#ffffff" />
-              <Text style={styles.quickApproveText}>{t('driverAccount.quickApproveBtn')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
 
-        <View style={styles.profileCard}>
-          <Image source={{ uri: userProfile?.avatarUrl ?? 'https://i.pravatar.cc/160?img=12' }} style={styles.profileAvatar} contentFit="cover" />
-          <View style={styles.profileCopy}>
-            <Text selectable style={styles.profileName}>{userProfile?.fullName ?? t('driverAccount.notUpdated')}</Text>
-            <Text selectable style={styles.profilePhone}>{userProfile?.phone ?? t('driverAccount.notUpdated')}</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t('driverAccount.vehicleModel')}</Text>
+            <Text style={styles.infoValue}>
+              {driverProfile?.vehicleBrand} {driverProfile?.vehicleModel || 'Honda Air Blade'}
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t('driverAccount.yearAndColor')}</Text>
+            <Text style={styles.infoValue}>
+              {driverProfile?.vehicleYear || '2023'} · {driverProfile?.vehicleColor || 'Black'}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.statsRow}>
-          <StatCard value={(userProfile?.averageRating ?? 5.0).toFixed(1)} label={t('driverAccount.statsRating')} showStar />
-          <StatCard value={(userProfile?.tripCount ?? userProfile?.totalTrips ?? 0).toString()} label={t('driverAccount.statsTotalTrips')} />
+        {/* 4. PERSONAL DOCUMENTS CARD */}
+        <View style={styles.cardSection}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="card-account-details-outline" size={rs(26)} color={palette.ink} />
+            <Text style={styles.cardTitle}>{t('driverAccount.documentsTitle')}</Text>
+          </View>
+
+          <View style={styles.docItemRow}>
+            <View style={styles.docIconWrap}>
+              <MaterialCommunityIcons name="card-text-outline" size={rs(24)} color={palette.blue} />
+            </View>
+            <View style={styles.docInfoWrap}>
+              <Text style={styles.docTitle}>GPLX ({driverProfile?.licenseNumber || '079099888777'})</Text>
+              <Text style={styles.docSubtitle}>
+                {t('driverAccount.expiry', { expiry: driverProfile?.licenseExpiry || t('driverAccount.noExpiry') })}
+              </Text>
+            </View>
+            <View style={[styles.docStatusBadge, isApproved ? styles.statusPillApproved : styles.statusPillPending]}>
+              <Text style={[styles.docStatusText, isApproved ? { color: palette.greenDark } : { color: '#92400E' }]}>
+                {isApproved ? t('driverAccount.approvedStatus') : t('driverAccount.pendingStatus')}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.docItemRow}>
+            <View style={styles.docIconWrap}>
+              <MaterialCommunityIcons name="shield-account-outline" size={rs(24)} color={palette.green} />
+            </View>
+            <View style={styles.docInfoWrap}>
+              <Text style={styles.docTitle}>CCCD ({driverProfile?.idCardNumber || '079099888777'})</Text>
+              <Text style={styles.docSubtitle}>{t('driverAccount.idCardSubtitle')}</Text>
+            </View>
+            <View style={[styles.docStatusBadge, isApproved ? styles.statusPillApproved : styles.statusPillPending]}>
+              <Text style={[styles.docStatusText, isApproved ? { color: palette.greenDark } : { color: '#92400E' }]}>
+                {isApproved ? t('driverAccount.approvedStatus') : t('driverAccount.pendingStatus')}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.infoCard}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="motorbike" size={rs(25)} color={palette.blueInk} />
-            <Text style={styles.sectionTitle}>{t('driverAccount.vehicleInfoTitle')}</Text>
+        {/* 5. APP SETTINGS & PREFERENCES */}
+        <View style={styles.cardSection}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="cog-outline" size={rs(26)} color={palette.ink} />
+            <Text style={styles.cardTitle}>{t('driverAccount.appSettings')}</Text>
           </View>
-          <InfoRow label={t('driverAccount.vehicleType')} value={driverProfile?.vehicleType === 'MOTORBIKE' ? t('driverAccount.motorbike') : driverProfile?.vehicleType === 'CAR_4_SEAT' ? t('driverAccount.car4') : driverProfile?.vehicleType === 'CAR_7_SEAT' ? t('driverAccount.car7') : t('driverAccount.unknown')} />
-          <InfoRow label={t('driverAccount.vehicleModel')} value={`${driverProfile?.vehicleBrand ?? ''} ${driverProfile?.vehicleModel ?? t('driverAccount.unknown')}`.trim()} />
-          <InfoRow label={t('driverAccount.vehiclePlate')} value={driverProfile?.vehiclePlate ?? t('driverAccount.unknown')} badge />
-        </View>
 
-        <View style={styles.infoCard}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="file-document-outline" size={rs(25)} color={palette.blueInk} />
-            <Text style={styles.sectionTitle}>{t('driverAccount.documentsTitle')}</Text>
-          </View>
-          {documents.map((document, index) => (
-            <DocumentRow
-              key={document.id}
-              title={document.title}
-              updatedAt={document.updatedAt}
-              status={document.status}
-              divided={index > 0}
-            />
-          ))}
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="translate" size={rs(25)} color={palette.blueInk} />
-            <Text style={styles.sectionTitle}>{t('common.language')}</Text>
-          </View>
-          <Pressable 
+          <TouchableOpacity
+            style={styles.settingRow}
             onPress={() => setLanguageModalVisible(true)}
-            style={({ pressed }) => [styles.infoRow, pressed ? styles.pressedButton : null, { borderTopWidth: 0, minHeight: rvs(40) }]}
           >
-            <Text style={styles.infoLabel}>{language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={rs(20)} color={palette.muted} />
-          </Pressable>
+            <View style={styles.settingLabelWrap}>
+              <MaterialCommunityIcons name="translate" size={rs(22)} color={palette.ink} />
+              <Text style={styles.settingLabelText}>{t('common.language')}</Text>
+            </View>
+            <View style={styles.settingValueWrap}>
+              <Text style={styles.settingValueText}>
+                {language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={rs(20)} color={palette.muted} />
+            </View>
+          </TouchableOpacity>
+
+          {USE_MOCK_API && (
+            <TouchableOpacity style={styles.settingRow} onPress={handleQuickApprove}>
+              <View style={styles.settingLabelWrap}>
+                <MaterialCommunityIcons name="lightning-bolt" size={rs(22)} color={palette.amber} />
+                <Text style={styles.settingLabelText}>{t('driverAccount.quickApproveBtn')}</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={rs(20)} color={palette.muted} />
+            </TouchableOpacity>
+          )}
         </View>
 
-        <Pressable
-          accessibilityRole="button"
+        {/* 6. LOGOUT BUTTON */}
+        <TouchableOpacity
+          activeOpacity={0.84}
+          style={styles.logoutBtn}
           onPress={async () => {
             try {
               await logout();
@@ -211,421 +338,295 @@ export default function DriverAccountScreen() {
               console.error('Logout error:', error);
             }
           }}
-          style={({ pressed }) => [styles.logoutButton, pressed ? styles.pressedButton : null]}
         >
           <MaterialCommunityIcons name="logout" size={rs(24)} color={palette.danger} />
-          <Text style={styles.logoutText}>{t('driverAccount.logout')}</Text>
-        </Pressable>
+          <Text style={styles.logoutBtnText}>{t('driverAccount.logout')}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
-      <LanguageSelectorModal visible={languageModalVisible} onClose={() => setLanguageModalVisible(false)} />
+      {/* LANGUAGE SELECTOR MODAL */}
+      <LanguageSelectorModal
+        visible={languageModalVisible}
+        onClose={() => setLanguageModalVisible(false)}
+      />
 
-      <View style={styles.bottomNav}>
-        <DriverNavItem icon="home-variant-outline" label="Home" onPress={() => router.push('/(driver)')} />
-        <DriverNavItem icon="cash-multiple" label="Earnings" onPress={() => router.push('./earnings')} />
-        <DriverNavItem icon="history" label="Activity" onPress={() => router.push('./activity')} />
-        <DriverNavItem icon="account" label="Account" active />
-      </View>
+      {/* STANDARDIZED DRIVER BOTTOM NAVIGATION */}
+      <DriverBottomNav currentTab="account" />
+
+      {/* CUSTOM ALERT MODAL */}
+      <CustomAlertModal {...alertConfig} onClose={closeAlert} />
     </SafeAreaView>
   );
 }
 
-function StatCard({ value, label, showStar = false }: { value: string; label: string; showStar?: boolean }) {
-  return (
-    <View style={styles.statCard}>
-      <View style={styles.statValueRow}>
-        <Text selectable style={styles.statValue}>{value}</Text>
-        {showStar ? <MaterialCommunityIcons name="star" size={rs(24)} color={palette.amber} /> : null}
-      </View>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function InfoRow({ label, value, badge = false }: { label: string; value: string; badge?: boolean }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      {badge ? (
-        <View style={styles.plateBadge}>
-          <Text selectable style={styles.plateText}>{value}</Text>
-        </View>
-      ) : (
-        <Text selectable style={styles.infoValue}>{value}</Text>
-      )}
-    </View>
-  );
-}
-
-function DocumentRow({
-  title,
-  updatedAt,
-  status,
-  divided = false,
-}: {
-  title: string;
-  updatedAt: string;
-  status: string;
-  divided?: boolean;
-}) {
-  const { t } = useLanguage();
-  return (
-    <View style={[styles.documentRow, divided ? styles.documentRowDivided : null]}>
-      <View style={styles.documentCopy}>
-        <Text style={styles.documentTitle}>{title}</Text>
-        <Text style={styles.documentDate}>{t('driverAccount.updatedAt', { updatedAt })}</Text>
-      </View>
-      <View style={styles.documentStatus}>
-        <MaterialCommunityIcons name="check-decagram" size={rs(16)} color={palette.greenDark} />
-        <Text style={styles.documentStatusText}>{status}</Text>
-      </View>
-    </View>
-  );
-}
-
-function DriverNavItem({
-  icon,
-  label,
-  active = false,
-  onPress,
-}: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  active?: boolean;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.navItem, active ? styles.navItemActive : null, pressed ? styles.pressedButton : null]}
-    >
-      <MaterialCommunityIcons name={icon} size={rs(28)} color={active ? palette.greenDark : palette.muted} />
-      <Text style={[styles.navLabel, active ? styles.navLabelActive : null]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  quickApproveButton: {
-    marginTop: rvs(10),
-    minHeight: rvs(38),
-    backgroundColor: palette.green,
-    borderRadius: rs(8),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: rs(6),
-    paddingHorizontal: rs(12),
-  },
-  quickApproveText: {
-    color: '#ffffff',
-    fontSize: rf(14),
-    fontWeight: '800',
-  },
   safeArea: {
     flex: 1,
     backgroundColor: palette.background,
   },
-  scroll: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
-  container: {
-    flexGrow: 1,
-    paddingHorizontal: rs(24),
-    paddingTop: rvs(12),
-    paddingBottom: rvs(124),
-    gap: rvs(16),
-  },
   header: {
-    minHeight: rvs(48),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rs(12),
-  },
-  headerTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(10),
-  },
-  headerAvatar: {
-    width: rs(38),
-    height: rs(38),
-    borderRadius: rs(19),
+    paddingHorizontal: rs(20),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(16),
     backgroundColor: palette.card,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
   },
   headerTitle: {
-    color: palette.blueInk,
-    fontSize: rf(27),
-    lineHeight: rf(34),
-    fontWeight: '900',
-  },
-  iconButton: {
-    width: rs(44),
-    height: rs(44),
-    borderRadius: rs(22),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  approvalCard: {
-    marginTop: rvs(24),
-    borderRadius: rs(12),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    paddingHorizontal: rs(22),
-    paddingVertical: rvs(18),
-    gap: rvs(8),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
-  },
-  approvalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(10),
-  },
-  approvalTitle: {
-    color: palette.green,
-    fontSize: rf(21),
-    lineHeight: rf(28),
-    fontWeight: '900',
-  },
-  approvalText: {
-    color: palette.muted,
-    fontSize: rf(17),
-    lineHeight: rf(24),
-    fontWeight: '700',
-  },
-  profileCard: {
-    minHeight: rvs(102),
-    borderRadius: rs(12),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    paddingHorizontal: rs(22),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(18),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
-  },
-  profileAvatar: {
-    width: rs(58),
-    height: rs(58),
-    borderRadius: rs(12),
-    backgroundColor: '#d9e8df',
-  },
-  profileCopy: {
-    flex: 1,
-    gap: rvs(2),
-  },
-  profileName: {
-    color: palette.ink,
-    fontSize: rf(24),
-    lineHeight: rf(31),
-    fontWeight: '900',
-  },
-  profilePhone: {
-    color: palette.blueInk,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: rs(14),
-  },
-  statCard: {
-    flex: 1,
-    minHeight: rvs(84),
-    borderRadius: rs(12),
-    backgroundColor: palette.card,
-    borderWidth: 1,
-    borderColor: palette.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: rvs(2),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
-  },
-  statValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statValue: {
     color: palette.ink,
     fontSize: rf(28),
-    lineHeight: rf(35),
     fontWeight: '900',
-    fontVariant: ['tabular-nums'],
   },
-  statLabel: {
-    color: palette.muted,
-    fontSize: rf(14),
-    lineHeight: rf(20),
-    fontWeight: '900',
-    textTransform: 'uppercase',
+  scrollContent: {
+    paddingHorizontal: rs(18),
+    paddingTop: rvs(18),
+    paddingBottom: rvs(36),
+    gap: rvs(18),
   },
-  infoCard: {
-    borderRadius: rs(12),
+  profileHeaderCard: {
     backgroundColor: palette.card,
+    borderRadius: rs(24),
+    padding: rs(22),
     borderWidth: 1,
     borderColor: palette.line,
-    paddingHorizontal: rs(20),
-    paddingTop: rvs(18),
-    paddingBottom: rvs(6),
-    boxShadow: '0 6px 18px rgba(7, 24, 15, 0.05)',
+    ...shadow,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(9),
-    paddingBottom: rvs(12),
+  profileInfoWrap: {
+    gap: rvs(8),
   },
-  sectionTitle: {
-    color: palette.ink,
-    fontSize: rf(20),
-    lineHeight: rf(27),
-    fontWeight: '900',
-  },
-  infoRow: {
-    minHeight: rvs(48),
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
+  nameBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: rs(12),
   },
-  infoLabel: {
-    color: palette.muted,
-    fontSize: rf(15),
-    lineHeight: rf(21),
-    fontWeight: '700',
-  },
-  infoValue: {
-    flex: 1,
+  driverName: {
     color: palette.ink,
-    fontSize: rf(16),
-    lineHeight: rf(22),
-    fontWeight: '800',
-    textAlign: 'right',
-  },
-  plateBadge: {
-    minHeight: rvs(30),
-    borderRadius: rs(8),
-    backgroundColor: '#eef3f1',
-    borderWidth: 1,
-    borderColor: '#d3ddd8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: rs(10),
-  },
-  plateText: {
-    color: palette.blueInk,
-    fontSize: rf(15),
-    lineHeight: rf(20),
+    fontSize: rf(26),
     fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-  },
-  documentRow: {
-    minHeight: rvs(68),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: rs(14),
-  },
-  documentRowDivided: {
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
-  },
-  documentCopy: {
     flex: 1,
-    gap: rvs(2),
   },
-  documentTitle: {
-    color: palette.ink,
-    fontSize: rf(17),
-    lineHeight: rf(23),
-    fontWeight: '900',
-  },
-  documentDate: {
-    color: palette.muted,
-    fontSize: rf(14),
-    lineHeight: rf(20),
-    fontWeight: '700',
-  },
-  documentStatus: {
-    minHeight: rvs(26),
-    borderRadius: rs(999),
-    paddingHorizontal: rs(10),
+  verifiedChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rs(4),
     backgroundColor: palette.greenSoft,
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(5),
+    borderRadius: rs(14),
   },
-  documentStatusText: {
+  verifiedText: {
     color: palette.greenDark,
-    fontSize: rf(13),
-    lineHeight: rf(18),
-    fontWeight: '900',
+    fontSize: rf(14),
+    fontWeight: '800',
   },
-  logoutButton: {
-    minHeight: rvs(52),
-    borderRadius: rs(10),
-    borderWidth: 1.5,
-    borderColor: palette.danger,
-    backgroundColor: 'transparent',
+  contactText: {
+    color: palette.muted,
+    fontSize: rf(16),
+    fontWeight: '600',
+  },
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: rs(8),
+    gap: rs(10),
+    marginTop: rvs(6),
   },
-  logoutText: {
-    color: palette.danger,
-    fontSize: rf(17),
-    lineHeight: rf(23),
+  approvalStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+    paddingHorizontal: rs(14),
+    paddingVertical: rvs(6),
+    borderRadius: rs(14),
+  },
+  statusPillApproved: {
+    backgroundColor: palette.greenSoft,
+  },
+  statusPillPending: {
+    backgroundColor: palette.amberSoft,
+  },
+  statusPillRejected: {
+    backgroundColor: palette.dangerSoft,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  statusPillText: {
+    fontSize: rf(14),
+    fontWeight: '800',
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(4),
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(6),
+    borderRadius: rs(14),
+  },
+  ratingText: {
+    color: palette.ink,
+    fontSize: rf(15),
+    fontWeight: '800',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: rs(12),
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: palette.card,
+    borderRadius: rs(18),
+    padding: rs(16),
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: palette.line,
+    ...shadow,
+  },
+  statNumber: {
+    color: palette.ink,
+    fontSize: rf(22),
     fontWeight: '900',
   },
-  bottomNav: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    minHeight: rvs(86),
-    paddingHorizontal: rs(22),
-    paddingTop: rvs(12),
-    paddingBottom: rvs(14),
+  statLabel: {
+    color: palette.muted,
+    fontSize: rf(13),
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  cardSection: {
+    backgroundColor: palette.card,
+    borderRadius: rs(22),
+    padding: rs(20),
+    borderWidth: 1,
+    borderColor: palette.line,
+    ...shadow,
+    gap: rvs(14),
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+    paddingBottom: rvs(8),
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
+  },
+  cardTitle: {
+    color: palette.ink,
+    fontSize: rf(18),
+    fontWeight: '900',
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: palette.card,
-    borderTopWidth: 1,
-    borderTopColor: palette.line,
   },
-  navItem: {
-    flex: 1,
-    minHeight: rvs(62),
+  infoLabel: {
+    color: palette.muted,
+    fontSize: rf(15),
+    fontWeight: '600',
+  },
+  infoValue: {
+    color: palette.ink,
+    fontSize: rf(16),
+    fontWeight: '700',
+  },
+  plateBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(5),
+    borderRadius: rs(10),
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  plateText: {
+    color: palette.ink,
+    fontSize: rf(16),
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  docItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(14),
+    backgroundColor: '#F8FAFC',
+    padding: rs(14),
+    borderRadius: rs(16),
+  },
+  docIconWrap: {
+    width: rs(46),
+    height: rs(46),
+    borderRadius: rs(23),
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: rvs(4),
-    borderRadius: rs(999),
+    ...shadow,
   },
-  navItemActive: {
-    backgroundColor: palette.mint,
+  docInfoWrap: {
+    flex: 1,
   },
-  navLabel: {
-    color: palette.muted,
+  docTitle: {
+    color: palette.ink,
     fontSize: rf(16),
-    lineHeight: rf(22),
+    fontWeight: '800',
+  },
+  docSubtitle: {
+    color: palette.muted,
+    fontSize: rf(13),
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  docStatusBadge: {
+    paddingHorizontal: rs(10),
+    paddingVertical: rvs(5),
+    borderRadius: rs(12),
+  },
+  docStatusText: {
+    fontSize: rf(13),
+    fontWeight: '800',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: rvs(6),
+  },
+  settingLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(10),
+  },
+  settingLabelText: {
+    color: palette.ink,
+    fontSize: rf(16),
+    fontWeight: '700',
+  },
+  settingValueWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rs(6),
+  },
+  settingValueText: {
+    color: palette.muted,
+    fontSize: rf(15),
+    fontWeight: '600',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rs(10),
+    backgroundColor: palette.dangerSoft,
+    borderRadius: rs(20),
+    paddingVertical: rvs(18),
+    marginTop: rvs(8),
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  logoutBtnText: {
+    color: palette.danger,
+    fontSize: rf(17),
     fontWeight: '900',
-  },
-  navLabelActive: {
-    color: palette.greenDark,
-  },
-  pressedButton: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
   },
 });

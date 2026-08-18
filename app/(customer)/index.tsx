@@ -3,8 +3,8 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useLanguage } from '@/lib/i18n';
+import { getMyProfile, type UserProfile } from '@/lib/user-api';
 import {
-  Image,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -40,6 +40,24 @@ const shadow = {
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const [profile, setProfile] = React.useState<UserProfile | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    getMyProfile()
+      .then((data) => {
+        if (isMounted && data) {
+          setProfile(data);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const displayName = profile?.fullName || profile?.phone || 'Thiện';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -50,18 +68,9 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.header}>
-          <View style={styles.profile}>
-            <View style={styles.avatarWrapper}>
-              <Image
-                source={{ uri: 'https://i.pravatar.cc/160?img=11' }}
-                style={styles.avatar}
-              />
-              <View style={styles.onlineBadge} />
-            </View>
-            <View style={styles.profileText}>
-              <Text style={styles.hello}>{t('customer.greeting')}</Text>
-              <Text style={styles.name}>Thiện</Text>
-            </View>
+          <View style={styles.profileText}>
+            <Text style={styles.hello}>{t('customer.greeting')}</Text>
+            <Text style={styles.name}>{displayName}</Text>
           </View>
 
           <TouchableOpacity activeOpacity={0.82} style={styles.bellButton}>
@@ -158,18 +167,18 @@ export default function HomeScreen() {
 
       <View style={styles.bottomNav}>
         <TouchableOpacity activeOpacity={0.84} style={styles.navActive}>
-          <Feather name="home" size={rs(30)} color={palette.card} />
-          <Text style={styles.navActiveText}>{t('customer.navHome')}</Text>
+          <MaterialCommunityIcons name="home-outline" size={rs(34)} color="#9a8fee" />
+          <Text style={styles.navActiveText}>Home</Text>
         </TouchableOpacity>
-        <NavItem icon="history" label={t('customer.navActivity')} onPress={() => router.push('/(customer)/activity')} />
+        <NavItem icon="history" label="Activity" onPress={() => router.push('/(customer)/activity')} />
         <NavItem
-          icon="wallet-outline"
-          label={t('customer.navBilling')}
+          icon="cash-multiple"
+          label="Payment"
           onPress={() => router.push('/(customer)/billing')}
         />
         <NavItem
           icon="account-outline"
-          label={t('customer.navAccount')}
+          label="Profile"
           onPress={() => router.push('/(customer)/profile')}
         />
       </View>
@@ -260,32 +269,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  profile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarWrapper: {
-    position: 'relative',
-    marginRight: rs(20),
-  },
-  avatar: {
-    width: rs(84),
-    height: rs(84),
-    borderRadius: rs(42),
-    borderWidth: rs(3),
-    borderColor: palette.primarySoft,
-  },
-  onlineBadge: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: rs(20),
-    height: rs(20),
-    borderRadius: rs(10),
-    backgroundColor: palette.green,
-    borderWidth: 2,
-    borderColor: palette.card,
   },
   profileText: {
     justifyContent: 'center',
@@ -480,6 +463,19 @@ const styles = StyleSheet.create({
     fontSize: rf(20),
     fontWeight: '900',
   },
+  promoTitle: {
+    color: '#ffffff',
+    fontSize: rf(29),
+    lineHeight: rf(36),
+    fontWeight: '800',
+    marginBottom: rvs(6),
+  },
+  promoText: {
+    color: '#D4CEFA',
+    fontSize: rf(20),
+    lineHeight: rf(26),
+    fontWeight: '500',
+  },
   codePillAlt: {
     alignSelf: 'flex-start',
     borderRadius: rs(10),
@@ -493,69 +489,55 @@ const styles = StyleSheet.create({
     fontSize: rf(20),
     fontWeight: '900',
   },
-  promoTitle: {
-    color: '#ffffff',
-    fontSize: rf(28),
-    lineHeight: rf(34),
-    fontWeight: '900',
-    marginBottom: rvs(6),
-  },
-  promoText: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: rf(22),
-    lineHeight: rf(28),
-    fontWeight: '500',
-  },
   promoTitleAlt: {
     color: '#ffffff',
-    fontSize: rf(28),
-    lineHeight: rf(34),
-    fontWeight: '900',
+    fontSize: rf(29),
+    lineHeight: rf(36),
+    fontWeight: '800',
     marginBottom: rvs(6),
   },
   promoTextAlt: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: rf(22),
-    lineHeight: rf(28),
+    color: '#EFEAFF',
+    fontSize: rf(20),
+    lineHeight: rf(26),
     fontWeight: '500',
   },
   recentCard: {
+    marginTop: rvs(32),
     marginHorizontal: rs(36),
-    borderRadius: rs(28),
+    borderRadius: rs(30),
     backgroundColor: palette.card,
-    paddingHorizontal: rs(28),
-    paddingTop: rvs(28),
-    paddingBottom: rvs(28),
+    padding: rs(28),
     ...shadow,
   },
   recentHeading: {
     color: palette.text,
     fontSize: rf(28),
-    lineHeight: rf(35),
-    fontWeight: '900',
-    marginBottom: rvs(24),
+    lineHeight: rf(34),
+    fontWeight: '800',
+    marginBottom: rvs(18),
   },
   placeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: rvs(8),
   },
   placeIcon: {
     width: rs(68),
     height: rs(68),
     borderRadius: rs(22),
+    backgroundColor: palette.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.primarySoft,
-    marginRight: rs(20),
+    marginRight: rs(18),
   },
   placeCopy: {
     flex: 1,
+    paddingRight: rs(10),
   },
   placeTitle: {
     color: palette.text,
-    fontSize: rf(24),
-    lineHeight: rf(30),
+    fontSize: rf(26),
+    lineHeight: rf(32),
     fontWeight: '800',
   },
   placeDetail: {
@@ -576,42 +558,46 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     position: 'absolute',
-    left: rs(20),
-    right: rs(20),
-    bottom: rvs(16),
-    height: rvs(100),
-    borderRadius: rs(32),
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: rvs(128),
+    borderTopLeftRadius: rs(16),
+    borderTopRightRadius: rs(16),
     backgroundColor: palette.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: rs(16),
-    borderWidth: 1,
-    borderColor: '#E8E5FA',
-    ...shadow,
+    paddingBottom: rvs(13),
+    paddingHorizontal: rs(20),
+    borderTopWidth: 1,
+    borderTopColor: palette.line,
   },
   navActive: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rs(8),
-    paddingHorizontal: rs(24),
-    paddingVertical: rvs(14),
-    borderRadius: rs(24),
+    width: rs(136),
+    height: rvs(92),
+    borderRadius: rs(46),
     backgroundColor: palette.primary,
-  },
-  navActiveText: {
-    color: palette.card,
-    fontSize: rf(22),
-    fontWeight: '800',
-  },
-  navItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: rvs(2),
+  },
+  navActiveText: {
+    color: '#9a8fee',
+    fontSize: rf(23),
+    lineHeight: rf(29),
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  navItem: {
+    minWidth: rs(100),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navText: {
-    color: palette.muted,
-    fontSize: rf(18),
-    fontWeight: '700',
+    color: '#302d39',
+    fontSize: rf(23),
+    lineHeight: rf(29),
+    fontWeight: '500',
+    marginTop: 5,
   },
 });

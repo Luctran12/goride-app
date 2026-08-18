@@ -22,6 +22,7 @@ import MapView, {
 } from 'react-native-maps';
 
 import { rs, rvs, rf } from '@/constants/responsive';
+import { useLanguage } from '@/lib/i18n';
 import { fetchRoute, getDefaultLocationPoint } from '@/lib/location-service';
 import { getLocationToWords } from '@/lib/three-word-location-api';
 import type { Coordinates, LocationPermissionState, LocationPoint } from '@/types/ride';
@@ -59,6 +60,9 @@ export type MapPickerProps = {
   allowSelection?: boolean;
   showGpsButton?: boolean;
   showUserLocation?: boolean;
+  hideModeBadge?: boolean;
+  hideTopScrim?: boolean;
+  hideThreeWords?: boolean;
   routeCoordinates?: { latitude: number; longitude: number }[];
   onLocationChange?: (point: LocationPoint) => void;
   onRequestCurrentLocation?: () => void;
@@ -75,18 +79,22 @@ export function MapPicker({
   status = 'ready',
   loading = false,
   error = null,
-  height = rvs(440),
+  height,
   style,
   provider,
   allowSelection,
   showGpsButton = true,
   showUserLocation = true,
+  hideModeBadge = false,
+  hideTopScrim = false,
+  hideThreeWords = false,
   routeCoordinates: customRouteCoordinates,
   onLocationChange,
   onRequestCurrentLocation,
   onInteractionStart,
   onInteractionEnd,
 }: MapPickerProps) {
+  const { t } = useLanguage();
   const mapRef = useRef<MapView | null>(null);
   const selectable = allowSelection ?? mode !== 'tracking';
   const selectionPoint = value ?? (mode === 'destination' ? destination : origin) ?? null;
@@ -109,19 +117,19 @@ export function MapPicker({
 
   const currentFocusPoint = useMemo(() => {
     if (activeFocusTarget === 'destination' && destination?.lat && destination?.lng) {
-      return { lat: destination.lat, lng: destination.lng, label: 'Điểm đến' };
+      return { lat: destination.lat, lng: destination.lng, label: t('booking.destination', 'Điểm đến') };
     }
     if (activeFocusTarget === 'driver' && driverLocation?.lat && driverLocation?.lng) {
-      return { lat: driverLocation.lat, lng: driverLocation.lng, label: 'Tài xế' };
+      return { lat: driverLocation.lat, lng: driverLocation.lng, label: t('booking.driver', 'Tài xế') };
     }
     if (activeFocusTarget === 'custom' && customFocusPoint) {
       return customFocusPoint;
     }
     if (origin?.lat && origin?.lng) {
-      return { lat: origin.lat, lng: origin.lng, label: 'Điểm đón' };
+      return { lat: origin.lat, lng: origin.lng, label: t('booking.pickupPoint', 'Điểm đón') };
     }
-    return { lat: selectedPoint.lat, lng: selectedPoint.lng, label: 'Vị trí đã chọn' };
-  }, [activeFocusTarget, destination, driverLocation, customFocusPoint, origin, selectedPoint]);
+    return { lat: selectedPoint.lat, lng: selectedPoint.lng, label: t('booking.selectedLocation', 'Vị trí đã chọn') };
+  }, [activeFocusTarget, destination, driverLocation, customFocusPoint, origin, selectedPoint, t]);
 
   const [threeWordAddress, setThreeWordAddress] = useState<string | null>(null);
   const [loadingThreeWords, setLoadingThreeWords] = useState(false);
@@ -139,8 +147,8 @@ export function MapPicker({
       const result = await getLocationToWords(currentFocusPoint.lat, currentFocusPoint.lng);
       setThreeWordAddress(result.wordAddress);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Chưa thể lấy địa chỉ 3 từ, vui lòng thử lại.';
-      Alert.alert('Địa chỉ 3 từ', message);
+      const message = err instanceof Error ? err.message : t('booking.errThreeWords', 'Chưa thể lấy địa chỉ 3 từ, vui lòng thử lại.');
+      Alert.alert(t('booking.threeWordsLabel', '3 từ'), message);
     } finally {
       setLoadingThreeWords(false);
     }
@@ -152,9 +160,9 @@ export function MapPicker({
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
         await navigator.clipboard.writeText(threeWordAddress);
       }
-      Alert.alert('Đã sao chép', `Địa chỉ 3 từ: ${threeWordAddress}`);
+      Alert.alert(t('booking.copiedTitle', 'Đã sao chép'), t('booking.threeWordsCopied', { address: threeWordAddress }, `Địa chỉ 3 từ: ${threeWordAddress}`));
     } catch {
-      Alert.alert('Địa chỉ 3 từ', threeWordAddress);
+      Alert.alert(t('booking.threeWordsLabel', '3 từ'), threeWordAddress);
     }
   };
 
@@ -162,8 +170,8 @@ export function MapPicker({
     if (!threeWordAddress) return;
     try {
       await Share.share({
-        message: `Địa chỉ 3 từ GoRide: ${threeWordAddress}`,
-        title: 'Địa chỉ 3 từ',
+        message: t('booking.threeWordsShareMsg', { address: threeWordAddress }, `Địa chỉ 3 từ GoRide: ${threeWordAddress}`),
+        title: t('booking.threeWordsLabel', '3 từ'),
       });
     } catch {
       // ignore
@@ -259,8 +267,8 @@ export function MapPicker({
     onLocationChange({
       lat: coordinate.latitude,
       lng: coordinate.longitude,
-      address: 'Vị trí đã chọn',
-      label: mode === 'pickup' ? 'Điểm đón đã chọn' : 'Điểm đến đã chọn',
+      address: t('booking.selectedLocation', 'Vị trí đã chọn'),
+      label: mode === 'pickup' ? t('booking.pickupSelected', 'Điểm đón đã chọn') : t('booking.dropoffSelected', 'Điểm đến đã chọn'),
     });
   };
 
@@ -270,7 +278,7 @@ export function MapPicker({
       setCustomFocusPoint({
         lat: coord.latitude,
         lng: coord.longitude,
-        label: 'Tọa độ chọn',
+        label: t('booking.customCoordinates', 'Tọa độ chọn'),
       });
       setActiveFocusTarget('custom');
       return;
@@ -284,7 +292,7 @@ export function MapPicker({
   };
 
   return (
-    <View style={[styles.container, { height }, style]}>
+    <View style={[styles.container, height !== undefined ? { height } : { flex: 1 }, style]}>
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
@@ -352,8 +360,8 @@ export function MapPicker({
             key={`custom-${customFocusPoint.lat.toFixed(6)}-${customFocusPoint.lng.toFixed(6)}`}
             coordinate={{ latitude: customFocusPoint.lat, longitude: customFocusPoint.lng }}
             anchor={{ x: 0.5, y: 0.5 }}
-            title={threeWordAddress ? `/// ${threeWordAddress}` : "Vị trí đã chọn"}
-            description={threeWordAddress ? "Địa chỉ 3 từ" : "Nhấn để lấy địa chỉ 3 từ"}
+            title={threeWordAddress ? `/// ${threeWordAddress}` : t('booking.selectedLocation', 'Vị trí đã chọn')}
+            description={threeWordAddress ? t('booking.threeWordsLabel', '3 từ') : t('booking.pressToGet3Words', 'Nhấn để lấy địa chỉ 3 từ')}
           >
             <View style={styles.customFocusPin}>
               <View style={styles.customFocusPinHalo} />
@@ -365,10 +373,10 @@ export function MapPicker({
         )}
       </MapView>
 
-      <View style={styles.topScrim} pointerEvents="none" />
+      {!hideTopScrim && <View style={styles.topScrim} pointerEvents="none" />}
 
       {/* Floating 3-word action button / address badge */}
-      {Boolean(currentFocusPoint?.lat && currentFocusPoint?.lng) && (
+      {!hideThreeWords && Boolean(currentFocusPoint?.lat && currentFocusPoint?.lng) && (
         <View style={styles.threeWordContainer}>
           {mode === 'tracking' && (
             <View style={styles.targetPillRow}>
@@ -378,7 +386,7 @@ export function MapPicker({
                   style={[styles.targetPill, activeFocusTarget === 'pickup' && styles.targetPillActive]}
                 >
                   <Text style={[styles.targetPillText, activeFocusTarget === 'pickup' && styles.targetPillTextActive]}>
-                    Đón
+                    {t('booking.pickupShort', 'Đón')}
                   </Text>
                 </Pressable>
               )}
@@ -388,7 +396,7 @@ export function MapPicker({
                   style={[styles.targetPill, activeFocusTarget === 'destination' && styles.targetPillActive]}
                 >
                   <Text style={[styles.targetPillText, activeFocusTarget === 'destination' && styles.targetPillTextActive]}>
-                    Đến
+                    {t('booking.dropoffShort', 'Đến')}
                   </Text>
                 </Pressable>
               )}
@@ -398,7 +406,7 @@ export function MapPicker({
                   style={[styles.targetPill, activeFocusTarget === 'driver' && styles.targetPillActive]}
                 >
                   <Text style={[styles.targetPillText, activeFocusTarget === 'driver' && styles.targetPillTextActive]}>
-                    Tài xế
+                    {t('booking.driver', 'Tài xế')}
                   </Text>
                 </Pressable>
               )}
@@ -408,7 +416,7 @@ export function MapPicker({
                   style={[styles.targetPill, activeFocusTarget === 'custom' && styles.targetPillActive]}
                 >
                   <Text style={[styles.targetPillText, activeFocusTarget === 'custom' && styles.targetPillTextActive]}>
-                    Đã chọn
+                    {t('booking.selected', 'Đã chọn')}
                   </Text>
                 </Pressable>
               )}
@@ -424,7 +432,7 @@ export function MapPicker({
               <View style={styles.threeWordActions}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Sao chép địa chỉ 3 từ"
+                  accessibilityLabel={t('booking.copy3Words', 'Sao chép địa chỉ 3 từ')}
                   onPress={handleCopyThreeWords}
                   style={styles.threeWordActionBtn}
                 >
@@ -432,7 +440,7 @@ export function MapPicker({
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Chia sẻ địa chỉ 3 từ"
+                  accessibilityLabel={t('booking.share3Words', 'Chia sẻ địa chỉ 3 từ')}
                   onPress={handleShareThreeWords}
                   style={styles.threeWordActionBtn}
                 >
@@ -443,7 +451,7 @@ export function MapPicker({
           ) : (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Lấy 3 từ"
+              accessibilityLabel={t('booking.get3Words', 'Lấy 3 từ')}
               disabled={loadingThreeWords}
               onPress={handleFetchThreeWords}
               style={({ pressed }) => [
@@ -458,7 +466,7 @@ export function MapPicker({
                 <>
                   <MaterialCommunityIcons name="tag-text-outline" size={rs(20)} color={palette.primary} />
                   <Text style={styles.getThreeWordsText}>
-                    Lấy 3 từ ({currentFocusPoint.label})
+                    {t('booking.getThreeWordsForTarget', { label: currentFocusPoint.label }, `Lấy 3 từ (${currentFocusPoint.label})`)}
                   </Text>
                 </>
               )}
@@ -470,7 +478,7 @@ export function MapPicker({
       {showGpsButton && onRequestCurrentLocation && mode !== 'tracking' && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Lấy vị trí GPS hiện tại"
+          accessibilityLabel={t('booking.getCurrentGps', 'Lấy vị trí GPS hiện tại')}
           disabled={activeStatus === 'locating'}
           onPress={onRequestCurrentLocation}
           style={({ pressed }) => [
@@ -498,14 +506,16 @@ export function MapPicker({
         />
       </View>
 
-      <View style={styles.modeBadge} pointerEvents="none">
-        <MaterialCommunityIcons
-          name={mode === 'tracking' ? 'navigation-variant' : 'map-marker-radius'}
-          size={rs(24)}
-          color={palette.primary}
-        />
-        <Text style={styles.modeText}>{getModeLabel(mode)}</Text>
-      </View>
+      {!hideModeBadge && (
+        <View style={styles.modeBadge} pointerEvents="none">
+          <MaterialCommunityIcons
+            name={mode === 'tracking' ? 'navigation-variant' : 'map-marker-radius'}
+            size={rs(24)}
+            color={palette.primary}
+          />
+          <Text style={styles.modeText}>{getModeLabel(mode, t)}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -584,11 +594,12 @@ function StatusOverlay({
   error?: string | null;
   onRetry?: () => void;
 }) {
+  const { t } = useLanguage();
   if (!error && status === 'ready') {
     return null;
   }
 
-  const overlay = getOverlayContent(status, error);
+  const overlay = getOverlayContent(status, error, t);
 
   return (
     <View style={styles.overlayWrap} pointerEvents="box-none">
@@ -604,7 +615,7 @@ function StatusOverlay({
         </View>
         {onRetry && status !== 'locating' && (
           <Pressable onPress={onRetry} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
-            <Text style={styles.retryText}>Thử lại</Text>
+            <Text style={styles.retryText}>{t('common.tryAgain', 'Thử lại')}</Text>
           </Pressable>
         )}
       </View>
@@ -612,22 +623,13 @@ function StatusOverlay({
   );
 }
 
-function getOverlayContent(status: LocationPermissionState, error?: string | null) {
+function getOverlayContent(status: LocationPermissionState, error: string | null | undefined, t: (key: string, fallback?: string) => string) {
   if (error) {
     return {
       icon: 'warning-outline' as const,
       color: palette.danger,
-      title: 'Không tải được bản đồ',
+      title: t('booking.cannotLoadMap', 'Không tải được bản đồ'),
       message: error,
-    };
-  }
-
-  if (status === 'permission-needed') {
-    return {
-      icon: 'shield-outline' as const,
-      color: palette.primary,
-      title: 'Cần quyền vị trí',
-      message: 'Bật quyền vị trí để dùng GPS, hoặc chạm bản đồ để chọn thủ công.',
     };
   }
 
@@ -635,8 +637,8 @@ function getOverlayContent(status: LocationPermissionState, error?: string | nul
     return {
       icon: 'navigate-outline' as const,
       color: palette.danger,
-      title: 'GPS đang tắt',
-      message: 'Bạn vẫn có thể chọn vị trí bằng cách chạm hoặc kéo marker trên bản đồ.',
+      title: t('booking.gpsDisabledTitle', 'GPS đang tắt'),
+      message: t('booking.gpsDisabledMsg', 'Bạn vẫn có thể chọn vị trí bằng cách chạm hoặc kéo marker trên bản đồ.'),
     };
   }
 
@@ -644,25 +646,25 @@ function getOverlayContent(status: LocationPermissionState, error?: string | nul
     return {
       icon: 'locate-outline' as const,
       color: palette.primary,
-      title: 'Đang lấy vị trí',
-      message: 'GoRide đang xác định tọa độ hiện tại của bạn.',
+      title: t('booking.locatingTitle', 'Đang lấy vị trí'),
+      message: t('booking.locatingMsg', 'GoRide đang xác định tọa độ hiện tại của bạn.'),
     };
   }
 
   return {
     icon: 'alert-circle-outline' as const,
     color: palette.danger,
-    title: 'Có lỗi xảy ra',
-    message: 'Không thể cập nhật vị trí. Vui lòng thử lại.',
+    title: t('booking.errorTitle', 'Có lỗi xảy ra'),
+    message: t('booking.cannotUpdateLocation', 'Không thể cập nhật vị trí. Vui lòng thử lại.'),
   };
 }
 
-function getModeLabel(mode: MapPickerMode) {
+function getModeLabel(mode: MapPickerMode, t: (key: string, fallback?: string) => string) {
   if (mode === 'tracking') {
-    return 'Theo dõi chuyến';
+    return t('booking.modeTracking', 'Theo dõi chuyến');
   }
 
-  return mode === 'pickup' ? 'Chọn điểm đón' : 'Chọn điểm đến';
+  return mode === 'pickup' ? t('booking.modePickup', 'Chọn điểm đón') : t('booking.modeDestination', 'Chọn điểm đến');
 }
 
 function compactRawLatLng(points: [number | null | undefined, number | null | undefined][]) {

@@ -45,6 +45,7 @@ export type AddressSearchProps = {
   minQueryLength?: number;
   debounceMs?: number;
   autoCollapseOnSelect?: boolean;
+  hideHint?: boolean;
   style?: StyleProp<ViewStyle>;
   inputProps?: Omit<TextInputProps, 'value' | 'onChangeText' | 'placeholder'>;
 };
@@ -62,6 +63,7 @@ export function AddressSearch({
   minQueryLength = 2,
   debounceMs = 350,
   autoCollapseOnSelect = true,
+  hideHint = false,
   style,
   inputProps,
 }: AddressSearchProps) {
@@ -218,14 +220,16 @@ export function AddressSearch({
         ) : null}
       </View>
 
-      <View style={styles.hintRow}>
-        <Ionicons
-          name={HAS_GOOGLE_MAPS_API_KEY ? 'sparkles-outline' : 'information-circle-outline'}
-          size={rs(20)}
-          color={HAS_GOOGLE_MAPS_API_KEY ? palette.primaryMid : palette.muted}
-        />
-        <Text style={styles.helperText}>{providerHint}</Text>
-      </View>
+      {!hideHint && (
+        <View style={styles.hintRow}>
+          <Ionicons
+            name={HAS_GOOGLE_MAPS_API_KEY ? 'sparkles-outline' : 'information-circle-outline'}
+            size={rs(20)}
+            color={HAS_GOOGLE_MAPS_API_KEY ? palette.primaryMid : palette.muted}
+          />
+          <Text style={styles.helperText}>{providerHint}</Text>
+        </View>
+      )}
 
       {showResults && (
         <View style={styles.resultsCard}>

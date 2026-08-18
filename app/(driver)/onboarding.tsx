@@ -1,11 +1,11 @@
 import { rf, rs, rvs } from '@/constants/responsive';
 import { createDriverProfile } from '@/lib/driver-api';
 import { useLanguage } from '@/lib/i18n';
+import { CustomAlertModal, type CustomAlertOptions } from '@/components/ui/custom-alert-modal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StatusBar,
@@ -34,6 +34,18 @@ export default function DriverOnboardingScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<Omit<CustomAlertOptions, 'visible' | 'onClose'> & { visible: boolean }>({
+    visible: false,
+    title: '',
+  });
+
+  const showAlert = (options: Omit<CustomAlertOptions, 'visible' | 'onClose'>) => {
+    setAlertConfig({ visible: true, ...options });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
 
   // Form states
   const [idCardNumber, setIdCardNumber] = useState('');
@@ -58,13 +70,23 @@ export default function DriverOnboardingScreen() {
       !vehicleColor.trim() ||
       !vehicleYear.trim()
     ) {
-      Alert.alert(t('driverOnboarding.missingInfoTitle'), t('driverOnboarding.missingInfoDesc'));
+      showAlert({
+        type: 'warning',
+        title: t('driverOnboarding.missingInfoTitle'),
+        message: t('driverOnboarding.missingInfoDesc'),
+        confirmText: t('common.understood', 'Đã hiểu'),
+      });
       return;
     }
 
     const yearNum = parseInt(vehicleYear.trim(), 10);
     if (isNaN(yearNum) || yearNum < 1990 || yearNum > new Date().getFullYear() + 1) {
-      Alert.alert(t('driverOnboarding.invalidYearTitle'), t('driverOnboarding.invalidYearDesc'));
+      showAlert({
+        type: 'warning',
+        title: t('driverOnboarding.invalidYearTitle'),
+        message: t('driverOnboarding.invalidYearDesc'),
+        confirmText: t('common.understood', 'Đã hiểu'),
+      });
       return;
     }
 
@@ -83,11 +105,20 @@ export default function DriverOnboardingScreen() {
         portraitUrl: portraitUrl.trim(),
       });
 
-      Alert.alert(t('driverOnboarding.successTitle'), t('driverOnboarding.successDesc'), [
-        { text: t('driverOnboarding.okBtn'), onPress: () => router.replace('/(driver)') },
-      ]);
+      showAlert({
+        type: 'success',
+        title: t('driverOnboarding.successTitle'),
+        message: t('driverOnboarding.successDesc'),
+        confirmText: t('driverOnboarding.okBtn'),
+        onConfirm: () => router.replace('/(driver)'),
+      });
     } catch (error: any) {
-      Alert.alert(t('driverOnboarding.errorTitle'), error.message || t('driverOnboarding.errorDesc'));
+      showAlert({
+        type: 'danger',
+        title: t('driverOnboarding.errorTitle'),
+        message: error.message || t('driverOnboarding.errorDesc'),
+        confirmText: t('common.close', 'Đóng'),
+      });
     } finally {
       setSubmitting(false);
     }
@@ -248,6 +279,7 @@ export default function DriverOnboardingScreen() {
           <Text style={styles.submitButtonText}>{submitting ? t('driverOnboarding.submittingBtn') : t('driverOnboarding.submitBtn')}</Text>
         </Pressable>
       </ScrollView>
+      <CustomAlertModal {...alertConfig} onClose={closeAlert} />
     </SafeAreaView>
   );
 }
